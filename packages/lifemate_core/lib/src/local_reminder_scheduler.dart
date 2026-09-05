@@ -284,13 +284,9 @@ final class LifeMateLocalReminderScheduler {
       desiredById[reminder.notificationId] = reminder;
     }
 
-    final pending = ownsPendingRequest == null
-        ? const <PendingNotificationRequest>[]
-        : await _platform.pendingNotificationRequests();
-    final pendingIds = pending.map((request) => request.id).toSet();
-
     var cancelledCount = 0;
     if (ownsPendingRequest != null) {
+      final pending = await _platform.pendingNotificationRequests();
       for (final request in pending) {
         if (!ownsPendingRequest(request)) continue;
         if (preservePendingRequest?.call(request) == true) continue;
@@ -317,17 +313,6 @@ final class LifeMateLocalReminderScheduler {
     final fallbacks = <String>[];
     var scheduledCount = 0;
     for (final reminder in desired) {
-      // A stable notification ID is derived from the opaque source key plus
-      // source revision. When that exact ID is already pending, the OS already
-      // owns the requested revision. Leaving it untouched prevents a clean
-      // reconnect from cancelling/recreating unaffected medication groups while
-      // still allowing edited/moved groups (which receive a new key/revision)
-      // to be reconciled normally.
-      if (pendingIds.contains(reminder.notificationId)) {
-        skippedCount += 1;
-        continue;
-      }
-
       await _platform.cancel(reminder.notificationId);
       final scheduledDate = tz.TZDateTime.from(reminder.triggerUtc, location);
       var actualAccuracy = reminder.accuracy;

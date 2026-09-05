@@ -24,15 +24,26 @@ type Context = {
 };
 
 const contextPattern = /^[a-z][a-z0-9._-]{2,79}$/;
-const uuidPattern = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
+const uuidPattern =
+  /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
 
 function mutationStatus(result: Record<string, unknown>): number {
   const status = Number(result.httpStatus);
   if (!Number.isInteger(status) || status < 100 || status > 599) {
-    throw new ApiError(503, "abuse_rule_workflow_unavailable", "Abuse rule workflow returned an invalid status.");
+    throw new ApiError(
+      503,
+      "abuse_rule_workflow_unavailable",
+      "Abuse rule workflow returned an invalid status.",
+    );
   }
   if (status >= 400) {
-    throw new ApiError(status, String(result.code), typeof result.message === "string" ? result.message : "Abuse rule operation failed.");
+    throw new ApiError(
+      status,
+      String(result.code),
+      typeof result.message === "string"
+        ? result.message
+        : "Abuse rule operation failed.",
+    );
   }
   return status;
 }
@@ -42,7 +53,11 @@ function boundedLimit(url: URL): number {
   if (raw === null) return 100;
   const value = Number(raw);
   if (!Number.isInteger(value) || value < 1 || value > 200) {
-    throw new ApiError(400, "limit_invalid", "limit must be between 1 and 200.");
+    throw new ApiError(
+      400,
+      "limit_invalid",
+      "limit must be between 1 and 200.",
+    );
   }
   return value;
 }
@@ -51,7 +66,11 @@ function optionalContext(url: URL): string | null {
   const value = url.searchParams.get("context")?.trim().toLowerCase() ?? "";
   if (!value) return null;
   if (!contextPattern.test(value)) {
-    throw new ApiError(400, "abuse_context_invalid", "context filter is invalid.");
+    throw new ApiError(
+      400,
+      "abuse_context_invalid",
+      "context filter is invalid.",
+    );
   }
   return value;
 }
@@ -59,7 +78,9 @@ function optionalContext(url: URL): string | null {
 export function createAbuseRuleRouteHandler(databaseUrl: string) {
   const sql = getAdminSql(databaseUrl);
 
-  return async function handleAbuseRuleRoute(context: Context): Promise<Response | null> {
+  return async function handleAbuseRuleRoute(
+    context: Context,
+  ): Promise<Response | null> {
     const { request, path, accountId, admin, correlationId, origin } = context;
 
     if (request.method === "GET" && path === "/api/v1/security/abuse/rules") {
@@ -87,13 +108,23 @@ export function createAbuseRuleRouteHandler(databaseUrl: string) {
           order by r.context_code,r.priority,r.code
           limit ${limit}
         `;
-      return json({ items: rows, limit, freshness: { status: "fresh", asOfUtc: new Date().toISOString() } }, 200, origin);
+      return json(
+        {
+          items: rows,
+          limit,
+          freshness: { status: "fresh", asOfUtc: new Date().toISOString() },
+        },
+        200,
+        origin,
+      );
     }
 
     const versionsRuleId = matchAbuseRuleVersionsPath(path);
     if (request.method === "GET" && versionsRuleId) {
       requirePermission(admin, "security.abuse.read");
-      if (!uuidPattern.test(versionsRuleId)) throw new ApiError(400, "abuse_rule_id_invalid", "Rule id is invalid.");
+      if (!uuidPattern.test(versionsRuleId)) {
+        throw new ApiError(400, "abuse_rule_id_invalid", "Rule id is invalid.");
+      }
       const limit = boundedLimit(new URL(request.url));
       const rows = await sql`
         select rule_version,snapshot_json,changed_by_account_id,change_reason,created_at_utc
@@ -102,10 +133,20 @@ export function createAbuseRuleRouteHandler(databaseUrl: string) {
         order by rule_version desc
         limit ${limit}
       `;
-      return json({ items: rows, limit, freshness: { status: "fresh", asOfUtc: new Date().toISOString() } }, 200, origin);
+      return json(
+        {
+          items: rows,
+          limit,
+          freshness: { status: "fresh", asOfUtc: new Date().toISOString() },
+        },
+        200,
+        origin,
+      );
     }
 
-    if (request.method === "GET" && path === "/api/v1/security/abuse/decisions") {
+    if (
+      request.method === "GET" && path === "/api/v1/security/abuse/decisions"
+    ) {
       requirePermission(admin, "security.abuse.read");
       const url = new URL(request.url);
       const contextCode = optionalContext(url);
@@ -126,12 +167,19 @@ export function createAbuseRuleRouteHandler(databaseUrl: string) {
           order by evaluated_at_utc desc,id desc
           limit ${limit}
         `;
-      return json({
-        items: rows,
-        limit,
-        privacy: { subjectIdentifiersExposed: false, rawContactValuesExposed: false },
-        freshness: { status: "fresh", asOfUtc: new Date().toISOString() },
-      }, 200, origin);
+      return json(
+        {
+          items: rows,
+          limit,
+          privacy: {
+            subjectIdentifiersExposed: false,
+            rawContactValuesExposed: false,
+          },
+          freshness: { status: "fresh", asOfUtc: new Date().toISOString() },
+        },
+        200,
+        origin,
+      );
     }
 
     if (request.method === "POST" && path === "/api/v1/security/abuse/rules") {
@@ -156,7 +204,9 @@ export function createAbuseRuleRouteHandler(databaseUrl: string) {
     const retireId = matchAbuseRuleRetirePath(path);
     if (request.method === "POST" && retireId) {
       requirePermission(admin, "security.abuse.write");
-      if (!uuidPattern.test(retireId)) throw new ApiError(400, "abuse_rule_id_invalid", "Rule id is invalid.");
+      if (!uuidPattern.test(retireId)) {
+        throw new ApiError(400, "abuse_rule_id_invalid", "Rule id is invalid.");
+      }
       const idempotencyKey = requireIdempotencyKey(request);
       const payload = await parseAbuseRuleRetire(request);
       const requestHash = await hashAbuseRuleRetire(retireId, payload);

@@ -7,8 +7,6 @@ import 'package:lifemate_client/lifemate_client.dart';
 import '../models/schedule_item_model.dart';
 import 'care_event_projection_sync_bridge.dart';
 import 'notification_provider.dart';
-import 'treatment_reconnect_sync_bridge.dart';
-import 'treatment_reminder_reconciler.dart';
 
 enum WellMateNotificationPermissionResult { granted, denied, unsupported }
 
@@ -27,7 +25,6 @@ class ContextualNotificationProvider extends NotificationProvider {
   bool _latestIsPersian = true;
   LifeMateApiClient? _apiClient;
   bool _projectionSyncInFlight = false;
-  bool _durableReconnectInFlight = false;
 
   bool get nativePermissionFlowUnlocked => _nativePermissionFlowUnlocked;
 
@@ -36,7 +33,7 @@ class ContextualNotificationProvider extends NotificationProvider {
     super.attachApiClient(apiClient);
     _apiClient = apiClient;
     if (_nativePermissionFlowUnlocked && _latestItems.isNotEmpty) {
-      unawaited(_syncDurableProjections());
+      unawaited(_syncCareEventProjections());
     }
   }
 
@@ -64,7 +61,7 @@ class ContextualNotificationProvider extends NotificationProvider {
     if (!_nativePermissionFlowUnlocked) return;
 
     await super.syncReminders(items, timeZone: timeZone, isPersian: isPersian);
-    unawaited(_syncDurableProjections());
+    unawaited(_syncCareEventProjections());
   }
 
   /// Reads current OS state without requesting anything. Already-authorized
@@ -121,69 +118,8 @@ class ContextualNotificationProvider extends NotificationProvider {
       timeZone: _latestTimeZone,
       isPersian: _latestIsPersian,
     );
-    unawaited(_syncDurableProjections());
+    unawaited(_syncCareEventProjections());
     return WellMateNotificationPermissionResult.granted;
-  }
-
-  Future<void> _syncDurableProjections() async {
-    final api = _apiClient;
-    if (api == null ||
-        !_nativePermissionFlowUnlocked ||
-        _latestItems.isEmpty ||
-        _durableReconnectInFlight) {
-      return;
-    }
-    _durableReconnectInFlight = true;
-    try {
-      await _syncTreatmentAfterReconnect(api);
-      await _syncCareEventProjections();
-    } finally {
-      _durableReconnectInFlight = false;
-    }
-  }
-
-  /// Replays accepted local treatment mutations before pulling authoritative
-  /// treatment truth. The durable client invokes the callback only when replay
-  /// is clean: conflict, terminal rejection, retry retention, pending work, or
-  /// an offline cached Home fallback all keep the existing reminder window.
-  Future<void> _syncTreatmentAfterReconnect(LifeMateApiClient api) async {
-    final now = DateTime.now();
-    final from = DateTime(now.year, now.month, now.day);
-    final to = from.add(const Duration(days: 7));
-    try {
-      await reconcileOwnerTreatmentAfterReconnectIfSupported(
-        apiClient: api,
-        fromDate: from,
-        toDate: to,
-        reconcileReminders: (serverSnapshot) async {
-          final next = reconcileTreatmentReminderWindow(
-            currentItems: _latestItems,
-            serverSnapshot: serverSnapshot,
-            now: DateTime.now(),
-          );
-          final affectedOccurrenceIds = changedTreatmentReminderOccurrenceIds(
-            currentItems: _latestItems,
-            nextItems: next,
-          );
-
-          // A clean reconnect with an unchanged authoritative treatment window
-          // must not cancel/recreate every local medication alarm. Keep the
-          // complete local snapshot current, but cross the native scheduler
-          // boundary only when an actual occurrence projection changed.
-          if (affectedOccurrenceIds.isNotEmpty) {
-            await super.syncReminders(
-              next,
-              timeZone: _latestTimeZone,
-              isPersian: _latestIsPersian,
-            );
-          }
-          _latestItems = List<ScheduleItemModel>.unmodifiable(next);
-        },
-      );
-    } catch (_) {
-      // Fail closed and stay quiet. Durable replay/conflict state remains the
-      // source of truth and no PHI/server error text is written to logs here.
-    }
   }
 
   /// Pulls owner care-event changes through the durable shared runtime. The

@@ -76,7 +76,11 @@ const SURFACES = new Set<ExperimentSurface>([
 export function parseExperimentKey(value: string): string {
   const key = value.trim().toLowerCase();
   if (!KEY.test(key)) {
-    throw new ApiError(400, "experiment_key_invalid", "Experiment key is invalid.");
+    throw new ApiError(
+      400,
+      "experiment_key_invalid",
+      "Experiment key is invalid.",
+    );
   }
   return key;
 }
@@ -97,7 +101,9 @@ export function assertExperimentMetrics(
   guardrailMetricCodes: string[],
   options: { requireMeasurable?: boolean } = {},
 ): void {
-  const byName = new Map(KPI_DEFINITIONS.map((metric) => [metric.name, metric]));
+  const byName = new Map(
+    KPI_DEFINITIONS.map((metric) => [metric.name, metric]),
+  );
   const primary = byName.get(primaryMetricCode);
   if (!primary) {
     throw new ApiError(
@@ -200,7 +206,9 @@ export function assertVariantWeights(variants: ExperimentVariant[]): void {
 }
 
 function withinWindow(experiment: ExperimentDefinition, now: Date): boolean {
-  const start = experiment.startsAtUtc ? new Date(experiment.startsAtUtc) : null;
+  const start = experiment.startsAtUtc
+    ? new Date(experiment.startsAtUtc)
+    : null;
   const end = experiment.endsAtUtc ? new Date(experiment.endsAtUtc) : null;
   return (!start || start <= now) && (!end || now < end);
 }
@@ -234,7 +242,9 @@ export async function assignExperimentVariant(
       reason: "outside_window",
     };
   }
-  if (experiment.productCode && experiment.productCode !== context.productCode) {
+  if (
+    experiment.productCode && experiment.productCode !== context.productCode
+  ) {
     return {
       eligible: false,
       variantKey: null,

@@ -141,8 +141,20 @@ jobs:
         working-directory: supabase/functions/lifemate-api
         run: deno task test:account-lifecycle-integration
       - name: Run patient caregiver privacy and cleanup journeys
+        id: patient-caregiver-journeys
         working-directory: supabase/functions/lifemate-api
-        run: deno task test:integration
+        shell: bash
+        run: |
+          set -o pipefail
+          deno task test:integration 2>&1 | tee ../../../postgres-role-journey.log
+      - name: Upload postgres role journey failure log
+        if: ${{ failure() && steps.patient-caregiver-journeys.outcome == 'failure' }}
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+        with:
+          name: postgres-role-journey-failure-${{ github.sha }}
+          path: postgres-role-journey.log
+          if-no-files-found: error
+          retention-days: 1
       - name: Prove restricted API role can run the same journeys
         shell: bash
         run: |
