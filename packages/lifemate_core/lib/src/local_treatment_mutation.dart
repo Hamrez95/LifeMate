@@ -54,7 +54,10 @@ final class LifeMateOfflineTreatmentMutation {
     if (medicationVersion <= 0) {
       throw ArgumentError.value(medicationVersion, 'medicationVersion');
     }
-    final normalizedMedicationName = _required(medicationName, 'medicationName');
+    final normalizedMedicationName = _required(
+      medicationName,
+      'medicationName',
+    );
     final normalizedDoseText = _required(doseText, 'doseText');
     final normalizedTimeZone = _required(timeZone, 'timeZone');
     final normalizedStatus = status.trim().toLowerCase();
