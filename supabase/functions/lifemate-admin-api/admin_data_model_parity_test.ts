@@ -92,9 +92,16 @@ Deno.test("analytics KPI fallback reads canonical identity and ecosystem snapsho
     product: null,
   });
 
-  assertEquals(queries.length, 2);
+  // Two account-created snapshot queries plus two activation-cohort queries.
+  // Historical MAU remains unavailable and therefore performs no snapshot query.
+  assertEquals(queries.length, 4);
   assertStringIncludes(queries[0], "identity.accounts");
   assertStringIncludes(queries[1], "identity.accounts");
+  for (const query of queries.slice(2)) {
+    assertStringIncludes(query, "identity.accounts");
+    assertStringIncludes(query, "ecosystem.app_enrollments");
+    assertStringIncludes(query, "ecosystem.applications");
+  }
   for (const query of queries) {
     assert(!query.includes("lifemate.app_users"));
     assert(!query.includes("lifemate.user_profiles"));
