@@ -6,6 +6,8 @@ import 'package:lifemate_core/lifemate_core.dart';
 import 'package:sqlite3/sqlite3.dart';
 
 void main() {
+  TestWidgetsFlutterBinding.ensureInitialized();
+
   final key = Uint8List.fromList(List<int>.generate(32, (index) => index + 1));
   final owner = LifeMateLocalNamespace(
     environmentId: 'production',
