@@ -1,10 +1,10 @@
 import 'package:flutter/foundation.dart';
 import 'package:http/http.dart' as http;
+import 'package:lifemate_core/lifemate_core.dart';
 
 import 'care_event_projection_sync_web.dart';
 import 'lifemate_api_client.dart';
 import 'offline_sync_result.dart';
-import 'projection_checkpoint.dart';
 
 class LifeMatePendingSyncEvent {
   const LifeMatePendingSyncEvent({
