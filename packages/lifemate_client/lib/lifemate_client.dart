@@ -63,8 +63,7 @@ export 'src/runtime_locale.dart';
 export 'src/secure_session_storage.dart';
 export 'src/session_gate.dart' hide LifeMateSessionGate;
 export 'src/session_gate_secure.dart';
-export 'src/shared_offline_runtime_stub.dart'
-    if (dart.library.io) 'src/shared_offline_runtime.dart';
+export 'src/shared_offline_runtime.dart';
 export 'src/support_conversations_api.dart';
 export 'src/women_calendar.dart';
 export 'src/women_companion_api.dart';
