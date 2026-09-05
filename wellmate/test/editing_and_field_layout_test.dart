@@ -194,6 +194,7 @@ class _FakeEditApi extends LifeMateEditApi {
     required int patientReminderMinutesBefore,
     required int caregiverReminderMinutesBefore,
     required String status,
+    String? clientRequestId,
   }) async {
     treatmentUpdateCount++;
     lastTreatmentVersion = version;

@@ -13,7 +13,9 @@ function resultStatus(result: Record<string, unknown>): number {
   return value;
 }
 
-function resultOrThrow(result: Record<string, unknown>): Record<string, unknown> {
+function resultOrThrow(
+  result: Record<string, unknown>,
+): Record<string, unknown> {
   const status = resultStatus(result);
   if (status >= 400) {
     throw new ApiError(
@@ -47,10 +49,12 @@ function mapExecution(row: Record<string, unknown>) {
     eligiblePushCount: Number(row.eligible_push_count),
     optedOutSmsCount: Number(row.opted_out_sms_count),
     optedOutPushCount: Number(row.opted_out_push_count),
-    estimatedSmsCostMinor:
-      row.estimated_sms_cost_minor == null ? null : String(row.estimated_sms_cost_minor),
-    estimatedSmsCostCurrency:
-      row.estimated_sms_cost_currency == null ? null : String(row.estimated_sms_cost_currency),
+    estimatedSmsCostMinor: row.estimated_sms_cost_minor == null
+      ? null
+      : String(row.estimated_sms_cost_minor),
+    estimatedSmsCostCurrency: row.estimated_sms_cost_currency == null
+      ? null
+      : String(row.estimated_sms_cost_currency),
     smsProvider: row.sms_provider == null ? null : String(row.sms_provider),
     requiresSecondConfirmation: Boolean(row.requires_second_confirmation),
     confirmed: row.confirmed_at_utc != null,
@@ -117,7 +121,9 @@ export function createCampaignOrchestratorStore(databaseUrl: string) {
       ) as result
     `;
     const result = resultOrThrow(rows[0]?.result ?? {});
-    const executionId = typeof result.executionId === "string" ? result.executionId : null;
+    const executionId = typeof result.executionId === "string"
+      ? result.executionId
+      : null;
     if (!executionId) {
       throw new ApiError(
         503,

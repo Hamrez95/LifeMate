@@ -35,7 +35,7 @@ Deno.test("analytics taxonomy exposes every canonical v1 event once", () => {
 });
 
 Deno.test("every KPI has a versioned auditable definition", () => {
-  assertEquals(KPI_DICTIONARY_VERSION, 1);
+  assertEquals(KPI_DICTIONARY_VERSION, 2);
   assert(KPI_DEFINITIONS.length > 0);
 
   for (const definition of KPI_DEFINITIONS) {
@@ -85,8 +85,8 @@ Deno.test("planned instrumentation stays unavailable instead of becoming fake ze
 
 Deno.test("catalog returns versions and definitions without metric values", () => {
   const catalog = getAnalyticsCatalog();
-  assertEquals(catalog.eventTaxonomyVersion, 1);
-  assertEquals(catalog.kpiDictionaryVersion, 1);
+  assertEquals(catalog.eventTaxonomyVersion, EVENT_TAXONOMY_VERSION);
+  assertEquals(catalog.kpiDictionaryVersion, KPI_DICTIONARY_VERSION);
   assertEquals(catalog.events.length, ANALYTICS_EVENTS.length);
   assertEquals(catalog.kpis.length, KPI_DEFINITIONS.length);
   assert(!("values" in catalog));

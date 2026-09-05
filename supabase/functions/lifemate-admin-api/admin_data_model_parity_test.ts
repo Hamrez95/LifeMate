@@ -92,9 +92,16 @@ Deno.test("analytics KPI fallback reads canonical identity and ecosystem snapsho
     product: null,
   });
 
-  assertEquals(queries.length, 2);
+  // Two account-created snapshot queries plus two activation-cohort queries.
+  // Historical MAU remains unavailable and therefore performs no snapshot query.
+  assertEquals(queries.length, 4);
   assertStringIncludes(queries[0], "identity.accounts");
   assertStringIncludes(queries[1], "identity.accounts");
+  for (const query of queries.slice(2)) {
+    assertStringIncludes(query, "identity.accounts");
+    assertStringIncludes(query, "ecosystem.app_enrollments");
+    assertStringIncludes(query, "ecosystem.applications");
+  }
   for (const query of queries) {
     assert(!query.includes("lifemate.app_users"));
     assert(!query.includes("lifemate.user_profiles"));
@@ -116,16 +123,34 @@ Deno.test("commerce promotion metadata is RLS-protected for restricted Admin rea
       import.meta.url,
     ),
   );
-  assertStringIncludes(migration, "alter table commerce.promotions enable row level security");
-  assertStringIncludes(migration, "alter table commerce.discount_codes enable row level security");
+  assertStringIncludes(
+    migration,
+    "alter table commerce.promotions enable row level security",
+  );
+  assertStringIncludes(
+    migration,
+    "alter table commerce.discount_codes enable row level security",
+  );
   assertStringIncludes(migration, "to lifemate_admin_runtime");
   assertStringIncludes(migration, "for select");
-  assertStringIncludes(migration, "revoke all on table commerce.promotions from public");
-  assertStringIncludes(migration, "revoke all on table commerce.discount_codes from public");
+  assertStringIncludes(
+    migration,
+    "revoke all on table commerce.promotions from public",
+  );
+  assertStringIncludes(
+    migration,
+    "revoke all on table commerce.discount_codes from public",
+  );
   assertStringIncludes(migration, "to_regrole('anon') is not null");
   assertStringIncludes(migration, "to_regrole('authenticated') is not null");
-  assertStringIncludes(migration, "execute 'revoke all on table commerce.promotions from anon'");
-  assertStringIncludes(migration, "execute 'revoke all on table commerce.discount_codes from authenticated'");
+  assertStringIncludes(
+    migration,
+    "execute 'revoke all on table commerce.promotions from anon'",
+  );
+  assertStringIncludes(
+    migration,
+    "execute 'revoke all on table commerce.discount_codes from authenticated'",
+  );
   assert(!migration.includes("to authenticated\nusing (true)"));
   assert(!migration.includes("to anon\nusing (true)"));
 });
