@@ -124,7 +124,7 @@ void main() {
     });
   }
 
-  testWidgets('offline enqueue failure remains fail closed and unconfirmed', (
+  testWidgets('offline enqueue failure stays open without a saved-state signal', (
     tester,
   ) async {
     final api = _FakeEditApi(
