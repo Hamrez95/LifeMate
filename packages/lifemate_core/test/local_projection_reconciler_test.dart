@@ -130,6 +130,69 @@ void main() {
   });
 
   test(
+    'pre-checkpoint side effect failure keeps old cursor for replay',
+    () async {
+      final store = openStore();
+      final ns = namespace();
+      final checkpoints = LifeMateLocalSyncCheckpointStore(store);
+      final reconciler = LifeMateLocalProjectionReconciler(
+        store: store,
+        checkpoints: checkpoints,
+      );
+      await checkpoints.write(
+        namespace: ns,
+        domain: LifeMateLocalProjectionDomain.careEvent,
+        cursor: 'cursor-before',
+      );
+
+      await expectLater(
+        reconciler.applyPage(
+          namespace: ns,
+          domain: LifeMateLocalProjectionDomain.careEvent,
+          page: LifeMateProjectionPullPage(
+            nextCursor: 'cursor-after',
+            changes: <LifeMateServerProjectionChange>[
+              LifeMateServerProjectionChange.upsert(
+                recordKey: 'event-1',
+                payload: const <String, dynamic>{'status': 'scheduled'},
+              ),
+            ],
+          ),
+          beforeCheckpoint: (staged) async {
+            expect(staged.affectedRecordKeys, {'event-1'});
+            expect(
+              (await checkpoints.read(
+                namespace: ns,
+                domain: LifeMateLocalProjectionDomain.careEvent,
+              ))?.cursor,
+              'cursor-before',
+            );
+            throw StateError('reminder regeneration failed');
+          },
+        ),
+        throwsStateError,
+      );
+
+      expect(
+        (await checkpoints.read(
+          namespace: ns,
+          domain: LifeMateLocalProjectionDomain.careEvent,
+        ))?.cursor,
+        'cursor-before',
+      );
+      expect(
+        await store.readProjection(
+          namespace: ns,
+          domain: LifeMateLocalProjectionDomain.careEvent,
+          recordKey: 'event-1',
+        ),
+        isNotNull,
+      );
+      store.close();
+    },
+  );
+
+  test(
     'replay of same page is idempotent and keeps local-only mutation',
     () async {
       final store = openStore();
