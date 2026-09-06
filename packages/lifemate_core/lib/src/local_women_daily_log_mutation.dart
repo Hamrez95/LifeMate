@@ -10,6 +10,13 @@ final class LifeMateOfflineWomenDailyLogMutation {
   LifeMateOfflineWomenDailyLogMutation._();
 
   static final RegExp _idempotencyKey = RegExp(r'^[A-Za-z0-9._:-]{8,180}$');
+  static const Set<String> _allowedMoods = <String>{
+    'great',
+    'good',
+    'neutral',
+    'low',
+    'overwhelmed',
+  };
 
   static Future<LifeMateDurableMutation> enqueueUpsert({
     required LifeMateLocalMutationOutbox outbox,
@@ -18,6 +25,8 @@ final class LifeMateOfflineWomenDailyLogMutation {
     required DateTime loggedOn,
     required int version,
     required String timeZone,
+    String? mood,
+    int? energyLevel,
     String? periodFlow,
     String? bloodAppearance,
     String? bloodTexture,
@@ -31,6 +40,8 @@ final class LifeMateOfflineWomenDailyLogMutation {
       loggedOn: loggedOn,
       version: version,
       timeZone: timeZone,
+      mood: mood,
+      energyLevel: energyLevel,
       periodFlow: periodFlow,
       bloodAppearance: bloodAppearance,
       bloodTexture: bloodTexture,
@@ -48,6 +59,8 @@ final class LifeMateOfflineWomenDailyLogMutation {
     required DateTime loggedOn,
     required int version,
     required String timeZone,
+    String? mood,
+    int? energyLevel,
     String? periodFlow,
     String? bloodAppearance,
     String? bloodTexture,
@@ -57,6 +70,10 @@ final class LifeMateOfflineWomenDailyLogMutation {
     DateTime? createdAtUtc,
   }) {
     if (version < 0) throw ArgumentError.value(version, 'version');
+    final normalizedMood = mood == null ? null : _normalizeMood(mood);
+    if (energyLevel != null && (energyLevel < 1 || energyLevel > 5)) {
+      throw ArgumentError.value(energyLevel, 'energyLevel');
+    }
     // Mirrors lifemate-api women_calendar_rich_period optionalPain(): 0..5.
     if (painLevel != null && (painLevel < 0 || painLevel > 5)) {
       throw ArgumentError.value(painLevel, 'painLevel');
@@ -78,22 +95,26 @@ final class LifeMateOfflineWomenDailyLogMutation {
           ..sort();
     final created = (createdAtUtc ?? DateTime.now().toUtc()).toUtc();
 
+    final payload = <String, dynamic>{
+      'loggedOn': date,
+      'version': version,
+      if (normalizedMood != null) 'mood': normalizedMood,
+      if (energyLevel != null) 'energyLevel': energyLevel,
+      'periodFlow': _emptyToNull(periodFlow),
+      'bloodAppearance': _emptyToNull(bloodAppearance),
+      'bloodTexture': _emptyToNull(bloodTexture),
+      'painLevel': painLevel,
+      'symptoms': normalizedSymptoms,
+      'privateNotes': _emptyToNull(privateNotes),
+    };
+
     return LifeMateDurableMutation(
       mutationId: key,
       domain: LifeMateMutationDomain.womenHealth,
       sourceKey: 'women-daily-log:$date',
       method: 'PUT',
       endpointPath: '/api/v1/women-calendar/daily-logs',
-      payload: <String, dynamic>{
-        'loggedOn': date,
-        'version': version,
-        'periodFlow': _emptyToNull(periodFlow),
-        'bloodAppearance': _emptyToNull(bloodAppearance),
-        'bloodTexture': _emptyToNull(bloodTexture),
-        'painLevel': painLevel,
-        'symptoms': normalizedSymptoms,
-        'privateNotes': _emptyToNull(privateNotes),
-      },
+      payload: payload,
       createdAtUtc: created,
       timeZone: zone,
       expectedRevision: version > 0 ? version.toString() : null,
@@ -161,6 +182,14 @@ final class LifeMateOfflineWomenDailyLogMutation {
   static String _required(String value, String field) {
     final normalized = value.trim();
     if (normalized.isEmpty) throw ArgumentError.value(value, field);
+    return normalized;
+  }
+
+  static String _normalizeMood(String value) {
+    final normalized = value.trim().toLowerCase();
+    if (!_allowedMoods.contains(normalized)) {
+      throw ArgumentError.value(value, 'mood');
+    }
     return normalized;
   }
 
