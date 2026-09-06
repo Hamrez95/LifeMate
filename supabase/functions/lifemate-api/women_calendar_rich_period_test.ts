@@ -97,11 +97,12 @@ Deno.test("owner check-in routing wins over overlapping pain/symptom fields", ()
 
 Deno.test("mixed check-in and rich-only fields fail closed", () => {
   assertThrows(
-    () => classifyWomenDailyLogWrite({
-      mood: "good",
-      energyLevel: 4,
-      periodFlow: "light",
-    }),
+    () =>
+      classifyWomenDailyLogWrite({
+        mood: "good",
+        energyLevel: 4,
+        periodFlow: "light",
+      }),
     Error,
     "Daily check-in and rich period-only fields must be saved separately.",
   );

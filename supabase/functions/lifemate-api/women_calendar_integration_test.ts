@@ -155,7 +155,7 @@ Deno.test({
       const privateReplay = await women.upsertOwnerDailyLog(
         patient.appUserId,
         {
-          version: privateReplay.version,
+          version: privateDailyLog.version,
           loggedOn: recentDailyLogDate,
           mood: "low",
           energyLevel: 2,
@@ -177,7 +177,7 @@ Deno.test({
       assertEquals(ownerDailyLogs.length, 1);
       assertEquals(
         ownerDailyLogs[0].privateNotes,
-        "daily note that must remain owner only",
+        "offline owner replay stays private",
       );
 
       await assertApiError(
@@ -205,7 +205,7 @@ Deno.test({
       const sharedDailyLog = await women.upsertOwnerDailyLog(
         patient.appUserId,
         {
-          version: privateDailyLog.version,
+          version: privateReplay.version,
           loggedOn: recentDailyLogDate,
           mood: "good",
           energyLevel: 4,
