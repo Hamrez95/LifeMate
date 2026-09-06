@@ -29,9 +29,28 @@ jobs:
           set -euo pipefail
           python tools/hotfix/apply_offline_833_episode_bridge_hardening.py
           python tools/hotfix/apply_offline_833_episode_ui_fallback.py
+          python - <<'PY'
+          from pathlib import Path
+          path = Path('wellmate/lib/screens/women_calendar/women_calendar_screen.dart')
+          text = path.read_text(encoding='utf-8')
+          text = text.replace('_dateKey(', '_episodeDateKey(')
+          marker = '  void _replaceEpisodeLocally(\n'
+          helper = """  String _episodeDateKey(DateTime value) =>
+              '${value.year.toString().padLeft(4, '0')}-'
+              '${value.month.toString().padLeft(2, '0')}-'
+              '${value.day.toString().padLeft(2, '0')}';
+
+"""
+          if helper not in text:
+              if marker not in text:
+                  raise SystemExit('episode local helper marker missing')
+              text = text.replace(marker, helper + marker, 1)
+          path.write_text(text, encoding='utf-8')
+          PY
           dart format \
             packages/lifemate_client/lib/src/lifemate_api_client.dart \
             packages/lifemate_client/lib/src/durable_lifemate_api_client.dart \
+            packages/lifemate_client/lib/src/durable_lifemate_api_client_web.dart \
             packages/lifemate_client/lib/src/women_episode_offline_outbox.dart \
             packages/lifemate_client/lib/src/women_episode_offline_outbox_web.dart \
             packages/lifemate_client/test/women_calendar_api_client_test.dart \
@@ -51,6 +70,7 @@ jobs:
           dart format --output=none --set-exit-if-changed \
             lib/src/lifemate_api_client.dart \
             lib/src/durable_lifemate_api_client.dart \
+            lib/src/durable_lifemate_api_client_web.dart \
             lib/src/women_episode_offline_outbox.dart \
             lib/src/women_episode_offline_outbox_web.dart \
             test/women_calendar_api_client_test.dart \
