@@ -20,6 +20,7 @@ export 'src/care_relationship_invitation_api.dart';
 export 'src/cocoon_pregnancy.dart';
 export 'src/cocoon_pregnancy_api.dart';
 export 'src/cocoon_pregnancy_offline_dating.dart';
+export 'src/cocoon_pregnancy_offline_snapshot.dart';
 export 'src/companion_care.dart';
 export 'src/companion_care_api.dart';
 export 'src/companion_fertility.dart';
