@@ -22,6 +22,10 @@ import {
   parseHealthDocumentListQuery,
 } from "./health_documents.ts";
 import type { HealthDocumentCategory } from "./health_documents.ts";
+import {
+  createHealthDocumentSharingStore,
+  parseHealthDocumentSharingUpdate,
+} from "./health_document_sharing.ts";
 import { createHealthDocumentStorage } from "./health_document_storage.ts";
 import { createWomenCompanionPrivacyStore } from "./women_companion_privacy.ts";
 import { corsHeaders, json, problem, safeError } from "./http.ts";
@@ -86,6 +90,7 @@ const healthObservations = createHealthObservationStore(databaseUrl);
 // The reviewed store is initialized here so the edge type check always covers
 // the Health Record persistence boundary before upload routes are enabled.
 const healthDocuments = createHealthDocumentStore(databaseUrl);
+const healthDocumentSharing = createHealthDocumentSharingStore(databaseUrl);
 const healthDocumentStorage = createHealthDocumentStorage(
   supabaseUrl,
   storageServiceKey,
@@ -279,6 +284,37 @@ async function route(
   });
   if (subscriptionResponse) return subscriptionResponse;
 
+  const healthDocumentSharingMatch = path.match(
+    /^\/api\/v1\/health-record\/relationships\/([0-9a-f-]{36})\/document-sharing$/i,
+  );
+  if (healthDocumentSharingMatch && request.method === "GET") {
+    enforceRateLimit(
+      `health-document-sharing-read:${identity.appUserId}`,
+      60,
+      60 * 60_000,
+    );
+    return json(
+      await healthDocumentSharing.getPermission(
+        identity.appUserId,
+        healthDocumentSharingMatch[1],
+      ),
+    );
+  }
+  if (healthDocumentSharingMatch && request.method === "PATCH") {
+    enforceRateLimit(
+      `health-document-sharing-write:${identity.appUserId}`,
+      20,
+      60 * 60_000,
+    );
+    return json(
+      await healthDocumentSharing.updatePermission(
+        identity.appUserId,
+        healthDocumentSharingMatch[1],
+        parseHealthDocumentSharingUpdate(await readJsonObject(request)),
+      ),
+    );
+  }
+
   if (request.method === "GET" && path === "/api/v1/health-record/documents") {
     enforceRateLimit(
       `health-document-list:${identity.appUserId}`,
@@ -289,7 +325,11 @@ async function route(
       new URL(request.url).searchParams,
     );
     return json({
-      ...(await healthDocuments.listOwnerDocuments(identity.appUserId, query)),
+      ...(await healthDocuments.listDocuments(
+        identity.appUserId,
+        new URL(request.url).searchParams.get("personId"),
+        query,
+      )),
     });
   }
 
@@ -366,7 +406,7 @@ async function route(
       60,
       60 * 60_000,
     );
-    const document = await healthDocuments.getOwnerDownload(
+    const document = await healthDocuments.getAuthorizedDownload(
       identity.appUserId,
       healthDocumentDownloadMatch[1],
     );

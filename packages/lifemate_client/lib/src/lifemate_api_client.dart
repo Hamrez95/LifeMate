@@ -282,6 +282,7 @@ class LifeMateApiClient {
   );
 
   Future<LifeMateHealthDocumentPage> getHealthDocumentPage({
+    String? personId,
     LifeMateHealthDocumentCategory? category,
     String? sourceProduct,
     DateTime? fromDate,
@@ -297,6 +298,7 @@ class LifeMateApiClient {
         'GET',
         '/api/v1/health-record/documents',
         query: {
+          if (personId?.trim().isNotEmpty ?? false) 'personId': personId!.trim(),
           if (category != null) 'category': category.wireValue,
           if (sourceProduct?.trim().isNotEmpty ?? false)
             'sourceProduct': sourceProduct!.trim(),
@@ -392,6 +394,34 @@ class LifeMateApiClient {
       expiresIn: Duration(seconds: expiresIn.toInt()),
     );
   }
+
+  Future<Map<String, dynamic>> getHealthDocumentSharingPermission({
+  required String relationshipId,
+}) async => _asObject(
+  await _send(
+    'GET',
+    '/api/v1/health-record/relationships/${relationshipId.trim()}/document-sharing',
+    retryable: true,
+  ),
+);
+
+Future<Map<String, dynamic>> updateHealthDocumentSharingPermission({
+  required String relationshipId,
+  required bool enabled,
+  bool confirmConsent = false,
+}) async => _asObject(
+  await _send(
+    'PATCH',
+    '/api/v1/health-record/relationships/${relationshipId.trim()}/document-sharing',
+    body: {
+      'canViewDocuments': enabled,
+      if (enabled) ...{
+        'confirmConsent': confirmConsent,
+        'consentVersion': 'health-record-documents-sharing-v1',
+      },
+    },
+  ),
+);
 
   Future<Map<String, dynamic>> deleteCurrentProfilePhoto() async =>
       _asObject(await _send('DELETE', '/api/v1/me/profile/photo'));
