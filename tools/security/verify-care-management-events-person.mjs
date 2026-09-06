@@ -8,6 +8,7 @@ const store = readFileSync(
   "supabase/functions/lifemate-care-management/person_care_event_management.ts",
   "utf8",
 );
+const compactStore = store.replace(/\s+/g, "");
 
 for (const marker of [
   'import { createPersonCareEventManagementStore } from "./person_care_event_management.ts";',
@@ -56,17 +57,21 @@ for (const forbidden of ["patient_user_id", "{ patientUserId }"]) {
 }
 for (const marker of [
   "self_person_id_for_legacy_app_user",
-  "patient_person_id = ${patientPersonId}::uuid",
-  "(id, patient_person_id, created_by_user_id, client_request_id",
+  "patient_person_id=${personId}::uuid",
+  "(id,patient_person_id,created_by_user_id,client_request_id",
   "${caregiverAppUserId}::uuid",
-  "client_request_id = ${input.clientRequestId}::uuid",
-  "'care_event', ${eventId}::uuid",
+  "client_request_id=${input.clientRequestId}::uuid",
+  "'care_event',${eventId}::uuid",
 ]) {
-  if (!store.includes(marker)) {
+  if (!compactStore.includes(marker.replace(/\s+/g, ""))) {
     throw new Error(`Person Care Event store contract missing: ${marker}`);
   }
 }
-if (!store.includes("const metadata = eventType == null ? null : { eventType }")) {
+if (
+  !compactStore.includes(
+    "constmetadata=eventType==null?null:JSON.stringify({eventType})",
+  )
+) {
   throw new Error(
     "Care Event audit metadata must keep event semantics without patient AppUser identity.",
   );

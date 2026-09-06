@@ -1,6 +1,18 @@
 \set ON_ERROR_STOP on
 begin;
 
+-- This contract exercises consent-context isolation, not the commercial free-tier
+-- caregiver cap. Raise the disposable transaction-local policy limit just enough
+-- to model two caregivers for the same Person; rollback below restores canonical
+-- catalog truth and no subscription/payment/entitlement is fabricated.
+update commerce.catalog_policies cp
+set value_json='2'::jsonb
+from commerce.products p
+where p.id=cp.product_id
+  and p.code='wellmate-caremate'
+  and cp.policy_key='free.owner_caregivers.max'
+  and cp.status='Active';
+
 insert into lifemate.app_users(id,auth_subject,status,created_at_utc,updated_at_utc) values
 ('71000000-0000-0000-0000-000000000001','context-subject-a','Active',now(),now()),
 ('71000000-0000-0000-0000-000000000002','context-subject-b','Active',now(),now()),
