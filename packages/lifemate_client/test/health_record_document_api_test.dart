@@ -20,6 +20,7 @@ void main() {
             'contentType': 'image/jpeg',
             'byteSize': 4,
             'category': 'prescription',
+            'sourceProduct': 'wellmate',
             'capturedOn': '2026-09-05',
             'createdAtUtc': '2026-09-05T12:00:00.000Z',
             'links': [
@@ -54,6 +55,7 @@ void main() {
         '118f5e6a-7e91-4c26-8e18-a83c5531d111');
     expect(observed.bodyBytes, Uint8List.fromList([0xff, 0xd8, 0xff, 0x00]));
     expect(document.category, LifeMateHealthDocumentCategory.prescription);
+    expect(document.sourceProduct, 'wellmate');
     expect(document.links.single['contextType'], 'treatment_plan');
   });
 
