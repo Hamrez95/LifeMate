@@ -31,6 +31,9 @@ final class WomenEpisodeOfflineOutbox {
     String? privateNotes,
   }) => Future<void>.error(_unsupported());
 
+  Future<void> cancelPendingCreate({required String mutationId}) =>
+      Future<void>.error(_unsupported());
+
   Future<void> enqueueUpdate({
     required String mutationId,
     required String episodeId,
@@ -40,6 +43,10 @@ final class WomenEpisodeOfflineOutbox {
     String? privateNotes,
     DateTime? createdAtUtc,
   }) => Future<void>.error(_unsupported());
+
+  Future<List<Map<String, dynamic>>> project(
+    Iterable<Map<String, dynamic>> serverEpisodes,
+  ) => Future<List<Map<String, dynamic>>>.error(_unsupported());
 
   void close() {}
 
