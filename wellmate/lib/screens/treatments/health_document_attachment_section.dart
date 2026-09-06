@@ -6,8 +6,10 @@ import 'package:lifemate_client/lifemate_client.dart';
 
 import '../../core/theme/app_style.dart';
 
-const _maxAttachmentBytes = 15 * 1024 * 1024;
-const _maxAttachmentCount = 5;
+const _maxPdfBytes = 15 * 1024 * 1024;
+const _maxImageBytes = 12 * 1024 * 1024;
+const _maxTotalAttachmentBytes = 25 * 1024 * 1024;
+const _maxAttachmentCount = 10;
 
 /// Local, in-memory draft only. The selected file name is deliberately not
 /// retained or sent to the Health Record API; only normalized bytes, media
@@ -41,7 +43,7 @@ class HealthDocumentAttachmentSection extends StatelessWidget {
   Future<void> _add(BuildContext context) async {
     if (!enabled) return;
     if (attachments.length >= _maxAttachmentCount) {
-      _notice(context, _fa('برای هر مورد حداکثر ۵ فایل می‌توانی اضافه کنی.', 'You can add up to 5 files for each item.'));
+      _notice(context, _fa('برای هر مورد حداکثر ۱۰ فایل می‌توانی اضافه کنی.', 'You can add up to 10 files for each item.'));
       return;
     }
     final source = await showModalBottomSheet<_DocumentSource>(
@@ -57,8 +59,30 @@ class HealthDocumentAttachmentSection extends StatelessWidget {
         _DocumentSource.file => await _pickFile(),
       };
       if (draft == null || !context.mounted) return;
-      if (draft.bytes.lengthInBytes > _maxAttachmentBytes) {
-        _notice(context, _fa('حجم هر فایل باید کمتر از ۱۵ مگابایت باشد.', 'Each file must be under 15 MB.'));
+      final limit = draft.contentType == 'application/pdf'
+          ? _maxPdfBytes
+          : _maxImageBytes;
+      if (draft.bytes.lengthInBytes > limit) {
+        _notice(
+          context,
+          draft.contentType == 'application/pdf'
+              ? _fa('حجم هر PDF باید کمتر از ۱۵ مگابایت باشد.', 'Each PDF must be under 15 MB.')
+              : _fa('حجم هر تصویر باید کمتر از ۱۲ مگابایت باشد.', 'Each image must be under 12 MB.'),
+        );
+        return;
+      }
+      final total = attachments.fold<int>(
+        draft.bytes.lengthInBytes,
+        (sum, item) => sum + item.bytes.lengthInBytes,
+      );
+      if (total > _maxTotalAttachmentBytes) {
+        _notice(
+          context,
+          _fa(
+            'حجم مجموع مدارک این مورد باید کمتر از ۲۵ مگابایت باشد.',
+            'The total documents for this item must be under 25 MB.',
+          ),
+        );
         return;
       }
       onChanged([...attachments, draft]);
@@ -72,9 +96,9 @@ class HealthDocumentAttachmentSection extends StatelessWidget {
   Future<HealthDocumentAttachmentDraft?> _pickImage(ImageSource source) async {
     final image = await ImagePicker().pickImage(
       source: source,
-      imageQuality: 82,
-      maxWidth: 2200,
-      maxHeight: 2200,
+      imageQuality: 78,
+      maxWidth: 2048,
+      maxHeight: 2048,
     );
     if (image == null) return null;
     return _draftFromBytes(await image.readAsBytes(), _typeForPath(image.path));
@@ -127,7 +151,7 @@ class HealthDocumentAttachmentSection extends StatelessWidget {
                   children: [
                     Text(_fa('نسخه و مدارک مرتبط', 'Prescription and related documents'), style: AppTextStyles.body(context).copyWith(fontWeight: FontWeight.w900, color: AppColors.darkBlue)),
                     const SizedBox(height: 2),
-                    Text(_fa('اختیاری • تصویر یا PDF تا ۱۵ مگابایت', 'Optional • image or PDF up to 15 MB'), style: AppTextStyles.body(context).copyWith(fontSize: 12, color: AppColors.textSecondary)),
+                    Text(_fa('اختیاری • تا ۱۰ فایل، مجموع ۲۵ مگابایت', 'Optional • up to 10 files, 25 MB total'), style: AppTextStyles.body(context).copyWith(fontSize: 12, color: AppColors.textSecondary)),
                   ],
                 ),
               ),
@@ -136,7 +160,7 @@ class HealthDocumentAttachmentSection extends StatelessWidget {
           ),
           const SizedBox(height: 12),
           if (attachments.isEmpty)
-            Text(_fa('تصویرها پیش از ارسال سبک می‌شوند؛ نام فایل در پرونده ذخیره نمی‌شود.', 'Images are reduced before upload; file names are not saved.'), style: AppTextStyles.body(context).copyWith(fontSize: 12, height: 1.7, color: AppColors.textSecondary))
+            Text(_fa('تصویرها پیش از ارسال تا ۲۰۴۸ پیکسل سبک می‌شوند؛ نام فایل در پرونده ذخیره نمی‌شود.', 'Images are reduced to 2048px before upload; file names are not saved.'), style: AppTextStyles.body(context).copyWith(fontSize: 12, height: 1.7, color: AppColors.textSecondary))
           else
             Wrap(
               spacing: 8,
