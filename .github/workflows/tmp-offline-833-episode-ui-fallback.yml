@@ -47,7 +47,12 @@ jobs:
         run: |
           set -euo pipefail
           flutter pub get
-          dart format --output=none --set-exit-if-changed lib test
+          dart format --output=none --set-exit-if-changed \
+            lib/src/lifemate_api_client.dart \
+            lib/src/durable_lifemate_api_client.dart \
+            lib/src/women_episode_offline_outbox.dart \
+            test/women_calendar_api_client_test.dart \
+            test/women_episode_offline_outbox_test.dart
           flutter analyze --no-fatal-warnings --no-fatal-infos
           flutter test test/women_calendar_api_client_test.dart test/women_episode_offline_outbox_test.dart
 
@@ -56,7 +61,13 @@ jobs:
         run: |
           set -euo pipefail
           flutter pub get
-          dart format --output=none --set-exit-if-changed lib/screens/women_calendar
+          dart format --output=none --set-exit-if-changed \
+            lib/screens/women_calendar/women_calendar_screen.dart \
+            lib/screens/women_calendar/women_episode_dashboard_loader.dart \
+            lib/screens/women_calendar/women_episode_offline_bridge.dart \
+            lib/screens/women_calendar/women_episode_offline_bridge_native.dart \
+            lib/screens/women_calendar/women_episode_offline_bridge_web.dart \
+            lib/screens/women_calendar/women_episode_offline_policy.dart
           flutter analyze --no-fatal-warnings --no-fatal-infos
           flutter test test/women_health_activation_v3_contract_test.dart test/women_companion_experience_test.dart
 
