@@ -198,6 +198,18 @@ final class WomenDailyLogOfflineBridge {
     privateNotes: privateNotes,
   );
 
+  Future<List<Map<String, dynamic>>> pendingEpisodeCreates() async {
+    final outbox = await WomenEpisodeOfflineOutbox.openDefault(
+      namespace: _runtime.namespace.toLocalNamespace(),
+      timeZone: 'Asia/Tehran',
+    );
+    try {
+      return await outbox.pendingCreates();
+    } finally {
+      outbox.close();
+    }
+  }
+
   Future<void> enqueueEpisodeUpdate({
     required String mutationId,
     required String episodeId,
