@@ -19,6 +19,7 @@ import { createHealthObservationStore } from "./health_observations.ts";
 import {
   createHealthDocumentStore,
   parseHealthDocumentLink,
+  parseHealthDocumentListQuery,
 } from "./health_documents.ts";
 import type { HealthDocumentCategory } from "./health_documents.ts";
 import { createHealthDocumentStorage } from "./health_document_storage.ts";
@@ -284,8 +285,11 @@ async function route(
       60,
       60 * 60_000,
     );
+    const query = parseHealthDocumentListQuery(
+      new URL(request.url).searchParams,
+    );
     return json({
-      items: await healthDocuments.listOwnerDocuments(identity.appUserId),
+      ...(await healthDocuments.listOwnerDocuments(identity.appUserId, query)),
     });
   }
 
