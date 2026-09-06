@@ -134,6 +134,24 @@ final class LifeMateSharedOfflineRuntime {
     required DateTime toDate,
   }) => Future<LifeMateWomenDailyLogProjectionResult>.error(_unsupported());
 
+  Future<void> enqueueWomenEpisodeCreate({
+    required String mutationId,
+    required DateTime startedOn,
+    DateTime? endedOn,
+    String? privateNotes,
+    DateTime? createdAtUtc,
+  }) => Future<void>.error(_unsupported());
+
+  Future<void> enqueueWomenEpisodeUpdate({
+    required String mutationId,
+    required String episodeId,
+    required int version,
+    required DateTime startedOn,
+    DateTime? endedOn,
+    String? privateNotes,
+    DateTime? createdAtUtc,
+  }) => Future<void>.error(_unsupported());
+
   Future<void> enqueueWomenDailyLogUpsert({
     required String mutationId,
     required DateTime loggedOn,
