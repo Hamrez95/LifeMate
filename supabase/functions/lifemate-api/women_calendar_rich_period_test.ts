@@ -87,6 +87,14 @@ Deno.test("owner check-in routing wins over overlapping pain/symptom fields", ()
   );
   assertEquals(
     classifyWomenDailyLogWrite({
+      shareSummaryWithCompanion: true,
+      painLevel: 1,
+      symptoms: ["fatigue"],
+    }),
+    "owner_check_in",
+  );
+  assertEquals(
+    classifyWomenDailyLogWrite({
       periodFlow: "medium",
       painLevel: 2,
       symptoms: ["cramps"],
