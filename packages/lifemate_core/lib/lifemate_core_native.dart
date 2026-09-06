@@ -11,3 +11,4 @@ export 'src/local_sync_checkpoint.dart';
 export 'src/local_treatment_mutation.dart';
 export 'src/local_women_daily_log_mutation.dart';
 export 'src/local_women_daily_log_projection.dart';
+export 'src/local_women_episode_mutation.dart';
