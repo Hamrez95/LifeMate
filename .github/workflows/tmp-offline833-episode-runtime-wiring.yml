@@ -1,0 +1,86 @@
+name: tmp offline833 episode runtime wiring
+
+on:
+  push:
+    branches:
+      - feat/offline-833-episode-runtime-wiring-20260906
+
+permissions:
+  contents: write
+
+jobs:
+  patch-test-clean:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - uses: subosito/flutter-action@v2
+        with:
+          channel: stable
+          cache: true
+      - name: Apply scoped runtime wiring
+        shell: python
+        run: |
+          from pathlib import Path
+
+          def replace_once(path, old, new):
+              p = Path(path)
+              text = p.read_text()
+              if old not in text:
+                  raise SystemExit(f'marker not found in {path}')
+              if text.count(old) != 1:
+                  raise SystemExit(f'marker not unique in {path}: {text.count(old)}')
+              p.write_text(text.replace(old, new, 1))
+
+          native = 'packages/lifemate_client/lib/src/shared_offline_runtime_native.dart'
+          marker = '''  /// Accepts a locally validated owner daily log into the canonical protected\n'''
+          methods = '''  /// Queues a new owner-private period episode in the canonical protected\n  /// Account + Person + environment outbox. Sharing/access state is never\n  /// accepted by this seam.\n  Future<void> enqueueWomenEpisodeCreate({\n    required String mutationId,\n    required DateTime startedOn,\n    DateTime? endedOn,\n    String? privateNotes,\n    DateTime? createdAtUtc,\n  }) async {\n    _requireOpen();\n    await LifeMateOfflineWomenEpisodeMutation.enqueueCreate(\n      outbox: _outbox,\n      namespace: _localNamespace,\n      mutationId: mutationId,\n      startedOn: startedOn,\n      endedOn: endedOn,\n      privateNotes: privateNotes,\n      timeZone: _timeZone,\n      createdAtUtc: createdAtUtc,\n    );\n  }\n\n  /// Queues an edit only for a server-confirmed episode with an exact positive\n  /// revision. Pending creates are intentionally not rewritten as updates.\n  Future<void> enqueueWomenEpisodeUpdate({\n    required String mutationId,\n    required String episodeId,\n    required int version,\n    required DateTime startedOn,\n    DateTime? endedOn,\n    String? privateNotes,\n    DateTime? createdAtUtc,\n  }) async {\n    _requireOpen();\n    await LifeMateOfflineWomenEpisodeMutation.enqueueUpdate(\n      outbox: _outbox,\n      namespace: _localNamespace,\n      mutationId: mutationId,\n      episodeId: episodeId,\n      version: version,\n      startedOn: startedOn,\n      endedOn: endedOn,\n      privateNotes: privateNotes,\n      timeZone: _timeZone,\n      createdAtUtc: createdAtUtc,\n    );\n  }\n\n'''
+          replace_once(native, marker, methods + marker)
+
+          web = 'packages/lifemate_client/lib/src/shared_offline_runtime_web.dart'
+          web_marker = '''  Future<void> enqueueWomenDailyLogUpsert({\n'''
+          web_methods = '''  Future<void> enqueueWomenEpisodeCreate({\n    required String mutationId,\n    required DateTime startedOn,\n    DateTime? endedOn,\n    String? privateNotes,\n    DateTime? createdAtUtc,\n  }) => Future<void>.error(_unsupported());\n\n  Future<void> enqueueWomenEpisodeUpdate({\n    required String mutationId,\n    required String episodeId,\n    required int version,\n    required DateTime startedOn,\n    DateTime? endedOn,\n    String? privateNotes,\n    DateTime? createdAtUtc,\n  }) => Future<void>.error(_unsupported());\n\n'''
+          replace_once(web, web_marker, web_methods + web_marker)
+
+          bridge_native = 'wellmate/lib/screens/women_calendar/women_daily_log_offline_bridge_native.dart'
+          bridge_marker = '''  Future<void> enqueueUpsert({\n'''
+          bridge_methods = '''  Future<void> enqueueEpisodeCreate({\n    required String mutationId,\n    required DateTime startedOn,\n    DateTime? endedOn,\n    String? privateNotes,\n  }) => _runtime.enqueueWomenEpisodeCreate(\n    mutationId: mutationId,\n    startedOn: startedOn,\n    endedOn: endedOn,\n    privateNotes: privateNotes,\n  );\n\n  Future<void> enqueueEpisodeUpdate({\n    required String mutationId,\n    required String episodeId,\n    required int version,\n    required DateTime startedOn,\n    DateTime? endedOn,\n    String? privateNotes,\n  }) => _runtime.enqueueWomenEpisodeUpdate(\n    mutationId: mutationId,\n    episodeId: episodeId,\n    version: version,\n    startedOn: startedOn,\n    endedOn: endedOn,\n    privateNotes: privateNotes,\n  );\n\n'''
+          replace_once(bridge_native, bridge_marker, bridge_methods + bridge_marker)
+
+          bridge_web = 'wellmate/lib/screens/women_calendar/women_daily_log_offline_bridge_web.dart'
+          bridge_web_marker = '''  Future<void> enqueueUpsert({\n'''
+          bridge_web_methods = '''  Future<void> enqueueEpisodeCreate({\n    required String mutationId,\n    required DateTime startedOn,\n    DateTime? endedOn,\n    String? privateNotes,\n  }) => Future<void>.error(\n    UnsupportedError(\n      'Protected offline health execution is unavailable on web.',\n    ),\n  );\n\n  Future<void> enqueueEpisodeUpdate({\n    required String mutationId,\n    required String episodeId,\n    required int version,\n    required DateTime startedOn,\n    DateTime? endedOn,\n    String? privateNotes,\n  }) => Future<void>.error(\n    UnsupportedError(\n      'Protected offline health execution is unavailable on web.',\n    ),\n  );\n\n'''
+          replace_once(bridge_web, bridge_web_marker, bridge_web_methods + bridge_web_marker)
+
+          test = 'packages/lifemate_client/test/shared_offline_runtime_women_health_test.dart'
+          test_marker = '''}\n\nFuture<LifeMateSharedOfflineRuntime> _openRuntime(\n'''
+          tests = '''  test('shared runtime queues owner period create in the same protected outbox', () async {\n    final store = LifeMateLocalHealthStore.forTesting(\n      database: sqlite3.openInMemory(),\n      keyBytes: key,\n    );\n    final runtime = await _openRuntime(store, owner);\n    addTearDown(() {\n      runtime.close();\n      store.close();\n    });\n\n    await runtime.enqueueWomenEpisodeCreate(\n      mutationId: 'women-episode-runtime-create-0001',\n      startedOn: DateTime(2026, 9, 6),\n      privateNotes: 'owner only',\n      createdAtUtc: DateTime.utc(2026, 9, 6, 5),\n    );\n\n    final stored = await LifeMateLocalMutationOutbox(store: store).get(\n      namespace: owner,\n      mutationId: 'women-episode-runtime-create-0001',\n    );\n    expect(stored, isNotNull);\n    expect(stored!.endpointPath, '/api/v1/women-calendar/episodes');\n    expect(stored.method, 'POST');\n    expect(stored.payload['startedOn'], '2026-09-06');\n    expect(stored.payload['privateNotes'], 'owner only');\n    expect(stored.payload.containsKey('shareSummaryWithCompanion'), isFalse);\n  });\n\n  test('shared runtime queues only revision-bound canonical period edits', () async {\n    final store = LifeMateLocalHealthStore.forTesting(\n      database: sqlite3.openInMemory(),\n      keyBytes: key,\n    );\n    final runtime = await _openRuntime(store, owner);\n    addTearDown(() {\n      runtime.close();\n      store.close();\n    });\n\n    await runtime.enqueueWomenEpisodeUpdate(\n      mutationId: 'women-episode-runtime-update-0001',\n      episodeId: 'episode_42',\n      version: 3,\n      startedOn: DateTime(2026, 9, 3),\n      endedOn: DateTime(2026, 9, 6),\n      createdAtUtc: DateTime.utc(2026, 9, 6, 5, 5),\n    );\n\n    final stored = await LifeMateLocalMutationOutbox(store: store).get(\n      namespace: owner,\n      mutationId: 'women-episode-runtime-update-0001',\n    );\n    expect(stored, isNotNull);\n    expect(stored!.endpointPath, '/api/v1/women-calendar/episodes/episode_42');\n    expect(stored.method, 'PATCH');\n    expect(stored.expectedRevision, '3');\n    expect(stored.payload['version'], 3);\n\n    expect(\n      () => runtime.enqueueWomenEpisodeUpdate(\n        mutationId: 'women-episode-runtime-update-0002',\n        episodeId: 'episode_42',\n        version: 0,\n        startedOn: DateTime(2026, 9, 3),\n      ),\n      throwsArgumentError,\n    );\n  });\n}\n\nFuture<LifeMateSharedOfflineRuntime> _openRuntime(\n'''
+          replace_once(test, test_marker, tests)
+      - name: Format scoped Dart files
+        run: |
+          dart format \
+            packages/lifemate_client/lib/src/shared_offline_runtime_native.dart \
+            packages/lifemate_client/lib/src/shared_offline_runtime_web.dart \
+            packages/lifemate_client/test/shared_offline_runtime_women_health_test.dart \
+            wellmate/lib/screens/women_calendar/women_daily_log_offline_bridge_native.dart \
+            wellmate/lib/screens/women_calendar/women_daily_log_offline_bridge_web.dart
+      - name: Verify shared client
+        working-directory: packages/lifemate_client
+        run: |
+          flutter pub get
+          flutter analyze
+          flutter test test/shared_offline_runtime_women_health_test.dart
+      - name: Verify WellMate compile surface
+        working-directory: wellmate
+        run: |
+          flutter pub get
+          flutter analyze lib/screens/women_calendar/women_daily_log_offline_bridge.dart lib/screens/women_calendar/women_daily_log_offline_bridge_native.dart lib/screens/women_calendar/women_daily_log_offline_bridge_web.dart
+      - name: Commit scoped changes and remove temporary workflow
+        run: |
+          rm .github/workflows/tmp-offline833-episode-runtime-wiring.yml
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add packages/lifemate_client wellmate/lib/screens/women_calendar .github/workflows/tmp-offline833-episode-runtime-wiring.yml
+          git commit -m "feat(women): wire offline period episodes to shared runtime (#833)"
+          git push
