@@ -16,6 +16,7 @@ dependencies:
     path: ../packages/lifemate_ui
   image_picker: ^1.1.2
   file_picker: ^10.3.8
+  url_launcher: ^6.3.2
   flutter_local_notifications: ^19.5.0
   home_widget: 0.9.2
   timezone: ^0.10.1

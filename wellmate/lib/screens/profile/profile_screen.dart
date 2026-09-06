@@ -120,7 +120,7 @@ class ProfileScreen extends StatelessWidget {
       isPersian: isPersian,
       onNotifications: () => open(NotificationCenterScreen()),
       onEditProfile: () => open(EditableProfileScreen()),
-      onHealthProfile: () => open(HealthRecordScreen()),
+      onHealthProfile: () => open(const HealthRecordScreen()),
       onCareManagement: () => open(
         LifeMateCareAccessInventoryScreen(
           apiClient: api,
@@ -146,6 +146,21 @@ class ProfileScreen extends StatelessWidget {
         ),
       ),
       onManageSubscriptions: () => open(const LifeMateSubscriptionCenterScreen()),
+      additionalActions: [
+        LifeMateProfileAdditionalAction(
+          key: const Key('profile-health-record-entry'),
+          icon: Icons.folder_shared_rounded,
+          iconColor: AppColors.primary,
+          label: isPersian ? 'مدارک پرونده سلامت' : 'Health record documents',
+          subtitle: isPersian
+              ? 'نسخه، آزمایش و تصویرهای پزشکی'
+              : 'Prescriptions, results and medical images',
+          semanticLabel: isPersian
+              ? 'ورود به مدارک پرونده سلامت'
+              : 'Open health record documents',
+          onTap: () => open(const HealthRecordScreen()),
+        ),
+      ],
       feedbackBuilder: (_) => LifeMateFeedbackScreen(
         productCode: 'wellmate',
         appVersion: wellMateAppVersion,

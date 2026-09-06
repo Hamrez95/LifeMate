@@ -53,7 +53,7 @@ void main() {
     expect(find.text('patient@example.com'), findsOneWidget);
 
     await pump(const HealthRecordScreen());
-    expect(find.text('هنوز برنامه درمانی ثبت نشده است.'), findsOneWidget);
+    expect(find.text('پرونده سلامت'), findsOneWidget);
 
     await pump(const NotificationCenterScreen());
     expect(find.text('برای امروز یادآوری دارویی وجود ندارد.'), findsOneWidget);
