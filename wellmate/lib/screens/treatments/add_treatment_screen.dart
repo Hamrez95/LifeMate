@@ -85,6 +85,14 @@ class _TabbedAddTreatmentScreenState extends State<TabbedAddTreatmentScreen> {
     'injection': LifeMateRuntimeLocale.select(fa: 'تزریقی', en: 'Injection'),
   };
 
+  static const _formIcons = <String, IconData>{
+    'tablet': Icons.medication_rounded,
+    'capsule': Icons.local_pharmacy_rounded,
+    'syrup': Icons.water_drop_rounded,
+    'drop': Icons.opacity_rounded,
+    'injection': Icons.vaccines_rounded,
+  };
+
   static final _weekdayLabels = <int, String>{
     DateTime.saturday: LifeMateRuntimeLocale.select(fa: 'ش', en: 'Sat'),
     DateTime.sunday: LifeMateRuntimeLocale.select(fa: 'ی', en: 'Sun'),
@@ -647,21 +655,12 @@ class _TabbedAddTreatmentScreenState extends State<TabbedAddTreatmentScreen> {
                 hint: LifeMateRuntimeLocale.select(fa: 'مثلاً ۵۰۰ میلی‌گرم', en: 'For example 500 mg'),
                 icon: Icons.science_rounded,
               ),
-              WellMateLabeledField(
-                label: LifeMateRuntimeLocale.select(fa: 'شکل دارو', en: 'Form'),
-                icon: Icons.category_rounded,
-                child: DropdownButtonFormField<String>(
-                  initialValue: _form,
-                  isExpanded: true,
-                  decoration: wellMateFieldDecoration(),
-                  items: [
-                    for (final entry in _forms.entries)
-                      DropdownMenuItem(value: entry.key, child: Text(entry.value)),
-                  ],
-                  onChanged: _busy
-                      ? null
-                      : (value) => setState(() => _form = value ?? _form),
-                ),
+              _MedicationFormPicker(
+                selected: _form,
+                labels: _forms,
+                icons: _formIcons,
+                enabled: !_busy,
+                onChanged: (value) => setState(() => _form = value),
               ),
               _textField(
                 controller: _dose,
@@ -1048,15 +1047,16 @@ class _SectionCard extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Container(
-      padding: const EdgeInsets.all(18),
+      padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
         color: Colors.white,
-        borderRadius: BorderRadius.circular(24),
+        borderRadius: BorderRadius.circular(22),
+        border: Border.all(color: AppColors.primary.withValues(alpha: 0.07)),
         boxShadow: [
           BoxShadow(
-            color: AppColors.shadowDark.withValues(alpha: 0.35),
-            blurRadius: 18,
-            offset: const Offset(0, 8),
+            color: AppColors.shadowDark.withValues(alpha: 0.22),
+            blurRadius: 14,
+            offset: const Offset(0, 5),
           ),
         ],
       ),
@@ -1066,11 +1066,11 @@ class _SectionCard extends StatelessWidget {
           Row(
             children: [
               Container(
-                width: 44,
-                height: 44,
+                width: 42,
+                height: 42,
                 decoration: BoxDecoration(
                   color: AppColors.primary.withValues(alpha: 0.12),
-                  borderRadius: BorderRadius.circular(14),
+                  borderRadius: BorderRadius.circular(13),
                 ),
                 child: Icon(icon, color: AppColors.primary),
               ),
@@ -1092,6 +1092,107 @@ class _SectionCard extends StatelessWidget {
           const SizedBox(height: 16),
           ...children,
         ],
+      ),
+    );
+  }
+}
+
+class _MedicationFormPicker extends StatelessWidget {
+  const _MedicationFormPicker({
+    required this.selected,
+    required this.labels,
+    required this.icons,
+    required this.enabled,
+    required this.onChanged,
+  });
+
+  final String selected;
+  final Map<String, String> labels;
+  final Map<String, IconData> icons;
+  final bool enabled;
+  final ValueChanged<String> onChanged;
+
+  @override
+  Widget build(BuildContext context) {
+    return WellMateLabeledField(
+      label: LifeMateRuntimeLocale.select(fa: 'شکل دارو', en: 'Form'),
+      icon: Icons.category_rounded,
+      child: Wrap(
+        spacing: 8,
+        runSpacing: 8,
+        children: [
+          for (final entry in labels.entries)
+            _MedicationFormOption(
+              key: ValueKey<String>('treatment-form-${entry.key}'),
+              label: entry.value,
+              icon: icons[entry.key] ?? Icons.medication_rounded,
+              selected: selected == entry.key,
+              enabled: enabled,
+              onTap: () => onChanged(entry.key),
+            ),
+        ],
+      ),
+    );
+  }
+}
+
+class _MedicationFormOption extends StatelessWidget {
+  const _MedicationFormOption({
+    required super.key,
+    required this.label,
+    required this.icon,
+    required this.selected,
+    required this.enabled,
+    required this.onTap,
+  });
+
+  final String label;
+  final IconData icon;
+  final bool selected;
+  final bool enabled;
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    final color = selected ? AppColors.primary : AppColors.textSecondary;
+    return Semantics(
+      button: true,
+      selected: selected,
+      label: label,
+      child: InkWell(
+        borderRadius: BorderRadius.circular(14),
+        onTap: enabled ? onTap : null,
+        child: AnimatedContainer(
+          duration: const Duration(milliseconds: 160),
+          constraints: const BoxConstraints(minWidth: 74, minHeight: 52),
+          padding: const EdgeInsetsDirectional.fromSTEB(10, 8, 10, 8),
+          decoration: BoxDecoration(
+            color: selected
+                ? AppColors.primary.withValues(alpha: 0.12)
+                : AppColors.background,
+            borderRadius: BorderRadius.circular(14),
+            border: Border.all(
+              color: selected
+                  ? AppColors.primary.withValues(alpha: 0.55)
+                  : Colors.transparent,
+            ),
+          ),
+          child: Row(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Icon(icon, size: 18, color: color),
+              const SizedBox(width: 6),
+              Text(
+                label,
+                style: TextStyle(
+                  color: color,
+                  fontSize: 13,
+                  fontWeight: FontWeight.w800,
+                ),
+              ),
+            ],
+          ),
+        ),
       ),
     );
   }
