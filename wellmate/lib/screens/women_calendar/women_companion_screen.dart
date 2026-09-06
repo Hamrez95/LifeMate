@@ -8,6 +8,7 @@ import '../../core/theme/app_style.dart';
 import '../../core/utils/persian_date_utils.dart';
 import 'women_calendar_month_card.dart';
 import 'women_calendar_screen.dart';
+import 'women_companion_dashboard_loader.dart';
 import 'women_companion_people_hero.dart';
 
 class WomenCompanionScreen extends StatefulWidget {
@@ -32,6 +33,7 @@ class _WomenCompanionScreenState extends State<WomenCompanionScreen> {
 
   bool _loading = true;
   bool _saving = false;
+  bool _offlineCached = false;
   String? _error;
   Map<String, dynamic> _profile = const {};
   Map<String, dynamic> _currentProfile = const {};
@@ -137,44 +139,45 @@ class _WomenCompanionScreenState extends State<WomenCompanionScreen> {
     try {
       final api = context.read<LifeMateApiClient>();
       final now = DateTime.now();
-      final dashboard = await api.getWomenCalendarDashboard(
-        fromDate: now.subtract(const Duration(days: 89)),
-        toDate: now,
-      );
+      final fromDate = now.subtract(const Duration(days: 89));
+      final loader = WomenCompanionDashboardLoader.forApi(api);
+      final loaded = await loader.load(fromDate: fromDate, toDate: now);
+      final dashboard = loaded.dashboard;
       if (!mounted) return;
       final currentUser =
           dashboard['currentUser'] as Map<String, dynamic>? ?? const {};
       final user = currentUser['user'] as Map<String, dynamic>? ?? const {};
       setState(() {
         _profile = dashboard['profile'] as Map<String, dynamic>? ?? const {};
-        _currentUserId = user['id']?.toString();
         _episodes = (dashboard['episodes'] as List<dynamic>? ?? const [])
             .cast<Map<String, dynamic>>();
-        _currentProfile =
-            dashboard['currentProfile'] as Map<String, dynamic>? ?? const {};
-        _relationships =
-            (dashboard['relationships'] as List<dynamic>? ?? const [])
-                .cast<Map<String, dynamic>>();
         _dailyLogs = (dashboard['dailyLogs'] as List<dynamic>? ?? const [])
             .cast<Map<String, dynamic>>();
+        _offlineCached = loaded.offlineCached;
+        if (loaded.offlineCached) {
+          _currentUserId = null;
+          _currentProfile = const {};
+          _relationships = const [];
+        } else {
+          _currentUserId = user['id']?.toString();
+          _currentProfile =
+              dashboard['currentProfile'] as Map<String, dynamic>? ?? const {};
+          _relationships =
+              (dashboard['relationships'] as List<dynamic>? ?? const [])
+                  .cast<Map<String, dynamic>>();
+        }
       });
     } on LifeMateApiException catch (error) {
       if (!mounted) return;
       setState(() {
         _error = error.code == 'women_calendar_feature_disabled'
             ? LifeMateRuntimeLocale.select(
-                fa: LifeMateRuntimeLocale.select(
-                  fa: 'تقویم بانوان در این نسخه فعال نیست.',
-                  en: "The women's calendar is not active in this version.",
-                ),
+                fa: 'تقویم بانوان در این نسخه فعال نیست.',
                 en: "The women's calendar is not active in this version.",
               )
             : LifeMateRuntimeLocale.select(
-                fa: LifeMateRuntimeLocale.select(
-                  fa: 'اطلاعات چرخه دریافت نشد. دوباره تلاش کنید.',
-                  en: "Cycle information not received. Try again.",
-                ),
-                en: "Cycle information not received. Try again.",
+                fa: 'اطلاعات چرخه دریافت نشد. دوباره تلاش کنید.',
+                en: 'Cycle information not received. Try again.',
               );
       });
     } catch (error) {
@@ -182,11 +185,8 @@ class _WomenCompanionScreenState extends State<WomenCompanionScreen> {
       if (mounted) {
         setState(
           () => _error = LifeMateRuntimeLocale.select(
-            fa: LifeMateRuntimeLocale.select(
-              fa: 'اطلاعات چرخه دریافت نشد. دوباره تلاش کنید.',
-              en: "Cycle information not received. Try again.",
-            ),
-            en: "Cycle information not received. Try again.",
+            fa: 'اطلاعات چرخه دریافت نشد. دوباره تلاش کنید.',
+            en: 'Cycle information not received. Try again.',
           ),
         );
       }
@@ -344,11 +344,48 @@ class _WomenCompanionScreenState extends State<WomenCompanionScreen> {
           physics: const AlwaysScrollableScrollPhysics(),
           padding: const EdgeInsets.fromLTRB(18, 12, 18, 28),
           children: [
-            WomenCompanionPeopleHero(
-              currentProfile: _currentProfile,
-              relationships: _companionRelationships,
-            ),
-            const SizedBox(height: 14),
+            if (_offlineCached) ...[
+              Container(
+                key: const ValueKey('women-companion-offline-owner-banner'),
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 14,
+                  vertical: 12,
+                ),
+                decoration: BoxDecoration(
+                  color: const Color(0xFFFFF1F6),
+                  borderRadius: BorderRadius.circular(18),
+                ),
+                child: Row(
+                  children: [
+                    const Icon(
+                      Icons.cloud_off_rounded,
+                      color: Color(0xFFD75C8D),
+                    ),
+                    const SizedBox(width: 10),
+                    Expanded(
+                      child: Text(
+                        LifeMateRuntimeLocale.select(
+                          fa: 'اطلاعات خصوصی ذخیره‌شده روی این دستگاه نمایش داده می‌شود. اشتراک‌گذاری و همدم تا اتصال دوباره آنلاین می‌مانند.',
+                          en: 'Showing private data saved on this device. Sharing and companion access stay online-only until reconnection.',
+                        ),
+                        style: const TextStyle(
+                          fontSize: 11,
+                          height: 1.5,
+                          color: AppColors.textSecondary,
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+              const SizedBox(height: 14),
+            ] else ...[
+              WomenCompanionPeopleHero(
+                currentProfile: _currentProfile,
+                relationships: _companionRelationships,
+              ),
+              const SizedBox(height: 14),
+            ],
             WomenCalendarMonthCard(
               episodes: _episodes,
               estimate: estimate,
