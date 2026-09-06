@@ -19,6 +19,7 @@ final class WomenEpisodeOfflineOutbox {
        _outbox = LifeMateLocalMutationOutbox(store: store);
 
   static const String _createEndpoint = '/api/v1/women-calendar/episodes';
+  static const String _updateEndpointPrefix = '/api/v1/women-calendar/episodes/';
 
   final LifeMateLocalHealthStore _store;
   final LifeMateLocalNamespace _namespace;
@@ -161,6 +162,83 @@ final class WomenEpisodeOfflineOutbox {
       createdAtUtc: createdAtUtc,
     );
   }
+
+  /// Projects durable owner period mutations over the latest canonical rows.
+  ///
+  /// Pending/retryable edits are shown optimistically, conflicts keep the
+  /// canonical server value and surface an explicit marker, and rejected rows
+  /// never overwrite server truth. Pending creates intentionally have no
+  /// server episode ID; only their durable mutation identity is exposed.
+  Future<List<Map<String, dynamic>>> project(
+    Iterable<Map<String, dynamic>> serverEpisodes,
+  ) async {
+    _requireOpen();
+    final canonical = <String, Map<String, dynamic>>{};
+    final ordered = <Map<String, dynamic>>[];
+    for (final episode in serverEpisodes) {
+      final copy = Map<String, dynamic>.from(episode);
+      final id = copy['id']?.toString().trim();
+      if (id != null && id.isNotEmpty) canonical[id] = copy;
+      ordered.add(copy);
+    }
+
+    final pendingCreates = <Map<String, dynamic>>[];
+    final mutations = await _outbox.list(namespace: _namespace);
+    for (final mutation in mutations) {
+      if (mutation.domain != LifeMateMutationDomain.womenHealth) continue;
+      if (mutation.state == LifeMateMutationSyncState.rejected) continue;
+      if (mutation.method == 'POST' &&
+          mutation.endpointPath == _createEndpoint &&
+          mutation.sourceKey == 'women-episode-create:${mutation.mutationId}') {
+        pendingCreates.add(_projectCreate(mutation));
+        continue;
+      }
+      if (mutation.method != 'PATCH' ||
+          !mutation.endpointPath.startsWith(_updateEndpointPrefix)) {
+        continue;
+      }
+      final episodeId = mutation.endpointPath
+          .substring(_updateEndpointPrefix.length)
+          .trim();
+      if (episodeId.isEmpty || episodeId.contains('/')) continue;
+      final current = canonical[episodeId];
+      if (current == null) continue;
+      if (mutation.state == LifeMateMutationSyncState.conflict) {
+        current['syncConflict'] = true;
+        current['pendingSync'] = false;
+        current['serverConfirmed'] = true;
+        continue;
+      }
+      if (mutation.state != LifeMateMutationSyncState.pending &&
+          mutation.state != LifeMateMutationSyncState.retryScheduled) {
+        continue;
+      }
+      current
+        ..addAll(_boundedPayload(mutation.payload))
+        ..['pendingSync'] = true
+        ..['serverConfirmed'] = false
+        ..['localMutationId'] = mutation.mutationId;
+    }
+
+    return <Map<String, dynamic>>[...ordered, ...pendingCreates];
+  }
+
+  Map<String, dynamic> _projectCreate(LifeMateDurableMutation mutation) =>
+      <String, dynamic>{
+        ..._boundedPayload(mutation.payload),
+        'localMutationId': mutation.mutationId,
+        'pendingSync': true,
+        'serverConfirmed': false,
+        'syncConflict': mutation.state == LifeMateMutationSyncState.conflict,
+        'version': 0,
+      };
+
+  static Map<String, dynamic> _boundedPayload(Map<String, dynamic> payload) =>
+      <String, dynamic>{
+        'startedOn': payload['startedOn'],
+        'endedOn': payload['endedOn'],
+        'privateNotes': payload['privateNotes'],
+      };
 
   void close() {
     if (_closed) return;
