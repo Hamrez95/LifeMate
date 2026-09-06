@@ -30,8 +30,10 @@ class _CocoonShellState extends State<CocoonShell> {
           ),
         CocoonEntryState.runtimeUnavailable => _gate(
             Icons.cloud_off_outlined,
-            t('CocoonMate is temporarily unavailable',
-                'کوکون‌میت موقتاً در دسترس نیست'),
+            t(
+              'CocoonMate is temporarily unavailable',
+              'کوکون‌میت موقتاً در دسترس نیست',
+            ),
             t('Retry', 'تلاش دوباره'),
             host.refresh,
           ),
@@ -43,7 +45,10 @@ class _CocoonShellState extends State<CocoonShell> {
           ),
         CocoonEntryState.notEntitled => _gate(
             Icons.workspace_premium_outlined,
-            t('Choose access to CocoonMate', 'دسترسی کوکون‌میت را انتخاب کنید'),
+            t(
+              'Choose access to CocoonMate',
+              'دسترسی کوکون‌میت را انتخاب کنید',
+            ),
             t('View options', 'مشاهده گزینه‌ها'),
             host.openCommerce,
           ),
@@ -60,12 +65,18 @@ class _CocoonShellState extends State<CocoonShell> {
             host.refresh,
           ),
         CocoonEntryState.activePregnancy => _productShell(host),
+        CocoonEntryState.offlineOwnerPregnancy =>
+          _productShell(host, offline: true),
       },
     );
   }
 
-  Widget _gate(IconData icon, String title, String action,
-      Future<void> Function() onPressed) {
+  Widget _gate(
+    IconData icon,
+    String title,
+    String action,
+    Future<void> Function() onPressed,
+  ) {
     return SafeArea(
       child: Center(
         child: Padding(
@@ -80,12 +91,16 @@ class _CocoonShellState extends State<CocoonShell> {
                   children: [
                     Icon(icon, size: 40),
                     const SizedBox(height: 16),
-                    Text(title,
-                        textAlign: TextAlign.center,
-                        style: Theme.of(context).textTheme.titleLarge),
+                    Text(
+                      title,
+                      textAlign: TextAlign.center,
+                      style: Theme.of(context).textTheme.titleLarge,
+                    ),
                     const SizedBox(height: 20),
                     FilledButton(
-                        onPressed: () => onPressed(), child: Text(action)),
+                      onPressed: () => onPressed(),
+                      child: Text(action),
+                    ),
                   ],
                 ),
               ),
@@ -96,7 +111,7 @@ class _CocoonShellState extends State<CocoonShell> {
     );
   }
 
-  Widget _productShell(CocoonHostContract host) {
+  Widget _productShell(CocoonHostContract host, {bool offline = false}) {
     final labels = [
       t('Home', 'خانه'),
       t('Calendar', 'تقویم'),
@@ -123,12 +138,46 @@ class _CocoonShellState extends State<CocoonShell> {
         ],
       ),
       body: SafeArea(
-        child: Center(
-          child: Semantics(
-            header: true,
-            child: Text(labels[_index],
-                style: Theme.of(context).textTheme.headlineSmall),
-          ),
+        child: Column(
+          children: [
+            if (offline)
+              Semantics(
+                liveRegion: true,
+                child: Container(
+                  width: double.infinity,
+                  padding: const EdgeInsetsDirectional.fromSTEB(16, 10, 16, 10),
+                  child: Row(
+                    children: [
+                      const Icon(Icons.wifi_off_outlined, size: 18),
+                      const SizedBox(width: 8),
+                      Expanded(
+                        child: Text(
+                          t(
+                            'Offline — showing protected data saved on this device',
+                            'آفلاین — اطلاعات محافظت‌شدهٔ ذخیره‌شده روی این دستگاه نمایش داده می‌شود',
+                          ),
+                        ),
+                      ),
+                      TextButton(
+                        onPressed: host.refresh,
+                        child: Text(t('Retry', 'تلاش دوباره')),
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+            Expanded(
+              child: Center(
+                child: Semantics(
+                  header: true,
+                  child: Text(
+                    labels[_index],
+                    style: Theme.of(context).textTheme.headlineSmall,
+                  ),
+                ),
+              ),
+            ),
+          ],
         ),
       ),
       bottomNavigationBar: NavigationBar(

@@ -1,6 +1,7 @@
 import 'package:cocoonmate_module/cocoonmate_module.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:lifemate_client/lifemate_client.dart';
 
 class FakeHost implements CocoonHostContract {
   FakeHost(this.entryState, this.locale);
@@ -11,6 +12,8 @@ class FakeHost implements CocoonHostContract {
   Locale locale;
   @override
   String? personId = 'synthetic-person';
+  @override
+  CocoonPregnancySnapshot? offlinePregnancySnapshot;
 
   @override
   Future<void> beginPregnancySetup() async {}
@@ -55,6 +58,24 @@ void main() {
 
     expect(find.text('Choose access to CocoonMate'), findsOneWidget);
     expect(find.text('View options'), findsOneWidget);
+  });
+
+  testWidgets('protected owner snapshot keeps shell available while offline',
+      (tester) async {
+    final host = FakeHost(
+      CocoonEntryState.offlineOwnerPregnancy,
+      const Locale('en'),
+    );
+    await tester.pumpWidget(appFor(host));
+
+    expect(find.text('Home'), findsNWidgets(2));
+    expect(
+      find.text(
+        'Offline — showing protected data saved on this device',
+      ),
+      findsOneWidget,
+    );
+    expect(find.text('Retry'), findsOneWidget);
   });
 
   testWidgets('large text does not require root navigator ownership',
