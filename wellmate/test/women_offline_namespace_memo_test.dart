@@ -9,7 +9,7 @@ void main() {
   test('reuses only the same authenticated account and environment', () {
     const environment = 'https://api.example.test';
     const legacyAccount = 'legacy-account-a';
-    const namespace = LifeMateLocalNamespace(
+    final namespace = LifeMateLocalNamespace(
       environmentId: environment,
       accountId: 'canonical-account-a',
       personId: 'person-a',
@@ -45,12 +45,12 @@ void main() {
 
   test('forget removes only the scoped authenticated identity', () {
     const environment = 'https://api.example.test';
-    const first = LifeMateLocalNamespace(
+    final first = LifeMateLocalNamespace(
       environmentId: environment,
       accountId: 'canonical-account-a',
       personId: 'person-a',
     );
-    const second = LifeMateLocalNamespace(
+    final second = LifeMateLocalNamespace(
       environmentId: environment,
       accountId: 'canonical-account-b',
       personId: 'person-b',
@@ -90,7 +90,7 @@ void main() {
     expect(
       () => WomenOfflineNamespaceMemo.remember(
         legacyAccountId: 'legacy-account-a',
-        namespace: const LifeMateLocalNamespace(
+        namespace: LifeMateLocalNamespace(
           environmentId: 'https://api.example.test',
           accountId: '',
           personId: 'person-a',
