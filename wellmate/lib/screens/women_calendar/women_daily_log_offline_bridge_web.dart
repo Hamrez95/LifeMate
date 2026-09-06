@@ -9,7 +9,9 @@ final class WomenDailyLogOfflineBridge {
   static Future<WomenDailyLogOfflineBridge> open({
     required LifeMateApiClient apiClient,
   }) => Future<WomenDailyLogOfflineBridge>.error(
-    UnsupportedError('Protected offline health execution is unavailable on web.'),
+    UnsupportedError(
+      'Protected offline health execution is unavailable on web.',
+    ),
   );
 
   Future<LifeMateWomenDailyLogProjectionResult> project({
@@ -17,14 +19,18 @@ final class WomenDailyLogOfflineBridge {
     required DateTime fromDate,
     required DateTime toDate,
   }) => Future<LifeMateWomenDailyLogProjectionResult>.error(
-    UnsupportedError('Protected offline health execution is unavailable on web.'),
+    UnsupportedError(
+      'Protected offline health execution is unavailable on web.',
+    ),
   );
 
   Future<void> cacheServerDay({
     required DateTime date,
     required Iterable<Map<String, dynamic>> serverRows,
   }) => Future<void>.error(
-    UnsupportedError('Protected offline health execution is unavailable on web.'),
+    UnsupportedError(
+      'Protected offline health execution is unavailable on web.',
+    ),
   );
 
   Future<void> cacheServerRange({
@@ -32,7 +38,9 @@ final class WomenDailyLogOfflineBridge {
     required DateTime toDate,
     required Iterable<Map<String, dynamic>> serverRows,
   }) => Future<void>.error(
-    UnsupportedError('Protected offline health execution is unavailable on web.'),
+    UnsupportedError(
+      'Protected offline health execution is unavailable on web.',
+    ),
   );
 
   Future<void> cacheOwnerDashboard({
@@ -42,32 +50,42 @@ final class WomenDailyLogOfflineBridge {
     required DateTime fromDate,
     required DateTime toDate,
   }) => Future<void>.error(
-    UnsupportedError('Protected offline health execution is unavailable on web.'),
+    UnsupportedError(
+      'Protected offline health execution is unavailable on web.',
+    ),
   );
 
   Future<List<Map<String, dynamic>>?> readCachedServerDay(DateTime date) =>
       Future<List<Map<String, dynamic>>?>.error(
-        UnsupportedError('Protected offline health execution is unavailable on web.'),
+        UnsupportedError(
+          'Protected offline health execution is unavailable on web.',
+        ),
       );
 
   Future<List<Map<String, dynamic>>?> readCachedServerRange({
     required DateTime fromDate,
     required DateTime toDate,
   }) => Future<List<Map<String, dynamic>>?>.error(
-    UnsupportedError('Protected offline health execution is unavailable on web.'),
+    UnsupportedError(
+      'Protected offline health execution is unavailable on web.',
+    ),
   );
 
   Future<WomenOfflineOwnerDashboard?> readOwnerDashboard({
     required DateTime fromDate,
     required DateTime toDate,
   }) => Future<WomenOfflineOwnerDashboard?>.error(
-    UnsupportedError('Protected offline health execution is unavailable on web.'),
+    UnsupportedError(
+      'Protected offline health execution is unavailable on web.',
+    ),
   );
 
   Future<void> enqueueUpsert({
     required String mutationId,
     required DateTime loggedOn,
     required int version,
+    String? mood,
+    int? energyLevel,
     String? periodFlow,
     String? bloodAppearance,
     String? bloodTexture,
@@ -75,12 +93,16 @@ final class WomenDailyLogOfflineBridge {
     Set<String> symptoms = const <String>{},
     String? privateNotes,
   }) => Future<void>.error(
-    UnsupportedError('Protected offline health execution is unavailable on web.'),
+    UnsupportedError(
+      'Protected offline health execution is unavailable on web.',
+    ),
   );
 
   Future<LifeMateOfflineSyncResult> flush() =>
       Future<LifeMateOfflineSyncResult>.error(
-        UnsupportedError('Protected offline health execution is unavailable on web.'),
+        UnsupportedError(
+          'Protected offline health execution is unavailable on web.',
+        ),
       );
 
   void close() {}

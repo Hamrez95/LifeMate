@@ -185,7 +185,9 @@ final class LifeMateSharedOfflineRuntime {
   Future<LifeMateOfflineSyncResult> flushDetailed() async {
     _requireOpen();
     await importLegacyPending();
-    final result = await _replayEngine.replayEligible(namespace: _localNamespace);
+    final result = await _replayEngine.replayEligible(
+      namespace: _localNamespace,
+    );
     return LifeMateOfflineSyncResult(
       replayed: result.confirmed,
       conflicts: result.conflicts,
@@ -210,7 +212,8 @@ final class LifeMateSharedOfflineRuntime {
   Future<List<LifeMateLocalProjectionRecord>> treatmentPlanProjections() =>
       _projections(LifeMateLocalProjectionDomain.treatmentPlan);
 
-  Future<List<LifeMateLocalProjectionRecord>> treatmentOccurrenceProjections() =>
+  Future<List<LifeMateLocalProjectionRecord>>
+  treatmentOccurrenceProjections() =>
       _projections(LifeMateLocalProjectionDomain.treatmentOccurrence);
 
   Future<LifeMateProjectionReconcileResult> applyCareEventPage({
@@ -348,21 +351,25 @@ final class LifeMateSharedOfflineRuntime {
       },
       'treatmentPlans': plans,
       'doseOccurrences': occurrences
-          .where((value) => _payloadDateInRange(
-                value,
-                field: 'scheduledLocalDate',
-                fromDate: requestedFrom,
-                toDate: requestedTo,
-              ))
+          .where(
+            (value) => _payloadDateInRange(
+              value,
+              field: 'scheduledLocalDate',
+              fromDate: requestedFrom,
+              toDate: requestedTo,
+            ),
+          )
           .toList(growable: false),
       'careEvents': careEvents
           .map((record) => record.payload)
-          .where((value) => _payloadDateInRange(
-                value,
-                field: 'scheduledLocalDate',
-                fromDate: requestedFrom,
-                toDate: requestedTo,
-              ))
+          .where(
+            (value) => _payloadDateInRange(
+              value,
+              field: 'scheduledLocalDate',
+              fromDate: requestedFrom,
+              toDate: requestedTo,
+            ),
+          )
           .toList(growable: false),
       'offlineCached': true,
       'offlineCachedAtUtc': marker.storedAtUtc.toIso8601String(),
@@ -455,6 +462,8 @@ final class LifeMateSharedOfflineRuntime {
     required String mutationId,
     required DateTime loggedOn,
     required int version,
+    String? mood,
+    int? energyLevel,
     String? periodFlow,
     String? bloodAppearance,
     String? bloodTexture,
@@ -471,6 +480,8 @@ final class LifeMateSharedOfflineRuntime {
       loggedOn: loggedOn,
       version: version,
       timeZone: _timeZone,
+      mood: mood,
+      energyLevel: energyLevel,
       periodFlow: periodFlow,
       bloodAppearance: bloodAppearance,
       bloodTexture: bloodTexture,

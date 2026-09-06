@@ -65,7 +65,9 @@ final class LifeMateSharedOfflineRuntime {
   Future<int> importLegacyPending() => Future<int>.value(0);
 
   Future<LifeMateOfflineSyncResult> flushDetailed() =>
-      Future<LifeMateOfflineSyncResult>.value(const LifeMateOfflineSyncResult());
+      Future<LifeMateOfflineSyncResult>.value(
+        const LifeMateOfflineSyncResult(),
+      );
 
   Future<LifeMateLocalSyncCheckpoint?> careEventCheckpoint() =>
       _unsupportedCheckpoint();
@@ -82,8 +84,8 @@ final class LifeMateSharedOfflineRuntime {
   Future<List<LifeMateLocalProjectionRecord>> treatmentPlanProjections() =>
       _unsupportedProjections();
 
-  Future<List<LifeMateLocalProjectionRecord>> treatmentOccurrenceProjections() =>
-      _unsupportedProjections();
+  Future<List<LifeMateLocalProjectionRecord>>
+  treatmentOccurrenceProjections() => _unsupportedProjections();
 
   Future<LifeMateProjectionReconcileResult> applyCareEventPage({
     required LifeMateProjectionPullPage page,
@@ -136,6 +138,8 @@ final class LifeMateSharedOfflineRuntime {
     required String mutationId,
     required DateTime loggedOn,
     required int version,
+    String? mood,
+    int? energyLevel,
     String? periodFlow,
     String? bloodAppearance,
     String? bloodTexture,

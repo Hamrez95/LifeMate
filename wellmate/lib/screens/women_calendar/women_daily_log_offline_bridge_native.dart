@@ -48,7 +48,8 @@ final class WomenDailyLogOfflineBridge {
       ),
       timeZone: 'Asia/Tehran',
       apiBaseUri: config.apiBaseUri,
-      accessToken: () => Supabase.instance.client.auth.currentSession?.accessToken,
+      accessToken: () =>
+          Supabase.instance.client.auth.currentSession?.accessToken,
       legacyAccountIds: <String>{legacyAccountId},
     );
     try {
@@ -128,16 +129,15 @@ final class WomenDailyLogOfflineBridge {
       toDate: toDate,
     );
     if (dailyLogs == null) return null;
-    return WomenOfflineOwnerDashboard(
-      snapshot: snapshot,
-      dailyLogs: dailyLogs,
-    );
+    return WomenOfflineOwnerDashboard(snapshot: snapshot, dailyLogs: dailyLogs);
   }
 
   Future<void> enqueueUpsert({
     required String mutationId,
     required DateTime loggedOn,
     required int version,
+    String? mood,
+    int? energyLevel,
     String? periodFlow,
     String? bloodAppearance,
     String? bloodTexture,
@@ -148,6 +148,8 @@ final class WomenDailyLogOfflineBridge {
     mutationId: mutationId,
     loggedOn: loggedOn,
     version: version,
+    mood: mood,
+    energyLevel: energyLevel,
     periodFlow: periodFlow,
     bloodAppearance: bloodAppearance,
     bloodTexture: bloodTexture,
