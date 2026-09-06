@@ -61,11 +61,11 @@ export function createHealthDocumentSharingStore(databaseUrl: string) {
               coalesce(r.patient_person_id,
                 core.self_person_id_for_legacy_app_user(r.patient_user_id)) =
                 ${requesterPersonId}::uuid
-              ${ownerOnly
-                ? sql``
-                : sql`or coalesce(r.caregiver_person_id,
+              ${
+        ownerOnly ? sql`` : sql`or coalesce(r.caregiver_person_id,
                     core.self_person_id_for_legacy_app_user(r.caregiver_user_id)) =
-                    ${requesterPersonId}::uuid`}
+                    ${requesterPersonId}::uuid`
+      }
             )
           for update
         `
@@ -86,11 +86,11 @@ export function createHealthDocumentSharingStore(databaseUrl: string) {
               coalesce(r.patient_person_id,
                 core.self_person_id_for_legacy_app_user(r.patient_user_id)) =
                 ${requesterPersonId}::uuid
-              ${ownerOnly
-                ? sql``
-                : sql`or coalesce(r.caregiver_person_id,
+              ${
+        ownerOnly ? sql`` : sql`or coalesce(r.caregiver_person_id,
                     core.self_person_id_for_legacy_app_user(r.caregiver_user_id)) =
-                    ${requesterPersonId}::uuid`}
+                    ${requesterPersonId}::uuid`
+      }
             )
           limit 1
         `;
@@ -193,7 +193,10 @@ export function createHealthDocumentSharingStore(databaseUrl: string) {
     };
   }
 
-  async function getPermission(appUserId: string, relationshipIdValue: unknown) {
+  async function getPermission(
+    appUserId: string,
+    relationshipIdValue: unknown,
+  ) {
     const relationshipId = requiredUuid(relationshipIdValue, "relationshipId");
     const requester = await identity(sql, appUserId);
     const row = await relationship(
@@ -264,7 +267,9 @@ export function createHealthDocumentSharingStore(databaseUrl: string) {
           ${patientPersonId}::uuid, ${grantContextType},
           ${relationshipId}::uuid,
           ${update.canViewDocuments ? "Active" : "Revoked"}, now(), null,
-          ${update.canViewDocuments ? null : new Date().toISOString()}::timestamptz,
+          ${
+        update.canViewDocuments ? null : new Date().toISOString()
+      }::timestamptz,
           now(), now()
         )
         on conflict(subject_person_id, grantee_account_id, context_type, context_id)
@@ -360,17 +365,21 @@ export function createHealthDocumentSharingStore(databaseUrl: string) {
           metadata_json, created_at_utc
         ) values (
           ${crypto.randomUUID()}::uuid, ${appUserId}::uuid,
-          ${update.canViewDocuments
-            ? "health_record.documents.sharing_granted"
-            : "health_record.documents.sharing_revoked"},
+          ${
+        update.canViewDocuments
+          ? "health_record.documents.sharing_granted"
+          : "health_record.documents.sharing_revoked"
+      },
           'care_relationship', ${relationshipId}::uuid,
-          ${JSON.stringify({
-            scope: readScope,
-            accessMode: "read_only",
-            consentVersion: update.canViewDocuments
-              ? healthDocumentSharingConsentVersion
-              : null,
-          })}::jsonb,
+          ${
+        JSON.stringify({
+          scope: readScope,
+          accessMode: "read_only",
+          consentVersion: update.canViewDocuments
+            ? healthDocumentSharingConsentVersion
+            : null,
+        })
+      }::jsonb,
           now()
         )
       `;

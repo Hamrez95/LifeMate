@@ -285,35 +285,35 @@ async function route(
   if (subscriptionResponse) return subscriptionResponse;
 
   const healthDocumentSharingMatch = path.match(
-  /^\/api\/v1\/health-record\/relationships\/([0-9a-f-]{36})\/document-sharing$/i,
-);
-if (healthDocumentSharingMatch && request.method === "GET") {
-  enforceRateLimit(
-    `health-document-sharing-read:${identity.appUserId}`,
-    60,
-    60 * 60_000,
+    /^\/api\/v1\/health-record\/relationships\/([0-9a-f-]{36})\/document-sharing$/i,
   );
-  return json(
-    await healthDocumentSharing.getPermission(
-      identity.appUserId,
-      healthDocumentSharingMatch[1],
-    ),
-  );
-}
-if (healthDocumentSharingMatch && request.method === "PATCH") {
-  enforceRateLimit(
-    `health-document-sharing-write:${identity.appUserId}`,
-    20,
-    60 * 60_000,
-  );
-  return json(
-    await healthDocumentSharing.updatePermission(
-      identity.appUserId,
-      healthDocumentSharingMatch[1],
-      parseHealthDocumentSharingUpdate(await readJsonObject(request)),
-    ),
-  );
-}
+  if (healthDocumentSharingMatch && request.method === "GET") {
+    enforceRateLimit(
+      `health-document-sharing-read:${identity.appUserId}`,
+      60,
+      60 * 60_000,
+    );
+    return json(
+      await healthDocumentSharing.getPermission(
+        identity.appUserId,
+        healthDocumentSharingMatch[1],
+      ),
+    );
+  }
+  if (healthDocumentSharingMatch && request.method === "PATCH") {
+    enforceRateLimit(
+      `health-document-sharing-write:${identity.appUserId}`,
+      20,
+      60 * 60_000,
+    );
+    return json(
+      await healthDocumentSharing.updatePermission(
+        identity.appUserId,
+        healthDocumentSharingMatch[1],
+        parseHealthDocumentSharingUpdate(await readJsonObject(request)),
+      ),
+    );
+  }
 
   if (request.method === "GET" && path === "/api/v1/health-record/documents") {
     enforceRateLimit(
