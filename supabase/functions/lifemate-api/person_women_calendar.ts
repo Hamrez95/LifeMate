@@ -449,10 +449,16 @@ export function createPersonWomenCalendarStore(databaseUrl: string) {
       "privateNotes",
       500,
     );
-    const shareSummaryWithCompanion = requiredBoolean(
-      body.shareSummaryWithCompanion,
+    const shareSummaryProvided = Object.hasOwn(
+      body,
       "shareSummaryWithCompanion",
     );
+    const shareSummaryWithCompanion = shareSummaryProvided
+      ? requiredBoolean(
+        body.shareSummaryWithCompanion,
+        "shareSummaryWithCompanion",
+      )
+      : null;
     const now = new Date();
 
     return await sql.begin(async (tx: any) => {
@@ -477,7 +483,7 @@ export function createPersonWomenCalendarStore(databaseUrl: string) {
           values
             (${id}::uuid, ${appUserId}::uuid, ${personId}::uuid,
              ${loggedOn}::date, ${mood}, ${energyLevel}, ${painLevel},
-             ${symptoms}, ${privateNotes}, ${shareSummaryWithCompanion},
+             ${symptoms}, ${privateNotes}, ${shareSummaryWithCompanion ?? false},
              1, ${now}, ${now})
           returning *
         `;

@@ -152,6 +152,23 @@ Deno.test({
         "daily note that must remain owner only",
       );
 
+      const privateReplay = await women.upsertOwnerDailyLog(
+        patient.appUserId,
+        {
+          version: privateReplay.version,
+          loggedOn: recentDailyLogDate,
+          mood: "low",
+          energyLevel: 2,
+          painLevel: 2,
+          symptoms: ["cramps"],
+          privateNotes: "offline owner replay stays private",
+        },
+      );
+      assertEquals(privateReplay.version, 2);
+      assertEquals(privateReplay.mood, "low");
+      assertEquals(privateReplay.energyLevel, 2);
+      assertEquals(privateReplay.shareSummaryWithCompanion, false);
+
       const ownerDailyLogs = await women.listOwnerDailyLogs(
         patient.appUserId,
         recentDailyLogDate,
@@ -198,8 +215,23 @@ Deno.test({
           shareSummaryWithCompanion: true,
         },
       );
-      assertEquals(sharedDailyLog.version, 2);
+      assertEquals(sharedDailyLog.version, 3);
       assertEquals(sharedDailyLog.shareSummaryWithCompanion, true);
+
+      const sharedPreservingReplay = await women.upsertOwnerDailyLog(
+        patient.appUserId,
+        {
+          version: sharedDailyLog.version,
+          loggedOn: recentDailyLogDate,
+          mood: "good",
+          energyLevel: 4,
+          painLevel: 1,
+          symptoms: ["fatigue"],
+          privateNotes: "offline replay must preserve existing share true",
+        },
+      );
+      assertEquals(sharedPreservingReplay.version, 4);
+      assertEquals(sharedPreservingReplay.shareSummaryWithCompanion, true);
 
       const summary = await women.getCareSummary(
         caregiver.appUserId,
