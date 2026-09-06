@@ -121,6 +121,13 @@ final class WomenDailyLogOfflineBridge {
     ),
   );
 
+  Future<List<Map<String, dynamic>>> pendingEpisodeCreates() =>
+      Future<List<Map<String, dynamic>>>.error(
+        UnsupportedError(
+          'Protected offline health execution is unavailable on web.',
+        ),
+      );
+
   Future<void> enqueueEpisodeUpdate({
     required String mutationId,
     required String episodeId,
