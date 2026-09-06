@@ -96,7 +96,7 @@ void main() {
       expect(projected.rows, hasLength(1));
       expect(projected.rows.single['mood'], 'good');
       expect(projected.rows.single['energyLevel'], 4);
-      expect(projected.rows.single['periodFlow'], isNull);
+      expect(projected.rows.single['periodFlow'], 'light');
       expect(projected.rows.single['pendingSync'], isTrue);
       expect(projected.rows.single['serverConfirmed'], isFalse);
       expect(projected.pendingDates, contains('2026-09-05'));
