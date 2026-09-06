@@ -1,7 +1,4 @@
-import {
-  assertEquals,
-  assertThrows,
-} from "jsr:@std/assert@1.0.14";
+import { assertEquals, assertThrows } from "jsr:@std/assert@1.0.14";
 import {
   healthDocumentSharingConsentVersion,
   parseHealthDocumentSharingUpdate,
