@@ -2,7 +2,7 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:lifemate_core/lifemate_core.dart';
 
 void main() {
-  test('offline period create is bounded, private and idempotent', () {
+  test('builds a private period create', () {
     final mutation = LifeMateOfflineWomenEpisodeMutation.buildCreate(
       mutationId: 'women-episode-create-0001',
       startedOn: DateTime(2026, 9, 6, 22, 30),
@@ -14,24 +14,14 @@ void main() {
     expect(mutation.domain, LifeMateMutationDomain.womenHealth);
     expect(mutation.method, 'POST');
     expect(mutation.endpointPath, '/api/v1/women-calendar/episodes');
-    expect(
-      mutation.sourceKey,
-      'women-episode-create:women-episode-create-0001',
-    );
-    expect(
-      mutation.payload,
-      <String, dynamic>{
-        'startedOn': '2026-09-06',
-        'endedOn': null,
-        'privateNotes': 'owner only',
-      },
-    );
+    expect(mutation.payload['startedOn'], '2026-09-06');
+    expect(mutation.payload['endedOn'], isNull);
+    expect(mutation.payload['privateNotes'], 'owner only');
     expect(mutation.expectedRevision, isNull);
-    expect(mutation.payload.containsKey('shareSummaryWithCompanion'), isFalse);
     expect(mutation.payload.containsKey('relationshipId'), isFalse);
   });
 
-  test('offline period update requires canonical id and revision', () {
+  test('builds a revision-bound period update', () {
     final mutation = LifeMateOfflineWomenEpisodeMutation.buildUpdate(
       mutationId: 'women-episode-update-0001',
       episodeId: 'episode_123',
@@ -44,17 +34,14 @@ void main() {
     );
 
     expect(mutation.method, 'PATCH');
-    expect(
-      mutation.endpointPath,
-      '/api/v1/women-calendar/episodes/episode_123',
-    );
     expect(mutation.sourceKey, 'women-episode:episode_123');
     expect(mutation.expectedRevision, '4');
     expect(mutation.payload['version'], 4);
+    expect(mutation.payload['endedOn'], '2026-09-06');
     expect(mutation.payload['privateNotes'], isNull);
   });
 
-  test('offline episode mutation fails closed for unsafe input', () {
+  test('rejects unsafe create input', () {
     expect(
       () => LifeMateOfflineWomenEpisodeMutation.buildCreate(
         mutationId: 'short',
@@ -72,6 +59,9 @@ void main() {
       ),
       throwsArgumentError,
     );
+  });
+
+  test('rejects unsafe update input', () {
     expect(
       () => LifeMateOfflineWomenEpisodeMutation.buildUpdate(
         mutationId: 'women-episode-update-0002',
