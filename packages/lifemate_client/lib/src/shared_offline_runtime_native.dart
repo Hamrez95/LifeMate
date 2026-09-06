@@ -8,6 +8,7 @@ import 'offline_mutation_queue.dart' show LifeMateMutationStorage;
 import 'offline_sync_result.dart';
 import 'women_calendar_offline.dart';
 import 'women_calendar_offline_snapshot.dart';
+import 'women_episode_offline_outbox.dart';
 
 final class LifeMateLocalDataPurgeConfirmationRequiredException
     implements Exception {
@@ -506,6 +507,74 @@ final class LifeMateSharedOfflineRuntime {
       loggedOn: loggedOn,
       version: version,
       timeZone: _timeZone,
+      createdAtUtc: createdAtUtc,
+    );
+  }
+
+  Future<void> enqueueWomenEpisodeCreate({
+    required String mutationId,
+    required DateTime startedOn,
+    DateTime? endedOn,
+    String? privateNotes,
+    DateTime? createdAtUtc,
+  }) async {
+    _requireOpen();
+    final adapter = WomenEpisodeOfflineOutbox.forTesting(
+      store: _store,
+      namespace: _localNamespace,
+      timeZone: _timeZone,
+    );
+    await adapter.enqueueCreate(
+      mutationId: mutationId,
+      startedOn: startedOn,
+      endedOn: endedOn,
+      privateNotes: privateNotes,
+      createdAtUtc: createdAtUtc,
+    );
+  }
+
+  Future<void> coalescePendingWomenEpisodeCreate({
+    required String mutationId,
+    required DateTime startedOn,
+    DateTime? endedOn,
+    String? privateNotes,
+  }) async {
+    _requireOpen();
+    final adapter = WomenEpisodeOfflineOutbox.forTesting(
+      store: _store,
+      namespace: _localNamespace,
+      timeZone: _timeZone,
+    );
+    await adapter.coalescePendingCreate(
+      mutationId: mutationId,
+      startedOn: startedOn,
+      endedOn: endedOn,
+      privateNotes: privateNotes,
+    );
+  }
+
+  Future<void> enqueueWomenEpisodeUpdate({
+    required String mutationId,
+    required String episodeId,
+    required int version,
+    required DateTime startedOn,
+    DateTime? endedOn,
+    String? privateNotes,
+    DateTime? createdAtUtc,
+  }) async {
+    _requireOpen();
+    final adapter = WomenEpisodeOfflineOutbox.forTesting(
+      store: _store,
+      namespace: _localNamespace,
+      timeZone: _timeZone,
+    );
+    await adapter.enqueueUpdate(
+      mutationId: mutationId,
+      episodeId: episodeId,
+      version: version,
+      startedOn: startedOn,
+      endedOn: endedOn,
+      privateNotes: privateNotes,
       createdAtUtc: createdAtUtc,
     );
   }
