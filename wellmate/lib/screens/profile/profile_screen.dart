@@ -12,7 +12,6 @@ import '../../localization/locale_provider.dart';
 import '../../providers/settings_provider.dart';
 import 'care_access_phone_screen.dart';
 import 'editable_profile_screen.dart';
-import 'health_record_screen.dart';
 import 'profile_destination_screens.dart';
 import 'subscription_center_screen.dart';
 
