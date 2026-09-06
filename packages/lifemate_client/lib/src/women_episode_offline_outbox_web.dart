@@ -31,6 +31,9 @@ final class WomenEpisodeOfflineOutbox {
     String? privateNotes,
   }) => Future<void>.error(_unsupported());
 
+  Future<List<Map<String, dynamic>>> pendingCreates() =>
+      Future<List<Map<String, dynamic>>>.error(_unsupported());
+
   Future<void> enqueueUpdate({
     required String mutationId,
     required String episodeId,
