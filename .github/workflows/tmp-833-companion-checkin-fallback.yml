@@ -1,0 +1,84 @@
+name: tmp-833-companion-checkin-fallback
+
+on:
+  push:
+    branches:
+      - feat/offline-833-companion-checkin-fallback-20260906
+
+permissions:
+  contents: write
+
+jobs:
+  patch:
+    if: github.actor != 'github-actions[bot]'
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd
+        with:
+          ref: feat/offline-833-companion-checkin-fallback-20260906
+          fetch-depth: 1
+      - uses: subosito/flutter-action@4cab68ce0f1c7c924f688bff4792e044f1aeb30c
+        with:
+          flutter-version: '3.44.0'
+          channel: stable
+          cache: true
+      - name: Apply bounded fallback changes
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 <<'PY'
+          from pathlib import Path
+
+          def replace(path, old, new):
+              p = Path(path)
+              text = p.read_text()
+              if old not in text:
+                  raise SystemExit(f'expected snippet missing: {path}')
+              p.write_text(text.replace(old, new, 1))
+
+          api = 'packages/lifemate_client/lib/src/women_companion_api.dart'
+          replace(api,
+          """    String? privateNotes,\n    required bool shareSummaryWithCompanion,\n  }) async {\n""",
+          """    String? privateNotes,\n    required bool shareSummaryWithCompanion,\n    String? clientRequestId,\n  }) async {\n""")
+          replace(api,
+          """      idempotencyKey: LifeMateApiClient.createClientRequestId(),\n""",
+          """      idempotencyKey:\n          clientRequestId ?? LifeMateApiClient.createClientRequestId(),\n""")
+
+          screen = 'wellmate/lib/screens/women_calendar/women_companion_screen.dart'
+          replace(screen,
+          """import 'women_companion_dashboard_loader.dart';\nimport 'women_companion_people_hero.dart';\n""",
+          """import 'women_companion_daily_log_offline_policy.dart';\nimport 'women_companion_dashboard_loader.dart';\nimport 'women_companion_people_hero.dart';\nimport 'women_daily_log_offline_bridge.dart';\n""")
+          replace(screen,
+          """    setState(() => _saving = true);\n    try {\n      await _companionApi.saveDailyLog(\n""",
+          """    setState(() => _saving = true);\n    final clientRequestId = LifeMateApiClient.createClientRequestId();\n    try {\n      await _companionApi.saveDailyLog(\n""")
+          replace(screen,
+          """        privateNotes: draft.privateNotes,\n        shareSummaryWithCompanion: draft.shareWithCompanion,\n      );\n""",
+          """        privateNotes: draft.privateNotes,\n        shareSummaryWithCompanion: draft.shareWithCompanion,\n        clientRequestId: clientRequestId,\n      );\n""")
+          marker = """    } on LifeMateApiException catch (error) {\n      if (!mounted) return;\n      LifeMateNotice.show(\n"""
+          replacement = """    } on LifeMateApiException catch (error) {\n      if (\n        WomenCompanionDailyLogOfflinePolicy.canQueueAfter(error) &&\n        WomenCompanionDailyLogOfflinePolicy.canQueuePrivateMutation(\n          current: current,\n          requestedShareWithCompanion: draft.shareWithCompanion,\n        )\n      ) {\n        WomenDailyLogOfflineBridge? offline;\n        try {\n          offline = await WomenDailyLogOfflineBridge.open(\n            apiClient: context.read<LifeMateApiClient>(),\n          );\n          await offline.enqueueUpsert(\n            mutationId: clientRequestId,\n            loggedOn: date,\n            version: current?['version'] is int\n                ? current!['version'] as int\n                : 0,\n            mood: draft.mood,\n            energyLevel: draft.energyLevel,\n            painLevel: draft.painLevel,\n            symptoms: draft.symptoms.toSet(),\n            privateNotes: draft.privateNotes,\n          );\n          if (!mounted) return;\n          final pending = <String, dynamic>{\n            ...?current,\n            'loggedOn': _dateKey(date),\n            'mood': draft.mood.trim().toLowerCase(),\n            'energyLevel': draft.energyLevel,\n            'painLevel': draft.painLevel,\n            'symptoms': draft.symptoms,\n            'privateNotes': draft.privateNotes,\n            'shareSummaryWithCompanion': false,\n            'version': current?['version'] is int\n                ? current!['version'] as int\n                : 0,\n            'pendingSync': true,\n            'serverConfirmed': false,\n          };\n          setState(() {\n            _dailyLogs = <Map<String, dynamic>>[\n              ..._dailyLogs.where(\n                (log) => log['loggedOn']?.toString() != _dateKey(date),\n              ),\n              pending,\n            ];\n          });\n          LifeMateNotice.show(\n            context,\n            type: LifeMateNoticeType.success,\n            title: LifeMateRuntimeLocale.select(\n              fa: 'روی این دستگاه ذخیره شد',\n              en: 'Saved on this device',\n            ),\n            message: LifeMateRuntimeLocale.select(\n              fa: 'این ثبت خصوصی است و بعد از اتصال دوباره همگام می‌شود.',\n              en: 'This private check-in will sync after reconnection.',\n            ),\n          );\n          return;\n        } on UnsupportedError {\n          // Web deliberately has no protected PHI persistence.\n        } on LifeMateApiException {\n          // Protected runtime unavailable: preserve the original API failure.\n        } on StateError {\n          // Protected runtime unavailable: preserve the original API failure.\n        } finally {\n          offline?.close();\n        }\n      }\n      if (!mounted) return;\n      LifeMateNotice.show(\n"""
+          replace(screen, marker, replacement)
+
+          test = 'wellmate/test/women_companion_experience_test.dart'
+          replace(test,
+          """    String? privateNotes,\n    required bool shareSummaryWithCompanion,\n  }) async => {\n""",
+          """    String? privateNotes,\n    required bool shareSummaryWithCompanion,\n    String? clientRequestId,\n  }) async => {\n""")
+          PY
+
+          dart format \
+            packages/lifemate_client/lib/src/women_companion_api.dart \
+            wellmate/lib/screens/women_calendar/women_companion_screen.dart \
+            wellmate/lib/screens/women_calendar/women_companion_daily_log_offline_policy.dart \
+            wellmate/test/women_companion_experience_test.dart \
+            wellmate/test/women_companion_daily_log_offline_policy_test.dart
+          rm .github/workflows/tmp-833-companion-checkin-fallback.yml
+      - name: Commit reconciled source only
+        shell: bash
+        run: |
+          set -euo pipefail
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          test ! -e .github/workflows/tmp-833-companion-checkin-fallback.yml
+          git add packages/lifemate_client/lib/src/women_companion_api.dart wellmate/lib/screens/women_calendar/women_companion_screen.dart wellmate/lib/screens/women_calendar/women_companion_daily_log_offline_policy.dart wellmate/test/women_companion_experience_test.dart wellmate/test/women_companion_daily_log_offline_policy_test.dart .github/workflows/tmp-833-companion-checkin-fallback.yml
+          git diff --cached --check
+          git commit -m 'feat(women): queue private companion check-ins offline'
+          git push origin HEAD:feat/offline-833-companion-checkin-fallback-20260906
