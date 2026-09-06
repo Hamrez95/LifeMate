@@ -174,14 +174,18 @@ class _PersonalInformationScreenState extends State<PersonalInformationScreen> {
   }
 }
 
-class HealthRecordScreen extends StatefulWidget {
-  const HealthRecordScreen({super.key});
+/// Historical medication-adherence summary kept temporarily for route safety.
+/// The private document-first record lives in health_record_screen.dart.
+class LegacyHealthRecordSummaryScreen extends StatefulWidget {
+  const LegacyHealthRecordSummaryScreen({super.key});
 
   @override
-  State<HealthRecordScreen> createState() => _HealthRecordScreenState();
+  State<LegacyHealthRecordSummaryScreen> createState() =>
+      _LegacyHealthRecordSummaryScreenState();
 }
 
-class _HealthRecordScreenState extends State<HealthRecordScreen> {
+class _LegacyHealthRecordSummaryScreenState
+    extends State<LegacyHealthRecordSummaryScreen> {
   late Future<List<dynamic>> _future;
 
   @override
