@@ -31,6 +31,7 @@ class LifeMateSharedProfileScreen extends StatelessWidget {
     required this.onManageSubscriptions,
     this.legalPrivacyApi,
     this.feedbackBuilder,
+    this.additionalActions = const <legacy.LifeMateProfileAdditionalAction>[],
   });
 
   final LifeMateApiClient apiClient;
@@ -51,12 +52,14 @@ class LifeMateSharedProfileScreen extends StatelessWidget {
   final VoidCallback onManageSubscriptions;
   final LifeMateLegalPrivacyApi? legalPrivacyApi;
   final WidgetBuilder? feedbackBuilder;
+  final List<legacy.LifeMateProfileAdditionalAction> additionalActions;
 
   bool get _isCareMate => appName.trim().toLowerCase() == 'caremate';
 
   @override
   Widget build(BuildContext context) {
     final supplementalActions = <legacy.LifeMateProfileAdditionalAction>[
+      ...additionalActions,
       if (_isCareMate)
         legacy.LifeMateProfileAdditionalAction(
           key: const ValueKey('profile-companion-guidance'),
