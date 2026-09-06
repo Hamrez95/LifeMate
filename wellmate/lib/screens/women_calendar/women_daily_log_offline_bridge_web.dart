@@ -98,6 +98,43 @@ final class WomenDailyLogOfflineBridge {
     ),
   );
 
+  Future<void> enqueueEpisodeCreate({
+    required String mutationId,
+    required DateTime startedOn,
+    DateTime? endedOn,
+    String? privateNotes,
+    DateTime? createdAtUtc,
+  }) => Future<void>.error(
+    UnsupportedError(
+      'Protected offline health execution is unavailable on web.',
+    ),
+  );
+
+  Future<void> coalescePendingEpisodeCreate({
+    required String mutationId,
+    required DateTime startedOn,
+    DateTime? endedOn,
+    String? privateNotes,
+  }) => Future<void>.error(
+    UnsupportedError(
+      'Protected offline health execution is unavailable on web.',
+    ),
+  );
+
+  Future<void> enqueueEpisodeUpdate({
+    required String mutationId,
+    required String episodeId,
+    required int version,
+    required DateTime startedOn,
+    DateTime? endedOn,
+    String? privateNotes,
+    DateTime? createdAtUtc,
+  }) => Future<void>.error(
+    UnsupportedError(
+      'Protected offline health execution is unavailable on web.',
+    ),
+  );
+
   Future<LifeMateOfflineSyncResult> flush() =>
       Future<LifeMateOfflineSyncResult>.error(
         UnsupportedError(

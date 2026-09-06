@@ -160,6 +160,50 @@ final class WomenDailyLogOfflineBridge {
     );
   }
 
+  Future<void> enqueueEpisodeCreate({
+    required String mutationId,
+    required DateTime startedOn,
+    DateTime? endedOn,
+    String? privateNotes,
+    DateTime? createdAtUtc,
+  }) => _runtime.enqueueWomenEpisodeCreate(
+    mutationId: mutationId,
+    startedOn: startedOn,
+    endedOn: endedOn,
+    privateNotes: privateNotes,
+    createdAtUtc: createdAtUtc,
+  );
+
+  Future<void> coalescePendingEpisodeCreate({
+    required String mutationId,
+    required DateTime startedOn,
+    DateTime? endedOn,
+    String? privateNotes,
+  }) => _runtime.coalescePendingWomenEpisodeCreate(
+    mutationId: mutationId,
+    startedOn: startedOn,
+    endedOn: endedOn,
+    privateNotes: privateNotes,
+  );
+
+  Future<void> enqueueEpisodeUpdate({
+    required String mutationId,
+    required String episodeId,
+    required int version,
+    required DateTime startedOn,
+    DateTime? endedOn,
+    String? privateNotes,
+    DateTime? createdAtUtc,
+  }) => _runtime.enqueueWomenEpisodeUpdate(
+    mutationId: mutationId,
+    episodeId: episodeId,
+    version: version,
+    startedOn: startedOn,
+    endedOn: endedOn,
+    privateNotes: privateNotes,
+    createdAtUtc: createdAtUtc,
+  );
+
   Future<LifeMateOfflineSyncResult> flush() => _runtime.flushDetailed();
 
   void close() {
