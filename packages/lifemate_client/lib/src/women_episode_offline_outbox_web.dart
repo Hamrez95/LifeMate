@@ -24,6 +24,13 @@ final class WomenEpisodeOfflineOutbox {
     DateTime? createdAtUtc,
   }) => Future<void>.error(_unsupported());
 
+  Future<void> coalescePendingCreate({
+    required String mutationId,
+    required DateTime startedOn,
+    DateTime? endedOn,
+    String? privateNotes,
+  }) => Future<void>.error(_unsupported());
+
   Future<void> enqueueUpdate({
     required String mutationId,
     required String episodeId,
