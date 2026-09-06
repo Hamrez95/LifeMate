@@ -1,0 +1,91 @@
+name: tmp-833-client-bridge
+
+on:
+  push:
+    branches:
+      - feat/offline-833-owner-checkin-client-bridge-20260906
+
+permissions:
+  contents: write
+
+jobs:
+  patch:
+    if: github.actor != 'github-actions[bot]'
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd
+        with:
+          ref: feat/offline-833-owner-checkin-client-bridge-20260906
+          fetch-depth: 1
+      - uses: subosito/flutter-action@4cab68ce0f1c7c924f688bff4792e044f1aeb30c
+        with:
+          flutter-version: '3.44.0'
+          channel: stable
+          cache: true
+      - name: Apply bounded client bridge changes
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 <<'PY'
+          from pathlib import Path
+
+          def replace(path, old, new):
+              p = Path(path)
+              text = p.read_text()
+              if old not in text:
+                  raise SystemExit(f'expected snippet missing: {path}')
+              p.write_text(text.replace(old, new, 1))
+
+          native = 'packages/lifemate_client/lib/src/shared_offline_runtime_native.dart'
+          replace(native,
+          """    required int version,\n    String? periodFlow,\n    String? bloodAppearance,\n""",
+          """    required int version,\n    String? mood,\n    int? energyLevel,\n    String? periodFlow,\n    String? bloodAppearance,\n""")
+          replace(native,
+          """      version: version,\n      timeZone: _timeZone,\n      periodFlow: periodFlow,\n""",
+          """      version: version,\n      timeZone: _timeZone,\n      mood: mood,\n      energyLevel: energyLevel,\n      periodFlow: periodFlow,\n""")
+
+          web = 'packages/lifemate_client/lib/src/shared_offline_runtime_web.dart'
+          replace(web,
+          """    required int version,\n    String? periodFlow,\n    String? bloodAppearance,\n""",
+          """    required int version,\n    String? mood,\n    int? energyLevel,\n    String? periodFlow,\n    String? bloodAppearance,\n""")
+
+          bridge = 'wellmate/lib/screens/women_calendar/women_daily_log_offline_bridge_native.dart'
+          replace(bridge,
+          """    required int version,\n    String? periodFlow,\n    String? bloodAppearance,\n""",
+          """    required int version,\n    String? mood,\n    int? energyLevel,\n    String? periodFlow,\n    String? bloodAppearance,\n""")
+          replace(bridge,
+          """    version: version,\n    periodFlow: periodFlow,\n""",
+          """    version: version,\n    mood: mood,\n    energyLevel: energyLevel,\n    periodFlow: periodFlow,\n""")
+
+          bridge_web = 'wellmate/lib/screens/women_calendar/women_daily_log_offline_bridge_web.dart'
+          replace(bridge_web,
+          """    required int version,\n    String? periodFlow,\n    String? bloodAppearance,\n""",
+          """    required int version,\n    String? mood,\n    int? energyLevel,\n    String? periodFlow,\n    String? bloodAppearance,\n""")
+
+          test = 'packages/lifemate_client/test/shared_offline_runtime_women_health_test.dart'
+          replace(test,
+          """      version: 3,\n      periodFlow: 'medium',\n""",
+          """      version: 3,\n      mood: 'good',\n      energyLevel: 4,\n      periodFlow: 'medium',\n""")
+          replace(test,
+          """    expect(stored?.payload['privateNotes'], 'owner only');\n""",
+          """    expect(stored?.payload['mood'], 'good');\n    expect(stored?.payload['energyLevel'], 4);\n    expect(stored?.payload['privateNotes'], 'owner only');\n    expect(stored?.payload.containsKey('shareSummaryWithCompanion'), isFalse);\n""")
+          PY
+
+          dart format \
+            packages/lifemate_client/lib/src/shared_offline_runtime_native.dart \
+            packages/lifemate_client/lib/src/shared_offline_runtime_web.dart \
+            packages/lifemate_client/test/shared_offline_runtime_women_health_test.dart \
+            wellmate/lib/screens/women_calendar/women_daily_log_offline_bridge_native.dart \
+            wellmate/lib/screens/women_calendar/women_daily_log_offline_bridge_web.dart
+          rm .github/workflows/tmp-833-client-bridge.yml
+      - name: Commit reconciled source only
+        shell: bash
+        run: |
+          set -euo pipefail
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          test ! -e .github/workflows/tmp-833-client-bridge.yml
+          git add packages/lifemate_client wellmate/lib/screens/women_calendar/women_daily_log_offline_bridge_native.dart wellmate/lib/screens/women_calendar/women_daily_log_offline_bridge_web.dart .github/workflows/tmp-833-client-bridge.yml
+          git diff --cached --check
+          git commit -m 'feat(women): wire private owner check-in through shared client bridge'
+          git push origin HEAD:feat/offline-833-owner-checkin-client-bridge-20260906
