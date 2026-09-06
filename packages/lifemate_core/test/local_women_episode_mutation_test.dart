@@ -14,7 +14,10 @@ void main() {
     expect(mutation.domain, LifeMateMutationDomain.womenHealth);
     expect(mutation.method, 'POST');
     expect(mutation.endpointPath, '/api/v1/women-calendar/episodes');
-    expect(mutation.sourceKey, 'women-episode-create:women-episode-create-0001');
+    expect(
+      mutation.sourceKey,
+      'women-episode-create:women-episode-create-0001',
+    );
     expect(
       mutation.payload,
       <String, dynamic>{
