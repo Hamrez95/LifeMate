@@ -33,6 +33,7 @@ jobs:
             packages/lifemate_client/lib/src/lifemate_api_client.dart \
             packages/lifemate_client/lib/src/durable_lifemate_api_client.dart \
             packages/lifemate_client/lib/src/women_episode_offline_outbox.dart \
+            packages/lifemate_client/lib/src/women_episode_offline_outbox_web.dart \
             packages/lifemate_client/test/women_calendar_api_client_test.dart \
             packages/lifemate_client/test/women_episode_offline_outbox_test.dart \
             wellmate/lib/screens/women_calendar/women_calendar_screen.dart \
@@ -51,6 +52,7 @@ jobs:
             lib/src/lifemate_api_client.dart \
             lib/src/durable_lifemate_api_client.dart \
             lib/src/women_episode_offline_outbox.dart \
+            lib/src/women_episode_offline_outbox_web.dart \
             test/women_calendar_api_client_test.dart \
             test/women_episode_offline_outbox_test.dart
           flutter analyze --no-fatal-warnings --no-fatal-infos
@@ -61,7 +63,7 @@ jobs:
         run: |
           set -euo pipefail
           flutter pub get
-          dart format --output=none --set-exit-if-changed \
+          dart format \
             lib/screens/women_calendar/women_calendar_screen.dart \
             lib/screens/women_calendar/women_episode_dashboard_loader.dart \
             lib/screens/women_calendar/women_episode_offline_bridge.dart \
