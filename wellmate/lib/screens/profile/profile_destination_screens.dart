@@ -7,6 +7,8 @@ import 'package:provider/provider.dart';
 import '../../core/theme/app_style.dart';
 import '../../core/utils/persian_date_utils.dart';
 
+export 'health_record_screen.dart';
+
 class PersonalInformationScreen extends StatefulWidget {
   const PersonalInformationScreen({super.key});
 
