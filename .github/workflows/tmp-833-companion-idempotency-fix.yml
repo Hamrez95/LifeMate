@@ -1,0 +1,103 @@
+name: tmp-833-companion-idempotency-fix
+
+on:
+  push:
+    branches:
+      - feat/offline-833-companion-checkin-fallback-20260906
+
+permissions:
+  contents: write
+
+jobs:
+  patch:
+    if: github.actor != 'github-actions[bot]'
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd
+        with:
+          ref: feat/offline-833-companion-checkin-fallback-20260906
+          fetch-depth: 1
+      - uses: subosito/flutter-action@4cab68ce0f1c7c924f688bff4792e044f1aeb30c
+        with:
+          flutter-version: '3.44.0'
+          channel: stable
+          cache: true
+      - name: Apply replay-body identity fix
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 <<'PY'
+          from pathlib import Path
+
+          def replace(path, old, new):
+              p = Path(path)
+              text = p.read_text()
+              if old not in text:
+                  raise SystemExit(f'expected snippet missing: {path}')
+              p.write_text(text.replace(old, new, 1))
+
+          api = 'packages/lifemate_client/lib/src/women_companion_api.dart'
+          replace(api,
+          """    required bool shareSummaryWithCompanion,\n    String? clientRequestId,\n""",
+          """    bool? shareSummaryWithCompanion,\n    String? clientRequestId,\n""")
+          replace(api,
+          """        'privateNotes': _emptyToNull(privateNotes),\n        'shareSummaryWithCompanion': shareSummaryWithCompanion,\n""",
+          """        'privateNotes': _emptyToNull(privateNotes),\n        if (shareSummaryWithCompanion != null)\n          'shareSummaryWithCompanion': shareSummaryWithCompanion,\n""")
+
+          core = 'packages/lifemate_core/lib/src/local_women_daily_log_mutation.dart'
+          old_payload = """    final payload = <String, dynamic>{\n      'loggedOn': date,\n      'version': version,\n      if (normalizedMood != null) 'mood': normalizedMood,\n      if (energyLevel != null) 'energyLevel': energyLevel,\n      'periodFlow': _emptyToNull(periodFlow),\n      'bloodAppearance': _emptyToNull(bloodAppearance),\n      'bloodTexture': _emptyToNull(bloodTexture),\n      'painLevel': painLevel,\n      'symptoms': normalizedSymptoms,\n      'privateNotes': _emptyToNull(privateNotes),\n    };\n"""
+          new_payload = """    final ownerCheckIn = normalizedMood != null || energyLevel != null;\n    final normalizedPeriodFlow = _emptyToNull(periodFlow);\n    final normalizedBloodAppearance = _emptyToNull(bloodAppearance);\n    final normalizedBloodTexture = _emptyToNull(bloodTexture);\n    if (ownerCheckIn &&\n        (normalizedPeriodFlow != null ||\n            normalizedBloodAppearance != null ||\n            normalizedBloodTexture != null)) {\n      throw ArgumentError(\n        'Owner check-in and rich period-only fields must be queued separately.',\n      );\n    }\n    final payload = ownerCheckIn\n        ? <String, dynamic>{\n            // Keep insertion order identical to WomenCompanionApi so a lost\n            // online response can replay the exact same idempotent request.\n            'version': version,\n            'loggedOn': date,\n            if (normalizedMood != null) 'mood': normalizedMood,\n            if (energyLevel != null) 'energyLevel': energyLevel,\n            'painLevel': painLevel,\n            'symptoms': normalizedSymptoms\n                .map((value) => value.toLowerCase())\n                .toList(growable: false),\n            'privateNotes': _emptyToNull(privateNotes),\n          }\n        : <String, dynamic>{\n            'loggedOn': date,\n            'version': version,\n            'periodFlow': normalizedPeriodFlow,\n            'bloodAppearance': normalizedBloodAppearance,\n            'bloodTexture': normalizedBloodTexture,\n            'painLevel': painLevel,\n            'symptoms': normalizedSymptoms,\n            'privateNotes': _emptyToNull(privateNotes),\n          };\n"""
+          replace(core, old_payload, new_payload)
+
+          screen = 'wellmate/lib/screens/women_calendar/women_companion_screen.dart'
+          replace(screen,
+          """    final clientRequestId = LifeMateApiClient.createClientRequestId();\n    try {\n      await _companionApi.saveDailyLog(\n""",
+          """    final clientRequestId = LifeMateApiClient.createClientRequestId();\n    final currentShare = current?['shareSummaryWithCompanion'] == true;\n    final shareTransition = currentShare == draft.shareWithCompanion\n        ? null\n        : draft.shareWithCompanion;\n    final canonicalSymptoms = draft.symptoms\n        .map((value) => value.trim().toLowerCase())\n        .where((value) => value.isNotEmpty)\n        .toSet()\n        .toList(growable: false)\n      ..sort();\n    try {\n      await _companionApi.saveDailyLog(\n""")
+          replace(screen,
+          """        symptoms: draft.symptoms,\n        privateNotes: draft.privateNotes,\n        shareSummaryWithCompanion: draft.shareWithCompanion,\n""",
+          """        symptoms: canonicalSymptoms,\n        privateNotes: draft.privateNotes,\n        shareSummaryWithCompanion: shareTransition,\n""")
+          replace(screen,
+          """            symptoms: draft.symptoms.toSet(),\n            privateNotes: draft.privateNotes,\n""",
+          """            symptoms: canonicalSymptoms.toSet(),\n            privateNotes: draft.privateNotes,\n""")
+          replace(screen,
+          """            'symptoms': draft.symptoms,\n""",
+          """            'symptoms': canonicalSymptoms,\n""")
+
+          experience = 'wellmate/test/women_companion_experience_test.dart'
+          replace(experience,
+          """    required bool shareSummaryWithCompanion,\n    String? clientRequestId,\n""",
+          """    bool? shareSummaryWithCompanion,\n    String? clientRequestId,\n""")
+
+          api_test = 'packages/lifemate_client/test/women_companion_api_test.dart'
+          insert_after = """  test(\n    'daily log save sends explicit companion consent and idempotency key',\n"""
+          if insert_after not in Path(api_test).read_text():
+              raise SystemExit('api test anchor missing')
+          # Existing explicit-consent test already proves true is serialized. Add\n          # one focused test before the retry test for omitted sharing + supplied key.\n          anchor = """  test('daily log lost-response retry reuses one idempotency key', () async {\n"""
+          addition = """  test('private daily log can omit sharing and reuse caller idempotency key', () async {\n    late http.Request observed;\n    final api = WomenCompanionApi(\n      baseUri: Uri.parse('https://api.example.test'),\n      accessToken: () => 'access-token',\n      httpClient: MockClient((request) async {\n        observed = request;\n        return http.Response(\n          jsonEncode({\n            'id': 'daily-private',\n            'loggedOn': '2026-09-06',\n            'mood': 'good',\n            'energyLevel': 4,\n            'painLevel': 1,\n            'symptoms': ['fatigue'],\n            'privateNotes': null,\n            'shareSummaryWithCompanion': false,\n            'version': 1,\n          }),\n          200,\n          headers: {'content-type': 'application/json'},\n        );\n      }),\n    );\n\n    await api.saveDailyLog(\n      version: 0,\n      loggedOn: DateTime(2026, 9, 6),\n      mood: 'good',\n      energyLevel: 4,\n      painLevel: 1,\n      symptoms: const ['fatigue'],\n      privateNotes: null,\n      shareSummaryWithCompanion: null,\n      clientRequestId: 'women-private-0001',\n    );\n\n    expect(observed.headers['idempotency-key'], 'women-private-0001');\n    expect(observed.body, jsonEncode(<String, dynamic>{\n      'version': 0,\n      'loggedOn': '2026-09-06',\n      'mood': 'good',\n      'energyLevel': 4,\n      'painLevel': 1,\n      'symptoms': <String>['fatigue'],\n      'privateNotes': null,\n    }));\n  });\n\n"""
+          replace(api_test, anchor, addition + anchor)
+
+          core_test = 'packages/lifemate_core/test/local_women_daily_log_mutation_enqueue_test.dart'
+          replace(core_test,
+          """      expect(mutation.payload['privateNotes'], 'owner only');\n      expect(\n        mutation.payload.containsKey('shareSummaryWithCompanion'),\n        isFalse,\n      );\n""",
+          """      expect(mutation.payload['privateNotes'], 'owner only');\n      expect(mutation.payload.containsKey('periodFlow'), isFalse);\n      expect(mutation.payload.containsKey('bloodAppearance'), isFalse);\n      expect(mutation.payload.containsKey('bloodTexture'), isFalse);\n      expect(\n        mutation.payload.containsKey('shareSummaryWithCompanion'),\n        isFalse,\n      );\n      expect(\n        mutation.payload.keys.toList(growable: false),\n        <String>[\n          'version',\n          'loggedOn',\n          'mood',\n          'energyLevel',\n          'painLevel',\n          'symptoms',\n          'privateNotes',\n        ],\n      );\n""")
+          PY
+
+          dart format \
+            packages/lifemate_client/lib/src/women_companion_api.dart \
+            packages/lifemate_client/test/women_companion_api_test.dart \
+            packages/lifemate_core/lib/src/local_women_daily_log_mutation.dart \
+            packages/lifemate_core/test/local_women_daily_log_mutation_enqueue_test.dart \
+            wellmate/lib/screens/women_calendar/women_companion_screen.dart \
+            wellmate/test/women_companion_experience_test.dart
+          rm .github/workflows/tmp-833-companion-idempotency-fix.yml
+      - name: Commit reconciled source only
+        shell: bash
+        run: |
+          set -euo pipefail
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          test ! -e .github/workflows/tmp-833-companion-idempotency-fix.yml
+          git add packages/lifemate_client packages/lifemate_core wellmate/lib/screens/women_calendar/women_companion_screen.dart wellmate/test/women_companion_experience_test.dart .github/workflows/tmp-833-companion-idempotency-fix.yml
+          git diff --cached --check
+          git commit -m 'fix(women): keep companion fallback replay body idempotent'
+          git push origin HEAD:feat/offline-833-companion-checkin-fallback-20260906
