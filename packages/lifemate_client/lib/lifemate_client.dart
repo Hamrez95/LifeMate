@@ -55,6 +55,7 @@ export 'src/native_offline_api_stub.dart'
     if (dart.library.io) 'src/mutation_replay_transport.dart';
 export 'src/notification_intelligence.dart';
 export 'src/nullable_women_calendar_estimate.dart';
+export 'src/offline_identity_adoption.dart';
 export 'src/offline_mutation_queue.dart';
 export 'src/offline_sync_feedback.dart';
 export 'src/offline_sync_result.dart';
