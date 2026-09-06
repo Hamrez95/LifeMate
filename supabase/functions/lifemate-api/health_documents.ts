@@ -182,6 +182,120 @@ export function createHealthDocumentStore(databaseUrl: string) {
     };
   }
 
+  async function authorizedSubject(
+  connection: any,
+  appUserId: string,
+  subjectPersonIdValue: unknown,
+) {
+  const requester = await ownerIdentity(connection, appUserId);
+  const subjectPersonId = subjectPersonIdValue == null ||
+      String(subjectPersonIdValue).trim().length === 0
+    ? requester.personId
+    : requiredUuid(subjectPersonIdValue, "personId");
+  const rows = await connection`
+    select security.can_access_health_document_scope(
+      ${requester.accountId}::uuid,
+      ${subjectPersonId}::uuid,
+      'health_record.documents.read'
+    ) as allowed
+  `;
+  if (rows[0]?.allowed !== true) {
+    throw new ApiError(
+      403,
+      "health_document_access_denied",
+      "Explicit Health Record document access is required.",
+    );
+  }
+  return { accountId: requester.accountId, personId: subjectPersonId };
+}
+
+async function listDocuments(
+  appUserId: string,
+  subjectPersonIdValue: unknown,
+  query: HealthDocumentListQuery,
+) {
+  const { personId } = await authorizedSubject(
+    sql,
+    appUserId,
+    subjectPersonIdValue,
+  );
+  const cursor = parseDocumentCursor(query.cursor);
+  const rows = await sql`
+    select d.*,
+      coalesce(jsonb_agg(jsonb_build_object(
+        'contextType', l.context_type,
+        'contextId', l.context_id
+      )) filter (where l.document_id is not null), '[]'::jsonb) as links
+    from lifemate.health_documents d
+    left join lifemate.health_document_links l on l.document_id = d.id
+    where d.owner_person_id = ${personId}::uuid
+      and d.status = 'Available'
+      and (${query.category}::text is null or d.category = ${query.category})
+      and (${query.sourceProduct}::text is null or d.source_product = ${query.sourceProduct})
+      and (${query.fromDate}::date is null
+        or coalesce(d.captured_on, d.created_at_utc::date) >= ${query.fromDate}::date)
+      and (${query.toDate}::date is null
+        or coalesce(d.captured_on, d.created_at_utc::date) <= ${query.toDate}::date)
+      and (
+        ${cursor?.createdAtUtc ?? null}::timestamptz is null
+        or (d.created_at_utc, d.id) < (
+          ${cursor?.createdAtUtc ?? null}::timestamptz,
+          ${cursor?.id ?? null}::uuid
+        )
+      )
+    group by d.id
+    order by d.created_at_utc desc, d.id desc
+    limit ${query.limit + 1}
+  `;
+  const hasMore = rows.length > query.limit;
+  const items = rows.slice(0, query.limit).map(mapDocument);
+  const last = rows[Math.min(rows.length, query.limit) - 1];
+  return {
+    items,
+    nextCursor: hasMore && last ? encodeDocumentCursor(last) : null,
+  };
+}
+
+async function getAuthorizedDownload(
+  appUserId: string,
+  documentIdValue: unknown,
+) {
+  const documentId = requiredUuid(documentIdValue, "documentId");
+  return await sql.begin(async (tx: any) => {
+    const requester = await ownerIdentity(tx, appUserId);
+    const rows = await tx`
+      select d.*
+      from lifemate.health_documents d
+      where d.id = ${documentId}::uuid
+        and d.status = 'Available'
+        and security.can_access_health_document_scope(
+          ${requester.accountId}::uuid,
+          d.owner_person_id,
+          'health_record.documents.read'
+        )
+      limit 1
+    `;
+    if (!rows[0]) {
+      throw new ApiError(
+        404,
+        "health_document_not_found",
+        "Document was not found.",
+      );
+    }
+    await tx`
+      insert into lifemate.health_document_audit_events
+        (id, document_id, actor_account_id, action)
+      values
+        (${crypto.randomUUID()}::uuid, ${documentId}::uuid,
+         ${requester.accountId}::uuid, 'Downloaded')
+    `;
+    return {
+      ...mapDocument(rows[0]),
+      storageObjectKey: String(rows[0].storage_object_key),
+    };
+  });
+}
+
   async function ownerForUpload(appUserId: string) {
     return await ownerIdentity(sql, appUserId);
   }
@@ -223,6 +337,8 @@ export function createHealthDocumentStore(databaseUrl: string) {
     registerOwnerUpload,
     listOwnerDocuments,
     getOwnerDownload,
+    listDocuments,
+    getAuthorizedDownload,
   };
 }
 

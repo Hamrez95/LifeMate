@@ -12,7 +12,9 @@ import '../../core/utils/persian_date_utils.dart';
 /// requested only after the owner taps an item, keeping document access inside
 /// the reviewed Health Record API boundary.
 class HealthRecordScreen extends StatefulWidget {
-  const HealthRecordScreen({super.key});
+  const HealthRecordScreen({super.key, this.personId});
+
+  final String? personId;
 
   @override
   State<HealthRecordScreen> createState() => _HealthRecordScreenState();
@@ -31,6 +33,7 @@ class _HealthRecordScreenState extends State<HealthRecordScreen> {
 
   Future<LifeMateHealthDocumentPage> _load({String? cursor}) =>
       context.read<LifeMateApiClient>().getHealthDocumentPage(
+        personId: widget.personId,
         category: _selectedCategory,
         cursor: cursor,
       );
