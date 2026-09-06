@@ -27,4 +27,13 @@ final class WomenCompanionDailyLogOfflinePolicy {
     if (requestedShareWithCompanion) return false;
     return current?['shareSummaryWithCompanion'] != true;
   }
+
+  static String durableReplayMutationId(String onlineMutationId) {
+    final normalized = onlineMutationId.trim();
+    const suffix = '.offline';
+    if (normalized.isEmpty || normalized.length + suffix.length > 180) {
+      throw ArgumentError.value(onlineMutationId, 'onlineMutationId');
+    }
+    return '$normalized$suffix';
+  }
 }
