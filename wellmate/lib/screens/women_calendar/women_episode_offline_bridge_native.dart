@@ -21,23 +21,35 @@ final class WomenEpisodeOfflineBridge {
       );
     }
 
-    final capabilities = await apiClient.getCapabilities();
-    final personId = capabilities.selfPersonId?.trim();
-    final accountId = capabilities.accountId.trim();
-    if (personId == null || personId.isEmpty || accountId.isEmpty) {
-      throw const LifeMateApiException(
-        statusCode: 409,
-        code: 'identity_person_mapping_missing',
-        message: 'The LifeMate person mapping is unavailable.',
+    final config = AppConfig.fromEnvironment();
+    LifeMateLocalNamespace? localNamespace;
+    if (apiClient is DurableLifeMateApiClient) {
+      final active = apiClient.activeOfflineNamespace;
+      if (active != null) {
+        localNamespace = LifeMateLocalNamespace(
+          environmentId: active.environmentId,
+          accountId: active.accountId,
+          personId: active.personId,
+        );
+      }
+    }
+    if (localNamespace == null) {
+      final capabilities = await apiClient.getCapabilities();
+      final personId = capabilities.selfPersonId?.trim();
+      final accountId = capabilities.accountId.trim();
+      if (personId == null || personId.isEmpty || accountId.isEmpty) {
+        throw const LifeMateApiException(
+          statusCode: 409,
+          code: 'identity_person_mapping_missing',
+          message: 'The LifeMate person mapping is unavailable.',
+        );
+      }
+      localNamespace = LifeMateLocalNamespace(
+        environmentId: config.apiBaseUri.toString(),
+        accountId: accountId,
+        personId: personId,
       );
     }
-
-    final config = AppConfig.fromEnvironment();
-    final localNamespace = LifeMateLocalNamespace(
-      environmentId: config.apiBaseUri.toString(),
-      accountId: accountId,
-      personId: personId,
-    );
     final runtime = await LifeMateSharedOfflineRuntime.open(
       namespace: LifeMateOfflineNamespace(
         environmentId: localNamespace.environmentId,
@@ -67,24 +79,29 @@ final class WomenEpisodeOfflineBridge {
     required DateTime startedOn,
     DateTime? endedOn,
     String? privateNotes,
-  }) => _outbox.enqueueCreate(
-    mutationId: mutationId,
-    startedOn: startedOn,
-    endedOn: endedOn,
-    privateNotes: privateNotes,
-  );
+  }) =>
+      _outbox.enqueueCreate(
+        mutationId: mutationId,
+        startedOn: startedOn,
+        endedOn: endedOn,
+        privateNotes: privateNotes,
+      );
 
   Future<void> coalescePendingCreate({
     required String mutationId,
     required DateTime startedOn,
     DateTime? endedOn,
     String? privateNotes,
-  }) => _outbox.coalescePendingCreate(
-    mutationId: mutationId,
-    startedOn: startedOn,
-    endedOn: endedOn,
-    privateNotes: privateNotes,
-  );
+  }) =>
+      _outbox.coalescePendingCreate(
+        mutationId: mutationId,
+        startedOn: startedOn,
+        endedOn: endedOn,
+        privateNotes: privateNotes,
+      );
+
+  Future<void> cancelPendingCreate({required String mutationId}) =>
+      _outbox.cancelPendingCreate(mutationId: mutationId);
 
   Future<void> enqueueUpdate({
     required String mutationId,
@@ -93,18 +110,20 @@ final class WomenEpisodeOfflineBridge {
     required DateTime startedOn,
     DateTime? endedOn,
     String? privateNotes,
-  }) => _outbox.enqueueUpdate(
-    mutationId: mutationId,
-    episodeId: episodeId,
-    version: version,
-    startedOn: startedOn,
-    endedOn: endedOn,
-    privateNotes: privateNotes,
-  );
+  }) =>
+      _outbox.enqueueUpdate(
+        mutationId: mutationId,
+        episodeId: episodeId,
+        version: version,
+        startedOn: startedOn,
+        endedOn: endedOn,
+        privateNotes: privateNotes,
+      );
 
   Future<List<Map<String, dynamic>>> project(
     Iterable<Map<String, dynamic>> serverEpisodes,
-  ) => _outbox.project(serverEpisodes);
+  ) =>
+      _outbox.project(serverEpisodes);
 
   Future<LifeMateOfflineSyncResult> flush() => _runtime.flushDetailed();
 

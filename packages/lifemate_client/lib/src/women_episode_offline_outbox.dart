@@ -19,7 +19,8 @@ final class WomenEpisodeOfflineOutbox {
        _outbox = LifeMateLocalMutationOutbox(store: store);
 
   static const String _createEndpoint = '/api/v1/women-calendar/episodes';
-  static const String _updateEndpointPrefix = '/api/v1/women-calendar/episodes/';
+  static const String _updateEndpointPrefix =
+      '/api/v1/women-calendar/episodes/';
 
   final LifeMateLocalHealthStore _store;
   final LifeMateLocalNamespace _namespace;
@@ -136,6 +137,33 @@ final class WomenEpisodeOfflineOutbox {
       payload: replacement.toJson(),
       sourceRevision: replacement.expectedRevision,
       sourceUpdatedAtUtc: replacement.createdAtUtc,
+    );
+  }
+
+  Future<void> cancelPendingCreate({required String mutationId}) async {
+    _requireOpen();
+    final current = await _outbox.get(
+      namespace: _namespace,
+      mutationId: mutationId,
+    );
+    if (current == null ||
+        current.domain != LifeMateMutationDomain.womenHealth ||
+        current.sourceKey != 'women-episode-create:${current.mutationId}' ||
+        current.method != 'POST' ||
+        current.endpointPath != _createEndpoint ||
+        current.expectedRevision != null ||
+        current.timeZone != _timeZone ||
+        current.state != LifeMateMutationSyncState.pending ||
+        current.errorClass != LifeMateMutationErrorClass.none ||
+        current.attemptCount != 0 ||
+        current.nextAttemptAtUtc != null) {
+      throw StateError(
+        'Only an untouched pending Women episode create can be cancelled.',
+      );
+    }
+    await _outbox.acknowledge(
+      namespace: _namespace,
+      mutationId: current.mutationId,
     );
   }
 

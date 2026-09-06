@@ -7,6 +7,40 @@ import 'package:lifemate_client/lifemate_client.dart';
 
 void main() {
   test(
+    'women calendar episode create reuses caller idempotency identity',
+    () async {
+      late http.Request observed;
+      final api = LifeMateApiClient(
+        baseUri: Uri.parse('https://api.example.test'),
+        accessToken: () => 'access-token',
+        httpClient: MockClient((request) async {
+          observed = request;
+          return http.Response(
+            jsonEncode({
+              'id': 'episode-created',
+              'startedOn': '2026-09-06',
+              'endedOn': null,
+              'privateNotes': null,
+              'version': 1,
+            }),
+            200,
+            headers: {'content-type': 'application/json'},
+          );
+        }),
+      );
+
+      await api.createWomenCalendarEpisode(
+        startedOn: DateTime(2026, 9, 6),
+        clientRequestId: 'women-episode-create-0001',
+      );
+
+      expect(observed.method, 'POST');
+      expect(observed.url.path, '/api/v1/women-calendar/episodes');
+      expect(observed.headers['idempotency-key'], 'women-episode-create-0001');
+    },
+  );
+
+  test(
     'women calendar episode edit sends owner-only correction payload',
     () async {
       late http.Request observed;
@@ -35,11 +69,13 @@ void main() {
         startedOn: DateTime(2026, 8, 2),
         endedOn: DateTime(2026, 8, 6),
         privateNotes: '  یادداشت خصوصی اصلاح‌شده  ',
+        clientRequestId: 'women-episode-update-0001',
       );
 
       expect(observed.method, 'PATCH');
       expect(observed.url.path, '/api/v1/women-calendar/episodes/episode-1');
       expect(observed.headers['authorization'], 'Bearer access-token');
+      expect(observed.headers['idempotency-key'], 'women-episode-update-0001');
       expect(jsonDecode(observed.body), {
         'version': 3,
         'startedOn': '2026-08-02',

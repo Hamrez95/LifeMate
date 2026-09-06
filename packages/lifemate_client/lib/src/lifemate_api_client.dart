@@ -13,12 +13,24 @@ typedef AccessTokenProvider = String? Function();
 
 /// Stable category values shared with the private Health Record API.
 enum LifeMateHealthDocumentCategory {
-  prescription, labResult, imaging, visit, injection, discharge, vaccination, other;
+  prescription,
+  labResult,
+  imaging,
+  visit,
+  injection,
+  discharge,
+  vaccination,
+  other;
 
   String get wireValue => switch (this) {
-    prescription => 'prescription', labResult => 'lab_result', imaging => 'imaging',
-    visit => 'visit', injection => 'injection', discharge => 'discharge',
-    vaccination => 'vaccination', other => 'other',
+    prescription => 'prescription',
+    labResult => 'lab_result',
+    imaging => 'imaging',
+    visit => 'visit',
+    injection => 'injection',
+    discharge => 'discharge',
+    vaccination => 'vaccination',
+    other => 'other',
   };
 
   static LifeMateHealthDocumentCategory fromWire(String value) =>
@@ -29,17 +41,23 @@ enum LifeMateHealthDocumentCategory {
 }
 
 enum LifeMateHealthDocumentContextType {
-  treatmentPlan, careEvent;
+  treatmentPlan,
+  careEvent;
 
   String get wireValue => switch (this) {
-    treatmentPlan => 'treatment_plan', careEvent => 'care_event',
+    treatmentPlan => 'treatment_plan',
+    careEvent => 'care_event',
   };
 }
 
 class LifeMateHealthDocument {
   const LifeMateHealthDocument({
-    required this.id, required this.contentType, required this.byteSize,
-    required this.category, required this.capturedOn, required this.createdAtUtc,
+    required this.id,
+    required this.contentType,
+    required this.byteSize,
+    required this.category,
+    required this.capturedOn,
+    required this.createdAtUtc,
     required this.links,
   });
 
@@ -48,8 +66,13 @@ class LifeMateHealthDocument {
     final contentType = json['contentType']?.toString() ?? '';
     final byteSize = json['byteSize'];
     final category = json['category']?.toString() ?? '';
-    final createdAtUtc = DateTime.tryParse(json['createdAtUtc']?.toString() ?? '');
-    if (id.isEmpty || contentType.isEmpty || byteSize is! num || createdAtUtc == null) {
+    final createdAtUtc = DateTime.tryParse(
+      json['createdAtUtc']?.toString() ?? '',
+    );
+    if (id.isEmpty ||
+        contentType.isEmpty ||
+        byteSize is! num ||
+        createdAtUtc == null) {
       throw const FormatException('Invalid Health Record document payload.');
     }
     final links = (json['links'] as List<dynamic>? ?? const <dynamic>[])
@@ -57,10 +80,13 @@ class LifeMateHealthDocument {
         .map((value) => Map<String, dynamic>.from(value))
         .toList(growable: false);
     return LifeMateHealthDocument(
-      id: id, contentType: contentType, byteSize: byteSize.toInt(),
+      id: id,
+      contentType: contentType,
+      byteSize: byteSize.toInt(),
       category: LifeMateHealthDocumentCategory.fromWire(category),
       capturedOn: DateTime.tryParse(json['capturedOn']?.toString() ?? ''),
-      createdAtUtc: createdAtUtc.toUtc(), links: links,
+      createdAtUtc: createdAtUtc.toUtc(),
+      links: links,
     );
   }
 
@@ -75,7 +101,9 @@ class LifeMateHealthDocument {
 
 class LifeMateHealthDocumentDownload {
   const LifeMateHealthDocumentDownload({
-    required this.document, required this.signedUrl, required this.expiresIn,
+    required this.document,
+    required this.signedUrl,
+    required this.expiresIn,
   });
 
   final LifeMateHealthDocument document;
@@ -195,11 +223,13 @@ class LifeMateApiClient {
 
   /// Commerce data is server-authoritative; the client never supplies price,
   /// discount, trial duration, quota or conversion credit.
-  Future<Map<String, dynamic>> getSubscriptionSnapshot() async =>
-      _asObject(await _send('GET', '/api/v1/subscription/snapshot', retryable: true));
+  Future<Map<String, dynamic>> getSubscriptionSnapshot() async => _asObject(
+    await _send('GET', '/api/v1/subscription/snapshot', retryable: true),
+  );
 
-  Future<Map<String, dynamic>> getPeriodAccessSnapshot() async =>
-      _asObject(await _send('GET', '/api/v1/subscription/period-access', retryable: true));
+  Future<Map<String, dynamic>> getPeriodAccessSnapshot() async => _asObject(
+    await _send('GET', '/api/v1/subscription/period-access', retryable: true),
+  );
 
   Future<Map<String, dynamic>> startPeriodTrial({
     required String idempotencyKey,
@@ -673,11 +703,13 @@ class LifeMateApiClient {
     required String relationshipId,
     required int version,
     required Map<String, bool> scopes,
-  }) async => _asObject(await _send(
-    'PUT',
-    '/api/v1/women-calendar/companion-privacy/$relationshipId',
-    body: {'version': version, 'scopes': scopes},
-  ));
+  }) async => _asObject(
+    await _send(
+      'PUT',
+      '/api/v1/women-calendar/companion-privacy/$relationshipId',
+      body: {'version': version, 'scopes': scopes},
+    ),
+  );
 
   Future<Map<String, dynamic>> getWomenCalendarProfile() async => _asObject(
     await _send('GET', '/api/v1/women-calendar/profile', retryable: true),
@@ -726,6 +758,7 @@ class LifeMateApiClient {
     required DateTime startedOn,
     DateTime? endedOn,
     String? privateNotes,
+    String? clientRequestId,
   }) async => _asObject(
     await _send(
       'POST',
@@ -735,6 +768,8 @@ class LifeMateApiClient {
         'endedOn': endedOn == null ? null : _date(endedOn),
         'privateNotes': _emptyToNull(privateNotes),
       },
+      retryable: true,
+      idempotencyKey: clientRequestId,
     ),
   );
 
@@ -744,6 +779,7 @@ class LifeMateApiClient {
     required DateTime startedOn,
     required DateTime? endedOn,
     String? privateNotes,
+    String? clientRequestId,
   }) async => _asObject(
     await _send(
       'PATCH',
@@ -754,6 +790,8 @@ class LifeMateApiClient {
         'endedOn': endedOn == null ? null : _date(endedOn),
         'privateNotes': _emptyToNull(privateNotes),
       },
+      retryable: true,
+      idempotencyKey: clientRequestId,
     ),
   );
 

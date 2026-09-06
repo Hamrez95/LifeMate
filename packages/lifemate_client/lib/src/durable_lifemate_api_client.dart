@@ -30,9 +30,8 @@ final ValueNotifier<LifeMatePendingSyncEvent?> lifeMatePendingSyncEvent =
 final ValueNotifier<LifeMateOfflineSyncResult?> lifeMateOfflineSyncResult =
     ValueNotifier<LifeMateOfflineSyncResult?>(null);
 
-typedef LifeMateTreatmentReminderReconciler = Future<void> Function(
-  Map<String, dynamic> serverSnapshot,
-);
+typedef LifeMateTreatmentReminderReconciler =
+    Future<void> Function(Map<String, dynamic> serverSnapshot);
 
 /// Privacy-minimal outcome for one treatment reconnect cycle.
 final class LifeMateTreatmentReconnectResult {
@@ -109,6 +108,16 @@ class DurableLifeMateApiClient extends LifeMateApiClient {
   LifeMateSharedOfflineRuntime? _sharedRuntime;
   LifeMateCareEventProjectionSync? _careEventProjectionSync;
   String? _sharedRuntimeLegacyAccountId;
+
+  LifeMateLocalNamespace? get activeOfflineNamespace {
+    final namespace = _activeSharedRuntime()?.namespace;
+    if (namespace == null) return null;
+    return LifeMateLocalNamespace(
+      environmentId: namespace.environmentId,
+      accountId: namespace.accountId,
+      personId: namespace.personId,
+    );
+  }
 
   @override
   Future<Map<String, dynamic>> bootstrapUser({
@@ -358,7 +367,8 @@ class DurableLifeMateApiClient extends LifeMateApiClient {
     }
   }
 
-  Future<List<Map<String, dynamic>>> pendingOfflineTreatmentPlanCreates() async {
+  Future<List<Map<String, dynamic>>>
+  pendingOfflineTreatmentPlanCreates() async {
     final runtime = _activeSharedRuntime();
     if (runtime == null) {
       throw StateError(

@@ -9,6 +9,9 @@ import '../profile/subscription_center_screen.dart';
 import 'women_calendar_experience_widgets.dart';
 import 'women_calendar_management_widgets.dart';
 import 'women_calendar_month_card.dart';
+import 'women_episode_dashboard_loader.dart';
+import 'women_episode_offline_bridge.dart';
+import 'women_episode_offline_policy.dart';
 
 class WomenCalendarScreen extends StatefulWidget {
   const WomenCalendarScreen({super.key, this.onProfileChanged});
@@ -106,10 +109,9 @@ class _WomenCalendarScreenState extends State<WomenCalendarScreen> {
     try {
       final api = context.read<LifeMateApiClient>();
       final now = DateTime.now();
-      final dashboard = await api.getWomenCalendarDashboard(
-        fromDate: now.subtract(const Duration(days: 89)),
-        toDate: now,
-      );
+      final dashboard = await WomenEpisodeDashboardLoader(
+        api,
+      ).load(fromDate: now.subtract(const Duration(days: 89)), toDate: now);
       if (!mounted) return;
       final profile = dashboard['profile'] as Map<String, dynamic>? ?? const {};
       setState(() {
@@ -166,18 +168,19 @@ class _WomenCalendarScreenState extends State<WomenCalendarScreen> {
     _lastPeriodStart = DateTime.tryParse(
       profile['lastPeriodStart']?.toString() ?? '',
     );
-    _cycleLength = profile['cycleLength'] is int
-        ? profile['cycleLength'] as int
-        : 28;
-    _periodLength = profile['periodLength'] is int
-        ? profile['periodLength'] as int
-        : 5;
+    _cycleLength =
+        profile['cycleLength'] is int ? profile['cycleLength'] as int : 28;
+    _periodLength =
+        profile['periodLength'] is int ? profile['periodLength'] as int : 5;
     _remindersEnabled = profile['remindersEnabled'] != false;
   }
 
   Future<void> _openSubscription() async {
     await Navigator.of(context).push<void>(
-      MaterialPageRoute<void>(builder: (_) => const LifeMateSubscriptionCenterScreen(focusPeriod: true)),
+      MaterialPageRoute<void>(
+        builder: (_) =>
+            const LifeMateSubscriptionCenterScreen(focusPeriod: true),
+      ),
     );
     await _load();
     await widget.onProfileChanged?.call();
@@ -207,16 +210,15 @@ class _WomenCalendarScreenState extends State<WomenCalendarScreen> {
     if (start == null || _saving) return;
     setState(() => _saving = true);
     try {
-      final profile = await context
-          .read<LifeMateApiClient>()
-          .updateWomenCalendarProfile(
-            version: _version,
-            enabled: true,
-            lastPeriodStart: start,
-            cycleLength: _cycleLength,
-            periodLength: _periodLength,
-            remindersEnabled: _remindersEnabled,
-          );
+      final profile =
+          await context.read<LifeMateApiClient>().updateWomenCalendarProfile(
+                version: _version,
+                enabled: true,
+                lastPeriodStart: start,
+                cycleLength: _cycleLength,
+                periodLength: _periodLength,
+                remindersEnabled: _remindersEnabled,
+              );
       if (!mounted) return;
       setState(() {
         _profile = profile;
@@ -280,59 +282,97 @@ class _WomenCalendarScreenState extends State<WomenCalendarScreen> {
     final draft = await _showEpisodeEditor();
     if (draft == null) return;
     setState(() => _saving = true);
+    final api = context.read<LifeMateApiClient>();
+    final clientRequestId = LifeMateApiClient.createClientRequestId();
     try {
-      await context.read<LifeMateApiClient>().createWomenCalendarEpisode(
+      await api.createWomenCalendarEpisode(
         startedOn: draft.startedOn,
         endedOn: draft.endedOn,
         privateNotes: draft.privateNotes,
+        clientRequestId: clientRequestId,
       );
       if (!mounted) return;
       LifeMateNotice.show(
         context,
         type: LifeMateNoticeType.success,
         title: LifeMateRuntimeLocale.select(
-          fa: LifeMateRuntimeLocale.select(
-            fa: 'دوره ثبت شد',
-            en: "The course was registered",
-          ),
-          en: "The course was registered",
+          fa: 'دوره ثبت شد',
+          en: 'Period saved',
         ),
         message: LifeMateRuntimeLocale.select(
-          fa: LifeMateRuntimeLocale.select(
-            fa: 'بازه دوره و یادداشت خصوصی ذخیره شد.',
-            en: "Course interval and private note saved.",
-          ),
-          en: "Course interval and private note saved.",
+          fa: 'بازه دوره و یادداشت خصوصی ذخیره شد.',
+          en: 'Period dates and private note were saved.',
         ),
       );
       await _load();
       await widget.onProfileChanged?.call();
     } on LifeMateApiException catch (error) {
+      if (WomenEpisodeOfflinePolicy.canQueueAfter(error)) {
+        WomenEpisodeOfflineBridge? offline;
+        try {
+          offline = await WomenEpisodeOfflineBridge.open(apiClient: api);
+          await offline.enqueueCreate(
+            mutationId: clientRequestId,
+            startedOn: draft.startedOn,
+            endedOn: draft.endedOn,
+            privateNotes: draft.privateNotes,
+          );
+          if (!mounted) return;
+          setState(() {
+            _episodes = <Map<String, dynamic>>[
+              ..._episodes,
+              <String, dynamic>{
+                'startedOn': _episodeDateKey(draft.startedOn),
+                'endedOn': draft.endedOn == null
+                    ? null
+                    : _episodeDateKey(draft.endedOn!),
+                'privateNotes': draft.privateNotes?.trim(),
+                'localMutationId': clientRequestId,
+                'version': 0,
+                'pendingSync': true,
+                'serverConfirmed': false,
+              },
+            ];
+          });
+          LifeMateNotice.show(
+            context,
+            type: LifeMateNoticeType.success,
+            title: LifeMateRuntimeLocale.select(
+              fa: 'روی این دستگاه ذخیره شد',
+              en: 'Saved on this device',
+            ),
+            message: LifeMateRuntimeLocale.select(
+              fa: 'این ثبت خصوصی است و بعد از اتصال دوباره همگام می‌شود.',
+              en: 'This private period entry will sync after reconnection.',
+            ),
+          );
+          return;
+        } on UnsupportedError {
+          // Web deliberately has no protected PHI persistence.
+        } on LifeMateApiException {
+          // Protected identity/runtime unavailable; preserve the original error.
+        } on StateError {
+          // Protected runtime unavailable; preserve the original error.
+        } finally {
+          offline?.close();
+        }
+      }
       if (!mounted) return;
       LifeMateNotice.show(
         context,
         type: LifeMateNoticeType.error,
         title: LifeMateRuntimeLocale.select(
-          fa: LifeMateRuntimeLocale.select(
-            fa: 'ثبت دوره انجام نشد',
-            en: "Course registration failed",
-          ),
-          en: "Course registration failed",
+          fa: 'ثبت دوره انجام نشد',
+          en: 'Period could not be saved',
         ),
         message: error.code == 'women_calendar_episode_overlap'
             ? LifeMateRuntimeLocale.select(
-                fa: LifeMateRuntimeLocale.select(
-                  fa: 'این بازه با یک ثبت قبلی هم‌پوشانی دارد.',
-                  en: "This interval overlaps with a previous record.",
-                ),
-                en: "This interval overlaps with a previous record.",
+                fa: 'این بازه با یک ثبت قبلی هم‌پوشانی دارد.',
+                en: 'This range overlaps an existing period entry.',
               )
             : LifeMateRuntimeLocale.select(
-                fa: LifeMateRuntimeLocale.select(
-                  fa: 'تغییرات ثبت دوره ذخیره نشد.',
-                  en: "Course registration changes were not saved.",
-                ),
-                en: "Course registration changes were not saved.",
+                fa: 'تغییرات ثبت دوره ذخیره نشد.',
+                en: 'Period changes were not saved.',
               ),
       );
     } finally {
@@ -343,35 +383,113 @@ class _WomenCalendarScreenState extends State<WomenCalendarScreen> {
   Future<void> _finishPeriodToday() async {
     final episode = _openEpisode;
     if (episode == null || _saving) return;
+    final startedOn = DateTime.parse(episode['startedOn'].toString());
+    final endedOn = DateTime.now();
+    final localMutationId = episode['localMutationId']?.toString().trim();
+    final canonicalId = episode['id']?.toString().trim();
     setState(() => _saving = true);
+    final api = context.read<LifeMateApiClient>();
     try {
-      await context.read<LifeMateApiClient>().updateWomenCalendarEpisode(
-        episodeId: episode['id'].toString(),
-        version: episode['version'] is int ? episode['version'] as int : 1,
-        startedOn: DateTime.parse(episode['startedOn'].toString()),
-        endedOn: DateTime.now(),
-        privateNotes: episode['privateNotes']?.toString(),
-      );
+      if (localMutationId != null &&
+          localMutationId.isNotEmpty &&
+          (canonicalId == null || canonicalId.isEmpty)) {
+        WomenEpisodeOfflineBridge? offline;
+        try {
+          offline = await WomenEpisodeOfflineBridge.open(apiClient: api);
+          await offline.coalescePendingCreate(
+            mutationId: localMutationId,
+            startedOn: startedOn,
+            endedOn: endedOn,
+            privateNotes: episode['privateNotes']?.toString(),
+          );
+          if (!mounted) return;
+          _replaceEpisodeLocally(episode, <String, dynamic>{
+            ...episode,
+            'endedOn': _episodeDateKey(endedOn),
+            'pendingSync': true,
+            'serverConfirmed': false,
+          });
+          _showEpisodePendingNotice();
+          return;
+        } finally {
+          offline?.close();
+        }
+      }
+
+      if (canonicalId == null || canonicalId.isEmpty) {
+        throw StateError('Canonical Women episode ID is unavailable.');
+      }
+      final clientRequestId = LifeMateApiClient.createClientRequestId();
+      try {
+        await api.updateWomenCalendarEpisode(
+          episodeId: canonicalId,
+          version: episode['version'] is int ? episode['version'] as int : 1,
+          startedOn: startedOn,
+          endedOn: endedOn,
+          privateNotes: episode['privateNotes']?.toString(),
+          clientRequestId: clientRequestId,
+        );
+      } on LifeMateApiException catch (error) {
+        if (!WomenEpisodeOfflinePolicy.canQueueAfter(error)) rethrow;
+        WomenEpisodeOfflineBridge? offline;
+        try {
+          offline = await WomenEpisodeOfflineBridge.open(apiClient: api);
+          await offline.enqueueUpdate(
+            mutationId: clientRequestId,
+            episodeId: canonicalId,
+            version: episode['version'] is int ? episode['version'] as int : 1,
+            startedOn: startedOn,
+            endedOn: endedOn,
+            privateNotes: episode['privateNotes']?.toString(),
+          );
+        } catch (_) {
+          rethrow;
+        } finally {
+          offline?.close();
+        }
+        if (!mounted) return;
+        _replaceEpisodeLocally(episode, <String, dynamic>{
+          ...episode,
+          'endedOn': _episodeDateKey(endedOn),
+          'localMutationId': clientRequestId,
+          'pendingSync': true,
+          'serverConfirmed': false,
+        });
+        _showEpisodePendingNotice();
+        return;
+      }
       if (!mounted) return;
       LifeMateNotice.show(
         context,
         type: LifeMateNoticeType.success,
         title: LifeMateRuntimeLocale.select(
-          fa: LifeMateRuntimeLocale.select(
-            fa: 'پایان دوره ثبت شد',
-            en: "The end of the course was recorded",
-          ),
-          en: "The end of the course was recorded",
+          fa: 'پایان دوره ثبت شد',
+          en: 'Period end saved',
         ),
         message: LifeMateRuntimeLocale.select(
-          fa: LifeMateRuntimeLocale.select(
-            fa: 'پایان دوره برای امروز ذخیره شد.',
-            en: "End of course saved for today.",
-          ),
-          en: "End of course saved for today.",
+          fa: 'پایان دوره برای امروز ذخیره شد.',
+          en: 'The period end was saved for today.',
         ),
       );
       await _load();
+    } on LifeMateApiException catch (error) {
+      if (!mounted) return;
+      _showEpisodeWriteError(error);
+      await _load();
+    } on StateError {
+      if (!mounted) return;
+      LifeMateNotice.show(
+        context,
+        type: LifeMateNoticeType.error,
+        title: LifeMateRuntimeLocale.select(
+          fa: 'ثبت دوره انجام نشد',
+          en: 'Period could not be saved',
+        ),
+        message: LifeMateRuntimeLocale.select(
+          fa: 'ثبت محلی هنوز در حال همگام‌سازی است. دوباره تلاش کن.',
+          en: 'The local entry is still syncing. Try again.',
+        ),
+      );
     } finally {
       if (mounted) setState(() => _saving = false);
     }
@@ -385,65 +503,117 @@ class _WomenCalendarScreenState extends State<WomenCalendarScreen> {
       await _deleteEpisode(episode);
       return;
     }
+    final localMutationId = episode['localMutationId']?.toString().trim();
+    final canonicalId = episode['id']?.toString().trim();
     setState(() => _saving = true);
+    final api = context.read<LifeMateApiClient>();
     try {
-      await context.read<LifeMateApiClient>().updateWomenCalendarEpisode(
-        episodeId: episode['id'].toString(),
-        version: episode['version'] is int ? episode['version'] as int : 1,
-        startedOn: draft.startedOn,
-        endedOn: draft.endedOn,
-        privateNotes: draft.privateNotes,
-      );
+      if (localMutationId != null &&
+          localMutationId.isNotEmpty &&
+          (canonicalId == null || canonicalId.isEmpty)) {
+        WomenEpisodeOfflineBridge? offline;
+        try {
+          offline = await WomenEpisodeOfflineBridge.open(apiClient: api);
+          await offline.coalescePendingCreate(
+            mutationId: localMutationId,
+            startedOn: draft.startedOn,
+            endedOn: draft.endedOn,
+            privateNotes: draft.privateNotes,
+          );
+          if (!mounted) return;
+          _replaceEpisodeLocally(episode, <String, dynamic>{
+            ...episode,
+            'startedOn': _episodeDateKey(draft.startedOn),
+            'endedOn':
+                draft.endedOn == null ? null : _episodeDateKey(draft.endedOn!),
+            'privateNotes': draft.privateNotes?.trim(),
+            'pendingSync': true,
+            'serverConfirmed': false,
+          });
+          _showEpisodePendingNotice();
+          return;
+        } finally {
+          offline?.close();
+        }
+      }
+      if (canonicalId == null || canonicalId.isEmpty) {
+        throw StateError('Canonical Women episode ID is unavailable.');
+      }
+      final clientRequestId = LifeMateApiClient.createClientRequestId();
+      try {
+        await api.updateWomenCalendarEpisode(
+          episodeId: canonicalId,
+          version: episode['version'] is int ? episode['version'] as int : 1,
+          startedOn: draft.startedOn,
+          endedOn: draft.endedOn,
+          privateNotes: draft.privateNotes,
+          clientRequestId: clientRequestId,
+        );
+      } on LifeMateApiException catch (error) {
+        if (!WomenEpisodeOfflinePolicy.canQueueAfter(error)) rethrow;
+        WomenEpisodeOfflineBridge? offline;
+        try {
+          offline = await WomenEpisodeOfflineBridge.open(apiClient: api);
+          await offline.enqueueUpdate(
+            mutationId: clientRequestId,
+            episodeId: canonicalId,
+            version: episode['version'] is int ? episode['version'] as int : 1,
+            startedOn: draft.startedOn,
+            endedOn: draft.endedOn,
+            privateNotes: draft.privateNotes,
+          );
+        } catch (_) {
+          rethrow;
+        } finally {
+          offline?.close();
+        }
+        if (!mounted) return;
+        _replaceEpisodeLocally(episode, <String, dynamic>{
+          ...episode,
+          'startedOn': _episodeDateKey(draft.startedOn),
+          'endedOn':
+              draft.endedOn == null ? null : _episodeDateKey(draft.endedOn!),
+          'privateNotes': draft.privateNotes?.trim(),
+          'localMutationId': clientRequestId,
+          'pendingSync': true,
+          'serverConfirmed': false,
+        });
+        _showEpisodePendingNotice();
+        return;
+      }
       if (!mounted) return;
       LifeMateNotice.show(
         context,
         type: LifeMateNoticeType.success,
         title: LifeMateRuntimeLocale.select(
-          fa: LifeMateRuntimeLocale.select(
-            fa: 'ثبت دوره اصلاح شد',
-            en: "Course registration was modified",
-          ),
-          en: "Course registration was modified",
+          fa: 'ثبت دوره اصلاح شد',
+          en: 'Period entry updated',
         ),
         message: LifeMateRuntimeLocale.select(
-          fa: LifeMateRuntimeLocale.select(
-            fa: 'تغییرات تاریخچه دوره ذخیره شد.',
-            en: "Course history changes saved.",
-          ),
-          en: "Course history changes saved.",
+          fa: 'تغییرات تاریخچه دوره ذخیره شد.',
+          en: 'Period history changes were saved.',
         ),
       );
       await _load();
       await widget.onProfileChanged?.call();
     } on LifeMateApiException catch (error) {
       if (!mounted) return;
+      _showEpisodeWriteError(error);
+      await _load();
+    } on StateError {
+      if (!mounted) return;
       LifeMateNotice.show(
         context,
         type: LifeMateNoticeType.error,
         title: LifeMateRuntimeLocale.select(
-          fa: LifeMateRuntimeLocale.select(
-            fa: 'ثبت دوره انجام نشد',
-            en: "Course registration failed",
-          ),
-          en: "Course registration failed",
+          fa: 'ویرایش انجام نشد',
+          en: 'Edit could not be saved',
         ),
-        message: error.code == 'women_calendar_episode_overlap'
-            ? LifeMateRuntimeLocale.select(
-                fa: LifeMateRuntimeLocale.select(
-                  fa: 'این بازه با یک ثبت قبلی هم‌پوشانی دارد.',
-                  en: "This interval overlaps with a previous record.",
-                ),
-                en: "This interval overlaps with a previous record.",
-              )
-            : LifeMateRuntimeLocale.select(
-                fa: LifeMateRuntimeLocale.select(
-                  fa: 'تغییرات ثبت دوره ذخیره نشد.',
-                  en: "Course registration changes were not saved.",
-                ),
-                en: "Course registration changes were not saved.",
-              ),
+        message: LifeMateRuntimeLocale.select(
+          fa: 'ثبت محلی وارد مرحله همگام‌سازی شده و فعلاً قابل تغییر نیست.',
+          en: 'This local entry has begun syncing and cannot be changed yet.',
+        ),
       );
-      await _load();
     } finally {
       if (mounted) setState(() => _saving = false);
     }
@@ -496,16 +666,97 @@ class _WomenCalendarScreenState extends State<WomenCalendarScreen> {
     );
     if (confirmed != true || !mounted) return;
     setState(() => _saving = true);
+    final localMutationId = episode['localMutationId']?.toString().trim();
+    final canonicalId = episode['id']?.toString().trim();
     try {
+      if (localMutationId != null &&
+          localMutationId.isNotEmpty &&
+          (canonicalId == null || canonicalId.isEmpty)) {
+        WomenEpisodeOfflineBridge? offline;
+        try {
+          offline = await WomenEpisodeOfflineBridge.open(
+            apiClient: context.read<LifeMateApiClient>(),
+          );
+          await offline.cancelPendingCreate(mutationId: localMutationId);
+        } finally {
+          offline?.close();
+        }
+        if (!mounted) return;
+        setState(
+          () => _episodes = _episodes
+              .where((item) => !identical(item, episode))
+              .toList(growable: false),
+        );
+        return;
+      }
+      if (canonicalId == null || canonicalId.isEmpty) {
+        throw StateError('Canonical Women episode ID is unavailable.');
+      }
       await context.read<LifeMateApiClient>().deleteWomenCalendarEpisode(
-        episodeId: episode['id'].toString(),
-      );
+            episodeId: canonicalId,
+          );
       if (!mounted) return;
       await _load();
       await widget.onProfileChanged?.call();
     } finally {
       if (mounted) setState(() => _saving = false);
     }
+  }
+
+  String _episodeDateKey(DateTime value) =>
+      '${value.year.toString().padLeft(4, '0')}-'
+      '${value.month.toString().padLeft(2, '0')}-'
+      '${value.day.toString().padLeft(2, '0')}';
+
+  void _replaceEpisodeLocally(
+    Map<String, dynamic> current,
+    Map<String, dynamic> replacement,
+  ) {
+    setState(() {
+      _episodes = _episodes
+          .map((item) => identical(item, current) ? replacement : item)
+          .toList(growable: false);
+    });
+  }
+
+  void _showEpisodePendingNotice() {
+    LifeMateNotice.show(
+      context,
+      type: LifeMateNoticeType.success,
+      title: LifeMateRuntimeLocale.select(
+        fa: 'روی این دستگاه ذخیره شد',
+        en: 'Saved on this device',
+      ),
+      message: LifeMateRuntimeLocale.select(
+        fa: 'این تغییر خصوصی است و پس از اتصال دوباره همگام می‌شود.',
+        en: 'This private change will sync after reconnection.',
+      ),
+    );
+  }
+
+  void _showEpisodeWriteError(LifeMateApiException error) {
+    LifeMateNotice.show(
+      context,
+      type: LifeMateNoticeType.error,
+      title: LifeMateRuntimeLocale.select(
+        fa: 'ثبت دوره انجام نشد',
+        en: 'Period could not be saved',
+      ),
+      message: error.code == 'stale_women_calendar_episode'
+          ? LifeMateRuntimeLocale.select(
+              fa: 'این ثبت تغییر کرده است؛ اطلاعات تازه شد و می‌توانی دوباره تلاش کنی.',
+              en: 'This entry changed on the server. Refresh and try again.',
+            )
+          : error.code == 'women_calendar_episode_overlap'
+              ? LifeMateRuntimeLocale.select(
+                  fa: 'این بازه با یک ثبت قبلی هم‌پوشانی دارد.',
+                  en: 'This range overlaps an existing period entry.',
+                )
+              : LifeMateRuntimeLocale.select(
+                  fa: 'تغییرات ثبت دوره ذخیره نشد.',
+                  en: 'Period changes were not saved.',
+                ),
+    );
   }
 
   Future<_EpisodeDraft?> _showEpisodeEditor({
@@ -945,47 +1196,47 @@ class _EpisodeDateField extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) => Material(
-    color: const Color(0xFFF8F3F8),
-    borderRadius: BorderRadius.circular(18),
-    child: InkWell(
-      onTap: onTap,
-      borderRadius: BorderRadius.circular(18),
-      child: Padding(
-        padding: const EdgeInsets.all(13),
-        child: Row(
-          children: [
-            Icon(icon, color: womenRose),
-            const SizedBox(width: 10),
-            Expanded(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(
-                    label,
-                    style: const TextStyle(
-                      color: AppColors.textSecondary,
-                      fontSize: 10,
-                    ),
+        color: const Color(0xFFF8F3F8),
+        borderRadius: BorderRadius.circular(18),
+        child: InkWell(
+          onTap: onTap,
+          borderRadius: BorderRadius.circular(18),
+          child: Padding(
+            padding: const EdgeInsets.all(13),
+            child: Row(
+              children: [
+                Icon(icon, color: womenRose),
+                const SizedBox(width: 10),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        label,
+                        style: const TextStyle(
+                          color: AppColors.textSecondary,
+                          fontSize: 10,
+                        ),
+                      ),
+                      Text(
+                        value,
+                        style: const TextStyle(fontWeight: FontWeight.w900),
+                      ),
+                    ],
                   ),
-                  Text(
-                    value,
-                    style: const TextStyle(fontWeight: FontWeight.w900),
-                  ),
-                ],
-              ),
+                ),
+                if (onClear != null)
+                  IconButton(
+                    onPressed: onClear,
+                    icon: const Icon(Icons.close_rounded),
+                  )
+                else
+                  const Icon(Icons.chevron_left_rounded),
+              ],
             ),
-            if (onClear != null)
-              IconButton(
-                onPressed: onClear,
-                icon: const Icon(Icons.close_rounded),
-              )
-            else
-              const Icon(Icons.chevron_left_rounded),
-          ],
+          ),
         ),
-      ),
-    ),
-  );
+      );
 }
 
 class _FeatureGate extends StatelessWidget {
@@ -1005,50 +1256,50 @@ class _FeatureGate extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) => WomenCycleBackground(
-    child: ListView(
-      padding: const EdgeInsets.fromLTRB(24, 80, 24, 30),
-      children: [
-        WomenSoftCard(
-          child: Column(
-            children: [
-              Container(
-                width: 74,
-                height: 74,
-                decoration: const BoxDecoration(
-                  color: womenBlush,
-                  shape: BoxShape.circle,
-                ),
-                child: Icon(icon, color: womenRose, size: 34),
+        child: ListView(
+          padding: const EdgeInsets.fromLTRB(24, 80, 24, 30),
+          children: [
+            WomenSoftCard(
+              child: Column(
+                children: [
+                  Container(
+                    width: 74,
+                    height: 74,
+                    decoration: const BoxDecoration(
+                      color: womenBlush,
+                      shape: BoxShape.circle,
+                    ),
+                    child: Icon(icon, color: womenRose, size: 34),
+                  ),
+                  const SizedBox(height: 16),
+                  Text(
+                    title,
+                    textAlign: TextAlign.center,
+                    style: const TextStyle(
+                      fontSize: 20,
+                      fontWeight: FontWeight.w900,
+                      color: womenInk,
+                    ),
+                  ),
+                  const SizedBox(height: 9),
+                  Text(
+                    description,
+                    textAlign: TextAlign.center,
+                    style: const TextStyle(
+                      color: AppColors.textSecondary,
+                      height: 1.7,
+                    ),
+                  ),
+                  const SizedBox(height: 18),
+                  FilledButton(
+                    onPressed: onAction,
+                    style: FilledButton.styleFrom(backgroundColor: womenRose),
+                    child: Text(actionLabel),
+                  ),
+                ],
               ),
-              const SizedBox(height: 16),
-              Text(
-                title,
-                textAlign: TextAlign.center,
-                style: const TextStyle(
-                  fontSize: 20,
-                  fontWeight: FontWeight.w900,
-                  color: womenInk,
-                ),
-              ),
-              const SizedBox(height: 9),
-              Text(
-                description,
-                textAlign: TextAlign.center,
-                style: const TextStyle(
-                  color: AppColors.textSecondary,
-                  height: 1.7,
-                ),
-              ),
-              const SizedBox(height: 18),
-              FilledButton(
-                onPressed: onAction,
-                style: FilledButton.styleFrom(backgroundColor: womenRose),
-                child: Text(actionLabel),
-              ),
-            ],
-          ),
+            ),
+          ],
         ),
-      ],
-    ),
-  );
+      );
 }
