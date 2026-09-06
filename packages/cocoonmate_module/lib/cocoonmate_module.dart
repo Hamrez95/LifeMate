@@ -1,6 +1,8 @@
 library cocoonmate_module;
 
 import 'package:flutter/material.dart';
+import 'package:lifemate_client/lifemate_client.dart'
+    show CocoonPregnancySnapshot;
 
 export 'clinical/clinical_content.dart';
 

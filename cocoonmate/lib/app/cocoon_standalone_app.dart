@@ -11,6 +11,11 @@ const cocoonAppVersion = '0.1.0+1';
 typedef CocoonRuntimeLoader = Future<LifeMateRuntimeConfigSnapshot> Function();
 typedef CocoonBootstrapLoader = Future<CocoonBootstrapSnapshot> Function();
 typedef CocoonSignOut = Future<void> Function();
+typedef CocoonOfflineBootstrapCache =
+    Future<void> Function(CocoonBootstrapSnapshot snapshot);
+typedef CocoonOfflineSnapshotLoader =
+    Future<CocoonPregnancySnapshot?> Function();
+typedef CocoonOfflineOwnerForget = Future<void> Function();
 
 class CocoonStandaloneApp extends StatelessWidget {
   const CocoonStandaloneApp({
@@ -85,6 +90,9 @@ class CocoonAuthenticatedHost extends StatefulWidget {
     this.runtimeLoader,
     this.bootstrapLoader,
     this.signOut,
+    this.offlineBootstrapCache,
+    this.offlineSnapshotLoader,
+    this.offlineOwnerForget,
     super.key,
   });
 
@@ -93,6 +101,9 @@ class CocoonAuthenticatedHost extends StatefulWidget {
   final CocoonRuntimeLoader? runtimeLoader;
   final CocoonBootstrapLoader? bootstrapLoader;
   final CocoonSignOut? signOut;
+  final CocoonOfflineBootstrapCache? offlineBootstrapCache;
+  final CocoonOfflineSnapshotLoader? offlineSnapshotLoader;
+  final CocoonOfflineOwnerForget? offlineOwnerForget;
 
   @override
   State<CocoonAuthenticatedHost> createState() =>
@@ -103,7 +114,10 @@ class _CocoonAuthenticatedHostState extends State<CocoonAuthenticatedHost>
     implements CocoonHostContract {
   CocoonEntryState _entryState = CocoonEntryState.loading;
   String? _personId;
+  CocoonPregnancySnapshot? _offlinePregnancySnapshot;
   bool _refreshing = false;
+  CocoonPregnancyOfflineOwnerCoordinator? _offlineOwnerCoordinator;
+  String? _offlineOwnerLegacyAccountId;
 
   late final LifeMateRemoteConfigClient? _runtimeClient =
       widget.runtimeLoader == null
@@ -143,6 +157,10 @@ class _CocoonAuthenticatedHostState extends State<CocoonAuthenticatedHost>
   String? get personId => _personId;
 
   @override
+  CocoonPregnancySnapshot? get offlinePregnancySnapshot =>
+      _offlinePregnancySnapshot;
+
+  @override
   Widget build(BuildContext context) =>
       CocoonMateModule(config: CocoonModuleConfig(host: this));
 
@@ -165,14 +183,16 @@ class _CocoonAuthenticatedHostState extends State<CocoonAuthenticatedHost>
       final snapshot =
           await (widget.bootstrapLoader?.call() ??
               _pregnancyClient!.bootstrap(asOfDate: DateTime.now()));
+      if (!await _cacheAuthoritativeBootstrap(snapshot)) return;
       final next = resolveCocoonEntryState(snapshot);
       _apply(next, snapshot.personId.isEmpty ? null : snapshot.personId);
     } on LifeMateApiException catch (error) {
       if (error.isUnauthorized) {
+        await _forgetOfflineOwner();
         await (widget.signOut?.call() ?? LifeMateAuth.signOut());
         _apply(CocoonEntryState.unauthenticated, null);
       } else if (error.statusCode == 0) {
-        _apply(CocoonEntryState.offline, _personId);
+        await _applyOfflineOwnerFallback();
       } else {
         _apply(CocoonEntryState.runtimeUnavailable, null);
       }
@@ -185,16 +205,121 @@ class _CocoonAuthenticatedHostState extends State<CocoonAuthenticatedHost>
     }
   }
 
+  Future<bool> _cacheAuthoritativeBootstrap(
+    CocoonBootstrapSnapshot snapshot,
+  ) async {
+    try {
+      final injected = widget.offlineBootstrapCache;
+      if (injected != null) {
+        await injected(snapshot);
+        return true;
+      }
+      final coordinator = _productionOfflineOwnerCoordinator();
+      if (coordinator != null) {
+        await coordinator.cacheAuthoritativeBootstrap(snapshot);
+      }
+      return true;
+    } on CocoonOfflineOwnerIdentityMismatchException {
+      _apply(CocoonEntryState.runtimeUnavailable, null);
+      return false;
+    } on UnsupportedError {
+      // Browser builds intentionally have no protected local health fallback.
+      return true;
+    } catch (_) {
+      // Online authoritative state remains usable when device-protected cache
+      // persistence is unavailable. Never replace/recreate local health data.
+      recordSafeEvent('cocoon_offline_cache_unavailable');
+      return true;
+    }
+  }
+
+  Future<void> _applyOfflineOwnerFallback() async {
+    try {
+      final cached = widget.offlineSnapshotLoader != null
+          ? await widget.offlineSnapshotLoader!.call()
+          : await _productionOfflineOwnerCoordinator()
+                ?.readCachedOwnerSnapshot();
+      final episode = cached?.episode;
+      if (cached != null &&
+          episode != null &&
+          episode.motherPersonId.trim().isNotEmpty &&
+          episode.status == CocoonPregnancyEpisodeStatus.active) {
+        _offlinePregnancySnapshot = cached;
+        _apply(CocoonEntryState.offlineOwnerPregnancy, episode.motherPersonId);
+        return;
+      }
+    } on UnsupportedError {
+      // Expected on web: no browser PHI fallback.
+    } catch (_) {
+      recordSafeEvent('cocoon_offline_cache_read_failed');
+    }
+    _apply(CocoonEntryState.offline, _personId);
+  }
+
+  CocoonPregnancyOfflineOwnerCoordinator? _productionOfflineOwnerCoordinator() {
+    // Custom bootstrap loaders are test/host seams. They opt into offline cache
+    // explicitly through the injected callbacks above and never touch global
+    // Supabase state by accident.
+    if (widget.bootstrapLoader != null) return null;
+    final legacyAccountId = LifeMateAuth.currentAccountId?.trim();
+    if (legacyAccountId == null || legacyAccountId.isEmpty) return null;
+    if (_offlineOwnerCoordinator != null &&
+        _offlineOwnerLegacyAccountId == legacyAccountId) {
+      return _offlineOwnerCoordinator;
+    }
+    _offlineOwnerLegacyAccountId = legacyAccountId;
+    _offlineOwnerCoordinator = CocoonPregnancyOfflineOwnerCoordinator(
+      apiBaseUri: widget.config.apiBaseUri,
+      legacyAccountId: legacyAccountId,
+      accessToken: () => LifeMateAuth.currentAccessToken,
+      identityResolver: () async {
+        final client = LifeMateApiClient(
+          baseUri: widget.config.apiBaseUri,
+          accessToken: () => LifeMateAuth.currentAccessToken,
+        );
+        try {
+          return await client.getCapabilities();
+        } finally {
+          client.close();
+        }
+      },
+    );
+    return _offlineOwnerCoordinator;
+  }
+
+  Future<void> _forgetOfflineOwner() async {
+    try {
+      final injected = widget.offlineOwnerForget;
+      if (injected != null) {
+        await injected();
+      } else {
+        await _productionOfflineOwnerCoordinator()?.forgetAdoptedOwner();
+      }
+    } on UnsupportedError {
+      // No protected browser cache exists.
+    } catch (_) {
+      recordSafeEvent('cocoon_offline_identity_forget_failed');
+    } finally {
+      _offlinePregnancySnapshot = null;
+    }
+  }
+
   void _apply(CocoonEntryState state, String? personId) {
     if (!mounted) return;
     setState(() {
       _entryState = state;
       _personId = personId;
+      if (state != CocoonEntryState.offlineOwnerPregnancy) {
+        _offlinePregnancySnapshot = null;
+      }
     });
   }
 
   @override
-  Future<void> openLogin() => LifeMateAuth.signOut();
+  Future<void> openLogin() async {
+    await _forgetOfflineOwner();
+    await LifeMateAuth.signOut();
+  }
 
   @override
   Future<void> openCommerce() async {
