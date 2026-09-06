@@ -2,7 +2,6 @@ import 'package:lifemate_client/lifemate_client.dart';
 import 'package:lifemate_core/lifemate_core.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
-import 'women_companion_daily_log_offline_policy.dart';
 import 'women_offline_owner_dashboard.dart';
 
 final class WomenDailyLogOfflineBridge {
