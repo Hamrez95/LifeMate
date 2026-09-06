@@ -10,6 +10,12 @@ final class WomenEpisodeOfflineOutbox {
     required String timeZone,
   }) => Future<WomenEpisodeOfflineOutbox>.error(_unsupported());
 
+  static WomenEpisodeOfflineOutbox forTesting({
+    required LifeMateLocalHealthStore store,
+    required LifeMateLocalNamespace namespace,
+    required String timeZone,
+  }) => throw _unsupported();
+
   Future<void> enqueueCreate({
     required String mutationId,
     required DateTime startedOn,
