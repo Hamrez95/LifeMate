@@ -1,0 +1,68 @@
+name: tmp-833-reconcile-canonical-idempotency-v6
+on:
+  push:
+    branches: [feat/offline-833-companion-checkin-fallback-20260906]
+permissions:
+  contents: write
+jobs:
+  patch:
+    if: github.actor != 'github-actions[bot]'
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd
+        with:
+          ref: feat/offline-833-companion-checkin-fallback-20260906
+          fetch-depth: 0
+      - uses: subosito/flutter-action@4cab68ce0f1c7c924f688bff4792e044f1aeb30c
+        with:
+          flutter-version: '3.44.0'
+          channel: stable
+      - name: Patch canonical request/replay parity
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 <<'PY'
+          from pathlib import Path
+          def r(path, old, new):
+              p=Path(path); s=p.read_text()
+              if old not in s: raise SystemExit(f'missing expected snippet: {path}')
+              p.write_text(s.replace(old,new,1))
+          api='packages/lifemate_client/lib/src/women_companion_api.dart'
+          r(api,"    required bool shareSummaryWithCompanion,\n    String? clientRequestId,\n","    bool? shareSummaryWithCompanion,\n    String? clientRequestId,\n")
+          r(api,"        'privateNotes': _emptyToNull(privateNotes),\n        'shareSummaryWithCompanion': shareSummaryWithCompanion,\n","        'privateNotes': _emptyToNull(privateNotes),\n        if (shareSummaryWithCompanion != null)\n          'shareSummaryWithCompanion': shareSummaryWithCompanion,\n")
+          screen='wellmate/lib/screens/women_calendar/women_companion_screen.dart'
+          r(screen,"    final clientRequestId = LifeMateApiClient.createClientRequestId();\n    try {\n","    final clientRequestId = LifeMateApiClient.createClientRequestId();\n    final currentShare = current?['shareSummaryWithCompanion'] == true;\n    final shareTransition = currentShare == draft.shareWithCompanion\n        ? null\n        : draft.shareWithCompanion;\n    final canonicalSymptoms = draft.symptoms\n        .map((value) => value.trim().toLowerCase())\n        .where((value) => value.isNotEmpty)\n        .toSet()\n        .toList(growable: false)\n      ..sort();\n    try {\n")
+          r(screen,"        symptoms: draft.symptoms,\n        privateNotes: draft.privateNotes,\n        shareSummaryWithCompanion: draft.shareWithCompanion,\n","        symptoms: canonicalSymptoms,\n        privateNotes: draft.privateNotes,\n        shareSummaryWithCompanion: shareTransition,\n")
+          r(screen,"            symptoms: draft.symptoms.toSet(),\n","            symptoms: canonicalSymptoms.toSet(),\n")
+          r(screen,"            'symptoms': draft.symptoms,\n","            'symptoms': canonicalSymptoms,\n")
+          bridge='wellmate/lib/screens/women_calendar/women_daily_log_offline_bridge_native.dart'
+          r(bridge,"    final ownerCheckIn = mood != null || energyLevel != null;\n    final durableMutationId = ownerCheckIn\n        ? WomenCompanionDailyLogOfflinePolicy.durableReplayMutationId(\n            mutationId,\n          )\n        : mutationId;\n    return _runtime.enqueueWomenDailyLogUpsert(\n      mutationId: durableMutationId,\n","    return _runtime.enqueueWomenDailyLogUpsert(\n      mutationId: mutationId,\n")
+          policy='wellmate/lib/screens/women_calendar/women_companion_daily_log_offline_policy.dart'
+          r(policy,"\n  static String durableReplayMutationId(String onlineMutationId) {\n    final normalized = onlineMutationId.trim();\n    const suffix = '.offline';\n    if (normalized.isEmpty || normalized.length + suffix.length > 180) {\n      throw ArgumentError.value(onlineMutationId, 'onlineMutationId');\n    }\n    return '$normalized$suffix';\n  }\n", "\n")
+          test='wellmate/test/women_companion_daily_log_offline_policy_test.dart'
+          r(test,"\n  test('durable private replay uses a distinct bounded mutation identity', () {\n    expect(\n      WomenCompanionDailyLogOfflinePolicy.durableReplayMutationId(\n        'women-owner-request-0001',\n      ),\n      'women-owner-request-0001.offline',\n    );\n    expect(\n      () => WomenCompanionDailyLogOfflinePolicy.durableReplayMutationId(''),\n      throwsArgumentError,\n    );\n    expect(\n      () => WomenCompanionDailyLogOfflinePolicy.durableReplayMutationId(\n        'x' * 180,\n      ),\n      throwsArgumentError,\n    );\n  });\n", "\n")
+          exp='wellmate/test/women_companion_experience_test.dart'
+          r(exp,"    required bool shareSummaryWithCompanion,\n    String? clientRequestId,\n","    bool? shareSummaryWithCompanion,\n    String? clientRequestId,\n")
+          PY
+          dart format packages/lifemate_client/lib/src/women_companion_api.dart wellmate/lib/screens/women_calendar/women_companion_screen.dart wellmate/lib/screens/women_calendar/women_daily_log_offline_bridge_native.dart wellmate/lib/screens/women_calendar/women_companion_daily_log_offline_policy.dart wellmate/test/women_companion_daily_log_offline_policy_test.dart wellmate/test/women_companion_experience_test.dart
+      - name: Targeted verification
+        shell: bash
+        run: |
+          set -euo pipefail
+          (cd packages/lifemate_core && flutter test test/local_women_owner_checkin_replay_contract_test.dart)
+          (cd packages/lifemate_client && flutter test test/women_companion_api_test.dart)
+          (cd wellmate && flutter test test/women_companion_daily_log_offline_policy_test.dart test/women_companion_experience_test.dart)
+      - name: Commit and push
+        shell: bash
+        run: |
+          set -euo pipefail
+          rm .github/workflows/tmp-833-reconcile-canonical-idempotency-v6.yml
+          git config user.name github-actions[bot]
+          git config user.email 41898282+github-actions[bot]@users.noreply.github.com
+          git add packages/lifemate_client/lib/src/women_companion_api.dart wellmate/lib/screens/women_calendar/women_companion_screen.dart wellmate/lib/screens/women_calendar/women_daily_log_offline_bridge_native.dart wellmate/lib/screens/women_calendar/women_companion_daily_log_offline_policy.dart wellmate/test/women_companion_daily_log_offline_policy_test.dart wellmate/test/women_companion_experience_test.dart .github/workflows/tmp-833-reconcile-canonical-idempotency-v6.yml
+          git diff --cached --check
+          git commit -m 'fix(women): preserve exactly-once companion replay identity'
+          git reset --hard HEAD
+          git fetch origin feat/offline-833-companion-checkin-fallback-20260906
+          git rebase origin/feat/offline-833-companion-checkin-fallback-20260906
+          git push origin HEAD:feat/offline-833-companion-checkin-fallback-20260906
