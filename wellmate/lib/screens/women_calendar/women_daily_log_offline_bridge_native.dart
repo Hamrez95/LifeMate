@@ -2,6 +2,7 @@ import 'package:lifemate_client/lifemate_client.dart';
 import 'package:lifemate_core/lifemate_core.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
+import 'women_offline_namespace_memo.dart';
 import 'women_offline_owner_dashboard.dart';
 
 final class WomenDailyLogOfflineBridge {
@@ -23,23 +24,34 @@ final class WomenDailyLogOfflineBridge {
       );
     }
 
-    final capabilities = await apiClient.getCapabilities();
-    final personId = capabilities.selfPersonId?.trim();
-    final accountId = capabilities.accountId.trim();
-    if (personId == null || personId.isEmpty || accountId.isEmpty) {
-      throw const LifeMateApiException(
-        statusCode: 409,
-        code: 'identity_person_mapping_missing',
-        message: 'The LifeMate person mapping is unavailable.',
+    final config = AppConfig.fromEnvironment();
+    final environmentId = config.apiBaseUri.toString();
+    var localNamespace = WomenOfflineNamespaceMemo.lookup(
+      environmentId: environmentId,
+      legacyAccountId: legacyAccountId,
+    );
+    if (localNamespace == null) {
+      final capabilities = await apiClient.getCapabilities();
+      final personId = capabilities.selfPersonId?.trim();
+      final accountId = capabilities.accountId.trim();
+      if (personId == null || personId.isEmpty || accountId.isEmpty) {
+        throw const LifeMateApiException(
+          statusCode: 409,
+          code: 'identity_person_mapping_missing',
+          message: 'The LifeMate person mapping is unavailable.',
+        );
+      }
+      localNamespace = LifeMateLocalNamespace(
+        environmentId: environmentId,
+        accountId: accountId,
+        personId: personId,
+      );
+      WomenOfflineNamespaceMemo.remember(
+        legacyAccountId: legacyAccountId,
+        namespace: localNamespace,
       );
     }
 
-    final config = AppConfig.fromEnvironment();
-    final localNamespace = LifeMateLocalNamespace(
-      environmentId: config.apiBaseUri.toString(),
-      accountId: accountId,
-      personId: personId,
-    );
     final runtime = await LifeMateSharedOfflineRuntime.open(
       namespace: LifeMateOfflineNamespace(
         environmentId: localNamespace.environmentId,
