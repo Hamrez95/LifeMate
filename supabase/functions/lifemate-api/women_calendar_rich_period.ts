@@ -82,16 +82,8 @@ export function createWomenCalendarRichPeriodStore(databaseUrl: string) {
     appUserId: string,
     body: Record<string, unknown>,
   ): Promise<Record<string, unknown>> {
-    const hasRichPeriodPatch = [
-      "periodFlow",
-      "bloodAppearance",
-      "bloodTexture",
-      "painLevel",
-      "symptoms",
-      "privateNotes",
-      "delete",
-    ].some((key) => Object.hasOwn(body, key));
-    if (!hasRichPeriodPatch) {
+    const writeMode = classifyWomenDailyLogWrite(body);
+    if (writeMode === "owner_check_in") {
       return await base.upsertOwnerDailyLog(appUserId, body);
     }
 
@@ -226,6 +218,43 @@ export function createWomenCalendarRichPeriodStore(databaseUrl: string) {
     listOwnerDailyLogs,
     upsertOwnerDailyLog,
   };
+}
+
+export type WomenDailyLogWriteMode = "owner_check_in" | "rich_period";
+
+export function classifyWomenDailyLogWrite(
+  body: Record<string, unknown>,
+): WomenDailyLogWriteMode {
+  const hasOwnerCheckInField = [
+    "mood",
+    "energyLevel",
+    "shareSummaryWithCompanion",
+  ].some((key) => Object.hasOwn(body, key));
+  const hasRichOnlyField = [
+    "periodFlow",
+    "bloodAppearance",
+    "bloodTexture",
+    "delete",
+  ].some((key) => Object.hasOwn(body, key));
+  if (hasOwnerCheckInField && hasRichOnlyField) {
+    throw new ApiError(
+      400,
+      "mixed_women_daily_log_contract",
+      "Daily check-in and rich period-only fields must be saved separately.",
+    );
+  }
+  const hasRichPeriodPatch = [
+    "periodFlow",
+    "bloodAppearance",
+    "bloodTexture",
+    "painLevel",
+    "symptoms",
+    "privateNotes",
+    "delete",
+  ].some((key) => Object.hasOwn(body, key));
+  return hasOwnerCheckInField || !hasRichPeriodPatch
+    ? "owner_check_in"
+    : "rich_period";
 }
 
 export function mapRichDailyLog(row: Row): Record<string, unknown> {

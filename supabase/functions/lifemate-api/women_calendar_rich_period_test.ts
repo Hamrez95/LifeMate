@@ -1,5 +1,8 @@
-import { assertEquals } from "jsr:@std/assert@1";
-import { mapRichDailyLog } from "./women_calendar_rich_period.ts";
+import { assertEquals, assertThrows } from "jsr:@std/assert@1";
+import {
+  classifyWomenDailyLogWrite,
+  mapRichDailyLog,
+} from "./women_calendar_rich_period.ts";
 
 Deno.test("rich period daily log exposes canonical structured observations", () => {
   const mapped = mapRichDailyLog({
@@ -69,4 +72,46 @@ Deno.test("legacy daily log remains compatible and pain stays visible", () => {
   assertEquals(mapped.periodFlow, null);
   assertEquals(mapped.bloodAppearance, null);
   assertEquals(mapped.bloodTexture, null);
+});
+
+Deno.test("owner check-in routing wins over overlapping pain/symptom fields", () => {
+  assertEquals(
+    classifyWomenDailyLogWrite({
+      mood: "low",
+      energyLevel: 2,
+      painLevel: 3,
+      symptoms: ["cramps"],
+      privateNotes: "owner only",
+    }),
+    "owner_check_in",
+  );
+  assertEquals(
+    classifyWomenDailyLogWrite({
+      shareSummaryWithCompanion: true,
+      painLevel: 1,
+      symptoms: ["fatigue"],
+    }),
+    "owner_check_in",
+  );
+  assertEquals(
+    classifyWomenDailyLogWrite({
+      periodFlow: "medium",
+      painLevel: 2,
+      symptoms: ["cramps"],
+    }),
+    "rich_period",
+  );
+});
+
+Deno.test("mixed check-in and rich-only fields fail closed", () => {
+  assertThrows(
+    () =>
+      classifyWomenDailyLogWrite({
+        mood: "good",
+        energyLevel: 4,
+        periodFlow: "light",
+      }),
+    Error,
+    "Daily check-in and rich period-only fields must be saved separately.",
+  );
 });

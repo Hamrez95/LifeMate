@@ -449,10 +449,16 @@ export function createPersonWomenCalendarStore(databaseUrl: string) {
       "privateNotes",
       500,
     );
-    const shareSummaryWithCompanion = requiredBoolean(
-      body.shareSummaryWithCompanion,
+    const shareSummaryProvided = Object.hasOwn(
+      body,
       "shareSummaryWithCompanion",
     );
+    const shareSummaryWithCompanion = shareSummaryProvided
+      ? requiredBoolean(
+        body.shareSummaryWithCompanion,
+        "shareSummaryWithCompanion",
+      )
+      : null;
     const now = new Date();
 
     return await sql.begin(async (tx: any) => {
@@ -477,7 +483,9 @@ export function createPersonWomenCalendarStore(databaseUrl: string) {
           values
             (${id}::uuid, ${appUserId}::uuid, ${personId}::uuid,
              ${loggedOn}::date, ${mood}, ${energyLevel}, ${painLevel},
-             ${symptoms}, ${privateNotes}, ${shareSummaryWithCompanion},
+             ${symptoms}, ${privateNotes}, ${
+          shareSummaryWithCompanion ?? false
+        },
              1, ${now}, ${now})
           returning *
         `;
@@ -496,7 +504,11 @@ export function createPersonWomenCalendarStore(databaseUrl: string) {
           set mood = ${mood}, energy_level = ${energyLevel},
               pain_level = ${painLevel}, symptoms = ${symptoms},
               private_notes = ${privateNotes},
-              share_summary_with_companion = ${shareSummaryWithCompanion},
+              share_summary_with_companion = case
+                when ${shareSummaryProvided}
+                  then ${shareSummaryWithCompanion}
+                else share_summary_with_companion
+              end,
               version = version + 1, updated_at_utc = ${now}
           where id = ${existing.id}::uuid
             and owner_person_id = ${personId}::uuid
