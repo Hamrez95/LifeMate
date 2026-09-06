@@ -25,6 +25,7 @@ final class WomenCompanionDailyLogOfflinePolicy {
     required bool requestedShareWithCompanion,
   }) {
     if (requestedShareWithCompanion) return false;
-    return current?['shareSummaryWithCompanion'] != true;
+    if (current == null) return true;
+    return current['shareSummaryWithCompanion'] == false;
   }
 }
