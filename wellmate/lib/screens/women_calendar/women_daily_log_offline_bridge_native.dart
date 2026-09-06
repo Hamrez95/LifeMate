@@ -144,19 +144,23 @@ final class WomenDailyLogOfflineBridge {
     int? painLevel,
     Set<String> symptoms = const <String>{},
     String? privateNotes,
-  }) => _runtime.enqueueWomenDailyLogUpsert(
-    mutationId: mutationId,
-    loggedOn: loggedOn,
-    version: version,
-    mood: mood,
-    energyLevel: energyLevel,
-    periodFlow: periodFlow,
-    bloodAppearance: bloodAppearance,
-    bloodTexture: bloodTexture,
-    painLevel: painLevel,
-    symptoms: symptoms,
-    privateNotes: privateNotes,
-  );
+  }) {
+    final ownerCheckIn = mood != null || energyLevel != null;
+    final durableMutationId = ownerCheckIn ? '$mutationId.offline' : mutationId;
+    return _runtime.enqueueWomenDailyLogUpsert(
+      mutationId: durableMutationId,
+      loggedOn: loggedOn,
+      version: version,
+      mood: mood,
+      energyLevel: energyLevel,
+      periodFlow: periodFlow,
+      bloodAppearance: bloodAppearance,
+      bloodTexture: bloodTexture,
+      painLevel: painLevel,
+      symptoms: symptoms,
+      privateNotes: privateNotes,
+    );
+  }
 
   Future<LifeMateOfflineSyncResult> flush() => _runtime.flushDetailed();
 
