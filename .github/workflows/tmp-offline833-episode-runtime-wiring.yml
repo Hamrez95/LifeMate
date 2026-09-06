@@ -1,19 +1,21 @@
 name: tmp offline833 episode runtime wiring
 
 on:
-  push:
+  pull_request:
     branches:
-      - feat/offline-833-episode-runtime-wiring-20260906
+      - main
 
 permissions:
   contents: write
 
 jobs:
   patch-test-clean:
+    if: github.head_ref == 'feat/offline-833-episode-runtime-wiring-20260906'
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
         with:
+          ref: ${{ github.head_ref }}
           fetch-depth: 0
       - uses: subosito/flutter-action@v2
         with:
