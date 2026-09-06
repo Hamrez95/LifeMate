@@ -31,6 +31,17 @@ export type HealthDocumentLink = {
   contextId: string;
 };
 
+export type HealthDocumentListQuery = {
+  category: HealthDocumentCategory | null;
+  sourceProduct: string | null;
+  fromDate: string | null;
+  toDate: string | null;
+  cursor: string | null;
+  limit: number;
+};
+
+type DocumentCursor = { createdAtUtc: string; id: string };
+
 const allowedCategories = new Set<HealthDocumentCategory>([
   "prescription",
   "lab_result",
@@ -127,8 +138,14 @@ export function createHealthDocumentStore(databaseUrl: string) {
     });
   }
 
-  async function listOwnerDocuments(appUserId: string) {
+  // Keyset pagination keeps a changing record chronological and bounded. Its
+  // opaque cursor contains only a timestamp and UUID — never document metadata.
+  async function listOwnerDocuments(
+    appUserId: string,
+    query: HealthDocumentListQuery,
+  ) {
     const { personId } = await ownerIdentity(sql, appUserId);
+    const cursor = parseDocumentCursor(query.cursor);
     const rows = await sql`
       select d.*,
         coalesce(jsonb_agg(jsonb_build_object(
@@ -139,11 +156,30 @@ export function createHealthDocumentStore(databaseUrl: string) {
       left join lifemate.health_document_links l on l.document_id = d.id
       where d.owner_person_id = ${personId}::uuid
         and d.status = 'Available'
+        and (${query.category}::text is null or d.category = ${query.category})
+        and (${query.sourceProduct}::text is null or d.source_product = ${query.sourceProduct})
+        and (${query.fromDate}::date is null
+          or coalesce(d.captured_on, d.created_at_utc::date) >= ${query.fromDate}::date)
+        and (${query.toDate}::date is null
+          or coalesce(d.captured_on, d.created_at_utc::date) <= ${query.toDate}::date)
+        and (
+          ${cursor?.createdAtUtc ?? null}::timestamptz is null
+          or (d.created_at_utc, d.id) < (
+            ${cursor?.createdAtUtc ?? null}::timestamptz,
+            ${cursor?.id ?? null}::uuid
+          )
+        )
       group by d.id
       order by d.created_at_utc desc, d.id desc
-      limit 500
+      limit ${query.limit + 1}
     `;
-    return rows.map(mapDocument);
+    const hasMore = rows.length > query.limit;
+    const items = rows.slice(0, query.limit).map(mapDocument);
+    const last = rows[Math.min(rows.length, query.limit) - 1];
+    return {
+      items,
+      nextCursor: hasMore && last ? encodeDocumentCursor(last) : null,
+    };
   }
 
   async function ownerForUpload(appUserId: string) {
@@ -188,6 +224,103 @@ export function createHealthDocumentStore(databaseUrl: string) {
     listOwnerDocuments,
     getOwnerDownload,
   };
+}
+
+export function parseHealthDocumentListQuery(
+  value: URLSearchParams,
+): HealthDocumentListQuery {
+  const categoryValue = value.get("category")?.trim().toLowerCase() ?? "";
+  const category = categoryValue.length === 0
+    ? null
+    : allowedCategories.has(categoryValue as HealthDocumentCategory)
+    ? categoryValue as HealthDocumentCategory
+    : invalidListQuery("category");
+  const sourceProduct = normalizeOptionalSource(value.get("sourceProduct"));
+  const fromDate = optionalListDate(value.get("fromDate"), "fromDate");
+  const toDate = optionalListDate(value.get("toDate"), "toDate");
+  if (fromDate && toDate && fromDate > toDate) {
+    throw new ApiError(
+      400,
+      "health_document_date_range_invalid",
+      "Date range is invalid.",
+    );
+  }
+  const rawLimit = value.get("limit");
+  const parsedLimit = rawLimit == null || rawLimit.trim() === ""
+    ? 25
+    : Number(rawLimit);
+  if (!Number.isInteger(parsedLimit) || parsedLimit < 1 || parsedLimit > 100) {
+    throw new ApiError(
+      400,
+      "health_document_limit_invalid",
+      "Document list limit is invalid.",
+    );
+  }
+  const cursor = value.get("cursor")?.trim() || null;
+  if (cursor) parseDocumentCursor(cursor);
+  return {
+    category,
+    sourceProduct,
+    fromDate,
+    toDate,
+    cursor,
+    limit: parsedLimit,
+  };
+}
+
+function invalidListQuery(field: string): never {
+  throw new ApiError(
+    400,
+    "health_document_filter_invalid",
+    `${field} filter is invalid.`,
+  );
+}
+
+function normalizeOptionalSource(value: string | null): string | null {
+  const normalized = value?.trim().toLowerCase() ?? "";
+  if (normalized.length === 0) return null;
+  if (!/^[a-z0-9][a-z0-9_-]{0,39}$/.test(normalized)) {
+    return invalidListQuery("sourceProduct");
+  }
+  return normalized;
+}
+
+function optionalListDate(value: string | null, field: string): string | null {
+  if (value == null || value.trim() === "") return null;
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(value)) return invalidListQuery(field);
+  return value;
+}
+
+function parseDocumentCursor(value: string | null): DocumentCursor | null {
+  if (!value) return null;
+  try {
+    const decoded = JSON.parse(atob(value)) as Record<string, unknown>;
+    const createdAtUtc = typeof decoded.createdAtUtc === "string"
+      ? decoded.createdAtUtc
+      : "";
+    const id = typeof decoded.id === "string" ? decoded.id : "";
+    if (
+      Number.isNaN(Date.parse(createdAtUtc)) || !/^[0-9a-f-]{36}$/i.test(id)
+    ) {
+      throw new Error("invalid");
+    }
+    return { createdAtUtc, id };
+  } catch (_) {
+    throw new ApiError(
+      400,
+      "health_document_cursor_invalid",
+      "Document list cursor is invalid.",
+    );
+  }
+}
+
+function encodeDocumentCursor(row: Row): string {
+  return btoa(
+    JSON.stringify({
+      createdAtUtc: iso(row.created_at_utc),
+      id: String(row.id),
+    }),
+  );
 }
 
 function validateRegistration(input: HealthDocumentRegistration): void {

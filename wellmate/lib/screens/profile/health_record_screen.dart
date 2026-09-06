@@ -19,7 +19,7 @@ class HealthRecordScreen extends StatefulWidget {
 }
 
 class _HealthRecordScreenState extends State<HealthRecordScreen> {
-  late Future<List<LifeMateHealthDocument>> _documents;
+  late Future<LifeMateHealthDocumentPage> _documents;
   LifeMateHealthDocumentCategory? _selectedCategory;
   String? _openingDocumentId;
 
@@ -29,10 +29,34 @@ class _HealthRecordScreenState extends State<HealthRecordScreen> {
     _documents = _load();
   }
 
-  Future<List<LifeMateHealthDocument>> _load() =>
-      context.read<LifeMateApiClient>().getHealthDocuments();
+  Future<LifeMateHealthDocumentPage> _load({String? cursor}) =>
+      context.read<LifeMateApiClient>().getHealthDocumentPage(
+        category: _selectedCategory,
+        cursor: cursor,
+      );
 
   void _refresh() => setState(() => _documents = _load());
+
+  void _selectCategory(LifeMateHealthDocumentCategory? value) {
+    if (_selectedCategory == value) return;
+    setState(() {
+      _selectedCategory = value;
+      _documents = _load();
+    });
+  }
+
+  Future<void> _loadMore(LifeMateHealthDocumentPage current) async {
+    final cursor = current.nextCursor;
+    if (cursor == null) return;
+    setState(() {
+      _documents = _load(cursor: cursor).then(
+        (next) => LifeMateHealthDocumentPage(
+          items: [...current.items, ...next.items],
+          nextCursor: next.nextCursor,
+        ),
+      );
+    });
+  }
 
   Future<void> _openDocument(LifeMateHealthDocument document) async {
     if (_openingDocumentId != null) return;
@@ -72,16 +96,12 @@ class _HealthRecordScreenState extends State<HealthRecordScreen> {
     return Scaffold(
       backgroundColor: AppColors.background,
       body: SafeArea(
-        child: FutureBuilder<List<LifeMateHealthDocument>>(
+        child: FutureBuilder<LifeMateHealthDocumentPage>(
           future: _documents,
           builder: (context, snapshot) {
             final loading = snapshot.connectionState != ConnectionState.done;
-            final documents = snapshot.data ?? const <LifeMateHealthDocument>[];
-            final visible = _selectedCategory == null
-                ? documents
-                : documents
-                    .where((item) => item.category == _selectedCategory)
-                    .toList(growable: false);
+            final page = snapshot.data;
+            final documents = page?.items ?? const <LifeMateHealthDocument>[];
             return RefreshIndicator(
               color: AppColors.primary,
               onRefresh: () async => _refresh(),
@@ -107,20 +127,20 @@ class _HealthRecordScreenState extends State<HealthRecordScreen> {
                   const SizedBox(height: 10),
                   _CategoryFilter(
                     selected: _selectedCategory,
-                    onSelected: (value) => setState(() => _selectedCategory = value),
+                    onSelected: _selectCategory,
                   ),
                   const SizedBox(height: 16),
                   if (loading)
                     const _DocumentLoadingState()
                   else if (snapshot.hasError)
                     _DocumentErrorState(onRetry: _refresh)
-                  else if (visible.isEmpty)
+                  else if (documents.isEmpty)
                     _DocumentEmptyState(filtered: _selectedCategory != null)
                   else ...[
                     Text(
                       LifeMateRuntimeLocale.select(
-                        fa: '${visible.length} مدرک · جدیدترین ابتدا',
-                        en: '${visible.length} documents · newest first',
+                        fa: '${documents.length} مدرک · جدیدترین ابتدا',
+                        en: '${documents.length} documents · newest first',
                       ),
                       style: const TextStyle(
                         color: AppColors.textSecondary,
@@ -128,7 +148,7 @@ class _HealthRecordScreenState extends State<HealthRecordScreen> {
                       ),
                     ),
                     const SizedBox(height: 10),
-                    for (final document in visible) ...[
+                    for (final document in documents) ...[
                       _HealthDocumentTile(
                         document: document,
                         opening: _openingDocumentId == document.id,
@@ -136,6 +156,16 @@ class _HealthRecordScreenState extends State<HealthRecordScreen> {
                       ),
                       const SizedBox(height: 10),
                     ],
+                    if (page?.hasMore ?? false)
+                      OutlinedButton.icon(
+                        key: const Key('health-record-load-more'),
+                        onPressed: () => _loadMore(page!),
+                        icon: const Icon(Icons.expand_more_rounded),
+                        label: Text(LifeMateRuntimeLocale.select(
+                          fa: 'نمایش مدارک بیشتر',
+                          en: 'Show more documents',
+                        )),
+                      ),
                   ],
                   const SizedBox(height: 12),
                   const _PrivacyNote(),

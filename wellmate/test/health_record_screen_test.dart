@@ -59,8 +59,16 @@ class _HealthRecordApi extends LifeMateApiClient {
       );
 
   @override
-  Future<List<LifeMateHealthDocument>> getHealthDocuments() async => [
-    LifeMateHealthDocument(
+  Future<LifeMateHealthDocumentPage> getHealthDocumentPage({
+    LifeMateHealthDocumentCategory? category,
+    String? sourceProduct,
+    DateTime? fromDate,
+    DateTime? toDate,
+    String? cursor,
+    int limit = 25,
+  }) async {
+    final items = <LifeMateHealthDocument>[
+      LifeMateHealthDocument(
       id: 'document-prescription',
       contentType: 'application/pdf',
       byteSize: 900 * 1024,
@@ -72,7 +80,7 @@ class _HealthRecordApi extends LifeMateApiClient {
       ],
       sourceProduct: 'wellmate',
     ),
-    LifeMateHealthDocument(
+      LifeMateHealthDocument(
       id: 'document-lab',
       contentType: 'image/jpeg',
       byteSize: 2 * 1024 * 1024,
@@ -82,5 +90,12 @@ class _HealthRecordApi extends LifeMateApiClient {
       links: const [],
       sourceProduct: 'wellmate',
     ),
-  ];
+    ];
+    return LifeMateHealthDocumentPage(
+      items: category == null
+          ? items
+          : items.where((item) => item.category == category).toList(),
+      nextCursor: null,
+    );
+  }
 }

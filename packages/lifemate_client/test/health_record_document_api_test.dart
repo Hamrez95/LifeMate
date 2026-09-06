@@ -76,4 +76,42 @@ void main() {
       throwsArgumentError,
     );
   });
+
+  test('Health Record timeline forwards bounded filters and opaque cursor', () async {
+    late http.Request observed;
+    final api = LifeMateApiClient(
+      baseUri: Uri.parse('https://api.example.test'),
+      accessToken: () => 'access-token',
+      httpClient: MockClient((request) async {
+        observed = request;
+        return http.Response(
+          jsonEncode({'items': const [], 'nextCursor': 'opaque-next-page'}),
+          200,
+          headers: {'content-type': 'application/json'},
+        );
+      }),
+    );
+
+    final page = await api.getHealthDocumentPage(
+      category: LifeMateHealthDocumentCategory.labResult,
+      sourceProduct: 'wellmate',
+      fromDate: DateTime(2026, 9, 1),
+      toDate: DateTime(2026, 9, 5),
+      cursor: 'opaque-current-page',
+      limit: 25,
+    );
+
+    expect(observed.url.path, '/api/v1/health-record/documents');
+    expect(observed.url.queryParameters, {
+      'category': 'lab_result',
+      'sourceProduct': 'wellmate',
+      'fromDate': '2026-09-01',
+      'toDate': '2026-09-05',
+      'cursor': 'opaque-current-page',
+      'limit': '25',
+    });
+    expect(page.items, isEmpty);
+    expect(page.nextCursor, 'opaque-next-page');
+    expect(page.hasMore, isTrue);
+  });
 }
