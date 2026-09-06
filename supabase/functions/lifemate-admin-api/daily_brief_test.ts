@@ -27,9 +27,19 @@ Deno.test("Daily Brief derives week-over-week change only from canonical series"
   };
   const brief = buildDailyBrief([value], "2026-08-25T22:30:00.000Z");
   assert(brief.changes.length === 1, "series-backed change must be emitted");
-  assert(brief.changes[0].detail.includes("14") && brief.changes[0].detail.includes("7"), "change must cite exact window totals");
-  assert(brief.attention.length === 1, "partial source must remain visible as attention");
-  assert(brief.evidence[0].source === value.source, "source evidence must be preserved");
+  assert(
+    brief.changes[0].detail.includes("14") &&
+      brief.changes[0].detail.includes("7"),
+    "change must cite exact window totals",
+  );
+  assert(
+    brief.attention.length === 1,
+    "partial source must remain visible as attention",
+  );
+  assert(
+    brief.evidence[0].source === value.source,
+    "source evidence must be preserved",
+  );
 });
 
 Deno.test("Daily Brief does not fabricate trends without comparable series", () => {
@@ -45,13 +55,22 @@ Deno.test("Daily Brief does not fabricate trends without comparable series", () 
   };
   const brief = buildDailyBrief([value], "2026-08-25T22:30:00.000Z");
   assert(brief.state === "ready", "fresh evidence must remain ready");
-  assert(brief.changes.length === 0, "missing series must not produce a fabricated trend");
-  assert(brief.actions.length === 0, "healthy source must not invent an action");
+  assert(
+    brief.changes.length === 0,
+    "missing series must not produce a fabricated trend",
+  );
+  assert(
+    brief.actions.length === 0,
+    "healthy source must not invent an action",
+  );
 });
 
 Deno.test("Daily Brief fails closed when no allowlisted evidence exists", () => {
   const brief = buildDailyBrief([], "2026-08-25T22:30:00.000Z");
   assert(brief.state === "unavailable", "empty source set must be unavailable");
-  assert(brief.changes.length === 0 && brief.evidence.length === 0, "empty source must not fabricate evidence");
+  assert(
+    brief.changes.length === 0 && brief.evidence.length === 0,
+    "empty source must not fabricate evidence",
+  );
   assert(brief.attention.length === 1, "unavailable state must be explicit");
 });

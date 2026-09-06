@@ -157,21 +157,33 @@ async function activationFunnel(
   const conversion = aggregatesSuppressed
     ? null
     : safeRate(activatedRaw, enrolledRaw);
-  const dropOff = conversion == null ? null : Math.round((1 - conversion) * 10_000) / 10_000;
+  const dropOff = conversion == null
+    ? null
+    : Math.round((1 - conversion) * 10_000) / 10_000;
   const generatedAtUtc = new Date().toISOString();
   const source =
     "ecosystem.app_enrollments enrollment cohort + last_active_at_utc snapshot; aggregate-only";
   const partialReason =
     "Activation is truthful but partial because last_active_at_utc is a current snapshot, not canonical app-open event history.";
-  const suppressionReason = `Aggregate values from 1 to ${ACTIVATION_FUNNEL_PRIVACY_THRESHOLD - 1} accounts are suppressed.`;
+  const suppressionReason = `Aggregate values from 1 to ${
+    ACTIVATION_FUNNEL_PRIVACY_THRESHOLD - 1
+  } accounts are suppressed.`;
 
   const enrolledSeries = seriesRows.map((row) => {
     const safe = suppressSmallCount(Number(row.enrolled ?? 0));
-    return { date: String(row.day), value: safe.value, suppressed: safe.suppressed };
+    return {
+      date: String(row.day),
+      value: safe.value,
+      suppressed: safe.suppressed,
+    };
   });
   const activatedSeries = seriesRows.map((row) => {
     const safe = suppressSmallCount(Number(row.activated ?? 0));
-    return { date: String(row.day), value: safe.value, suppressed: safe.suppressed };
+    return {
+      date: String(row.day),
+      value: safe.value,
+      suppressed: safe.suppressed,
+    };
   });
 
   return [
