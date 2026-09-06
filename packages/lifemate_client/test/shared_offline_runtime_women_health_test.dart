@@ -102,9 +102,8 @@ void main() {
       expect(projected.pendingDates, contains('2026-09-05'));
       expect(projected.conflictDates, isEmpty);
 
-      final stored = await LifeMateLocalMutationOutbox(
-        store: store,
-      ).get(namespace: owner, mutationId: 'women-log-runtime-0001');
+      final stored = await LifeMateLocalMutationOutbox(store: store)
+          .get(namespace: owner, mutationId: 'women-log-runtime-0001');
       expect(stored?.domain, LifeMateMutationDomain.womenHealth);
       expect(stored?.endpointPath, '/api/v1/women-calendar/daily-logs');
       expect(stored?.payload['mood'], 'good');
@@ -115,38 +114,80 @@ void main() {
     },
   );
 
-  test(
-    'shared runtime pending Women Health mutation cannot cross Person namespace',
-    () async {
-      final store = LifeMateLocalHealthStore.forTesting(
-        database: sqlite3.openInMemory(),
-        keyBytes: key,
-      );
-      final ownerRuntime = await _openRuntime(store, owner);
-      final otherRuntime = await _openRuntime(store, otherPerson);
-      addTearDown(() {
-        ownerRuntime.close();
-        otherRuntime.close();
-        store.close();
-      });
+  test('shared runtime pending Women Health mutation cannot cross Person namespace', () async {
+    final store = LifeMateLocalHealthStore.forTesting(
+      database: sqlite3.openInMemory(),
+      keyBytes: key,
+    );
+    final ownerRuntime = await _openRuntime(store, owner);
+    final otherRuntime = await _openRuntime(store, otherPerson);
+    addTearDown(() {
+      ownerRuntime.close();
+      otherRuntime.close();
+      store.close();
+    });
 
-      await ownerRuntime.enqueueWomenDailyLogUpsert(
-        mutationId: 'women-log-runtime-0002',
-        loggedOn: DateTime(2026, 9, 6),
-        version: 0,
-        symptoms: const <String>{'headache'},
-        createdAtUtc: DateTime.utc(2026, 9, 5, 20),
-      );
+    await ownerRuntime.enqueueWomenDailyLogUpsert(
+      mutationId: 'women-log-runtime-0002',
+      loggedOn: DateTime(2026, 9, 6),
+      version: 0,
+      symptoms: const <String>{'headache'},
+      createdAtUtc: DateTime.utc(2026, 9, 5, 20),
+    );
 
-      final otherProjection = await otherRuntime.projectWomenDailyLogs(
-        serverRows: const <Map<String, dynamic>>[],
-        fromDate: DateTime(2026, 9, 6),
-        toDate: DateTime(2026, 9, 6),
-      );
-      expect(otherProjection.rows, isEmpty);
-      expect(otherProjection.pendingDates, isEmpty);
-    },
-  );
+    final otherProjection = await otherRuntime.projectWomenDailyLogs(
+      serverRows: const <Map<String, dynamic>>[],
+      fromDate: DateTime(2026, 9, 6),
+      toDate: DateTime(2026, 9, 6),
+    );
+    expect(otherProjection.rows, isEmpty);
+    expect(otherProjection.pendingDates, isEmpty);
+  });
+
+  test('shared runtime binds Women episode mutations to the adopted Person namespace', () async {
+    final store = LifeMateLocalHealthStore.forTesting(
+      database: sqlite3.openInMemory(),
+      keyBytes: key,
+    );
+    final ownerRuntime = await _openRuntime(store, owner);
+    final otherRuntime = await _openRuntime(store, otherPerson);
+    addTearDown(() {
+      ownerRuntime.close();
+      otherRuntime.close();
+      store.close();
+    });
+
+    await ownerRuntime.enqueueWomenEpisodeCreate(
+      mutationId: 'women-episode-runtime-0001',
+      startedOn: DateTime(2026, 9, 4),
+      privateNotes: 'owner only',
+      createdAtUtc: DateTime.utc(2026, 9, 6, 6),
+    );
+    await ownerRuntime.coalescePendingWomenEpisodeCreate(
+      mutationId: 'women-episode-runtime-0001',
+      startedOn: DateTime(2026, 9, 4),
+      endedOn: DateTime(2026, 9, 6),
+      privateNotes: 'finished offline',
+    );
+
+    final outbox = LifeMateLocalMutationOutbox(store: store);
+    final ownerMutation = await outbox.get(
+      namespace: owner,
+      mutationId: 'women-episode-runtime-0001',
+    );
+    expect(ownerMutation, isNotNull);
+    expect(ownerMutation!.method, 'POST');
+    expect(ownerMutation.endpointPath, '/api/v1/women-calendar/episodes');
+    expect(ownerMutation.payload['endedOn'], '2026-09-06');
+    expect(ownerMutation.payload['privateNotes'], 'finished offline');
+    expect(
+      await outbox.get(
+        namespace: otherPerson,
+        mutationId: 'women-episode-runtime-0001',
+      ),
+      isNull,
+    );
+  });
 
   test('shared runtime preserves explicit pending delete semantics', () async {
     final store = LifeMateLocalHealthStore.forTesting(
