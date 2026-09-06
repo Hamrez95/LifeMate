@@ -1,0 +1,25 @@
+name: main-client-analyze-diagnostic
+on:
+  push:
+    branches:
+      - diag/main-client-analyze-20260906
+permissions:
+  contents: read
+jobs:
+  verify:
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd
+        with:
+          persist-credentials: false
+      - uses: subosito/flutter-action@4cab68ce0f1c7c924f688bff4792e044f1aeb30c
+        with:
+          flutter-version: '3.44.0'
+          channel: stable
+          cache: true
+      - name: Pub get current main
+        working-directory: packages/lifemate_client
+        run: flutter pub get
+      - name: Analyze current main
+        working-directory: packages/lifemate_client
+        run: flutter analyze --no-fatal-warnings --no-fatal-infos
