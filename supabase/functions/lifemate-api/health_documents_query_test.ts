@@ -2,19 +2,29 @@ import { assertEquals, assertThrows } from "jsr:@std/assert@1.0.14";
 import { parseHealthDocumentListQuery } from "./health_documents.ts";
 
 Deno.test("Health Record list query is bounded and accepts only reviewed filters", () => {
-  const query = parseHealthDocumentListQuery(new URLSearchParams({
-    category: "lab_result",
-    sourceProduct: "wellmate",
-    fromDate: "2026-09-01",
-    toDate: "2026-09-05",
-    limit: "25",
-  }));
+  const query = parseHealthDocumentListQuery(
+    new URLSearchParams({
+      category: "lab_result",
+      sourceProduct: "wellmate",
+      fromDate: "2026-09-01",
+      toDate: "2026-09-05",
+      limit: "25",
+    }),
+  );
   assertEquals(query.category, "lab_result");
   assertEquals(query.sourceProduct, "wellmate");
   assertEquals(query.limit, 25);
-  assertThrows(() => parseHealthDocumentListQuery(new URLSearchParams({ limit: "101" })));
-  assertThrows(() => parseHealthDocumentListQuery(new URLSearchParams({ category: "all" })));
-  assertThrows(() => parseHealthDocumentListQuery(new URLSearchParams({ fromDate: "2026-09-06", toDate: "2026-09-05" })));
+  assertThrows(() =>
+    parseHealthDocumentListQuery(new URLSearchParams({ limit: "101" }))
+  );
+  assertThrows(() =>
+    parseHealthDocumentListQuery(new URLSearchParams({ category: "all" }))
+  );
+  assertThrows(() =>
+    parseHealthDocumentListQuery(
+      new URLSearchParams({ fromDate: "2026-09-06", toDate: "2026-09-05" }),
+    )
+  );
 });
 
 Deno.test("Health Record list cursor is opaque but structurally validated", () => {
@@ -26,5 +36,9 @@ Deno.test("Health Record list cursor is opaque but structurally validated", () =
     parseHealthDocumentListQuery(new URLSearchParams({ cursor })).cursor,
     cursor,
   );
-  assertThrows(() => parseHealthDocumentListQuery(new URLSearchParams({ cursor: "not-a-cursor" })));
+  assertThrows(() =>
+    parseHealthDocumentListQuery(
+      new URLSearchParams({ cursor: "not-a-cursor" }),
+    )
+  );
 });
