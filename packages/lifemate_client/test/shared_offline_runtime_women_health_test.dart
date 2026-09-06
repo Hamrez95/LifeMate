@@ -18,119 +18,133 @@ void main() {
     personId: 'person-b',
   );
 
-  test('shared runtime caches Women Health snapshot in owner namespace only', () async {
-    final store = LifeMateLocalHealthStore.forTesting(
-      database: sqlite3.openInMemory(),
-      keyBytes: key,
-    );
-    final ownerRuntime = await _openRuntime(store, owner);
-    final otherRuntime = await _openRuntime(store, otherPerson);
-    addTearDown(() {
-      ownerRuntime.close();
-      otherRuntime.close();
-      store.close();
-    });
+  test(
+    'shared runtime caches Women Health snapshot in owner namespace only',
+    () async {
+      final store = LifeMateLocalHealthStore.forTesting(
+        database: sqlite3.openInMemory(),
+        keyBytes: key,
+      );
+      final ownerRuntime = await _openRuntime(store, owner);
+      final otherRuntime = await _openRuntime(store, otherPerson);
+      addTearDown(() {
+        ownerRuntime.close();
+        otherRuntime.close();
+        store.close();
+      });
 
-    await ownerRuntime.cacheWomenCalendarSnapshot(
-      profile: const <String, dynamic>{
-        'algorithmVersion': WomenCalendarOfflineEngine.canonicalAlgorithmVersion,
-        'lastPeriodStart': '2026-08-20',
-        'cycleLength': 28,
-        'periodLength': 5,
-      },
-      episodes: const <Map<String, dynamic>>[
-        <String, dynamic>{'startedOn': '2026-08-20', 'endedOn': '2026-08-24'},
-      ],
-      lifecycleState: WomenHealthLifecycleState.active,
-    );
-
-    final cached = await ownerRuntime.readWomenCalendarSnapshot();
-    expect(cached, isNotNull);
-    expect(cached!.lifecycleState, WomenHealthLifecycleState.active);
-    expect(cached.profile['cycleLength'], 28);
-    expect(await otherRuntime.readWomenCalendarSnapshot(), isNull);
-  });
-
-  test('shared runtime projects pending owner daily log without confirming it', () async {
-    final store = LifeMateLocalHealthStore.forTesting(
-      database: sqlite3.openInMemory(),
-      keyBytes: key,
-    );
-    final runtime = await _openRuntime(store, owner);
-    addTearDown(() {
-      runtime.close();
-      store.close();
-    });
-
-    await runtime.enqueueWomenDailyLogUpsert(
-      mutationId: 'women-log-runtime-0001',
-      loggedOn: DateTime(2026, 9, 5),
-      version: 3,
-      periodFlow: 'medium',
-      painLevel: 2,
-      symptoms: const <String>{'cramps'},
-      privateNotes: 'owner only',
-      createdAtUtc: DateTime.utc(2026, 9, 5, 19),
-    );
-
-    final projected = await runtime.projectWomenDailyLogs(
-      serverRows: const <Map<String, dynamic>>[
-        <String, dynamic>{
-          'loggedOn': '2026-09-05',
-          'version': 3,
-          'periodFlow': 'light',
-          'painLevel': 1,
+      await ownerRuntime.cacheWomenCalendarSnapshot(
+        profile: const <String, dynamic>{
+          'algorithmVersion':
+              WomenCalendarOfflineEngine.canonicalAlgorithmVersion,
+          'lastPeriodStart': '2026-08-20',
+          'cycleLength': 28,
+          'periodLength': 5,
         },
-      ],
-      fromDate: DateTime(2026, 9, 5),
-      toDate: DateTime(2026, 9, 5),
-    );
+        episodes: const <Map<String, dynamic>>[
+          <String, dynamic>{'startedOn': '2026-08-20', 'endedOn': '2026-08-24'},
+        ],
+        lifecycleState: WomenHealthLifecycleState.active,
+      );
 
-    expect(projected.rows, hasLength(1));
-    expect(projected.rows.single['periodFlow'], 'medium');
-    expect(projected.rows.single['pendingSync'], isTrue);
-    expect(projected.rows.single['serverConfirmed'], isFalse);
-    expect(projected.pendingDates, contains('2026-09-05'));
-    expect(projected.conflictDates, isEmpty);
+      final cached = await ownerRuntime.readWomenCalendarSnapshot();
+      expect(cached, isNotNull);
+      expect(cached!.lifecycleState, WomenHealthLifecycleState.active);
+      expect(cached.profile['cycleLength'], 28);
+      expect(await otherRuntime.readWomenCalendarSnapshot(), isNull);
+    },
+  );
 
-    final stored = await LifeMateLocalMutationOutbox(store: store).get(
-      namespace: owner,
-      mutationId: 'women-log-runtime-0001',
-    );
-    expect(stored?.domain, LifeMateMutationDomain.womenHealth);
-    expect(stored?.endpointPath, '/api/v1/women-calendar/daily-logs');
-    expect(stored?.payload['privateNotes'], 'owner only');
-  });
+  test(
+    'shared runtime projects pending owner daily log without confirming it',
+    () async {
+      final store = LifeMateLocalHealthStore.forTesting(
+        database: sqlite3.openInMemory(),
+        keyBytes: key,
+      );
+      final runtime = await _openRuntime(store, owner);
+      addTearDown(() {
+        runtime.close();
+        store.close();
+      });
 
-  test('shared runtime pending Women Health mutation cannot cross Person namespace', () async {
-    final store = LifeMateLocalHealthStore.forTesting(
-      database: sqlite3.openInMemory(),
-      keyBytes: key,
-    );
-    final ownerRuntime = await _openRuntime(store, owner);
-    final otherRuntime = await _openRuntime(store, otherPerson);
-    addTearDown(() {
-      ownerRuntime.close();
-      otherRuntime.close();
-      store.close();
-    });
+      await runtime.enqueueWomenDailyLogUpsert(
+        mutationId: 'women-log-runtime-0001',
+        loggedOn: DateTime(2026, 9, 5),
+        version: 3,
+        mood: 'good',
+        energyLevel: 4,
+        periodFlow: 'medium',
+        painLevel: 2,
+        symptoms: const <String>{'cramps'},
+        privateNotes: 'owner only',
+        createdAtUtc: DateTime.utc(2026, 9, 5, 19),
+      );
 
-    await ownerRuntime.enqueueWomenDailyLogUpsert(
-      mutationId: 'women-log-runtime-0002',
-      loggedOn: DateTime(2026, 9, 6),
-      version: 0,
-      symptoms: const <String>{'headache'},
-      createdAtUtc: DateTime.utc(2026, 9, 5, 20),
-    );
+      final projected = await runtime.projectWomenDailyLogs(
+        serverRows: const <Map<String, dynamic>>[
+          <String, dynamic>{
+            'loggedOn': '2026-09-05',
+            'version': 3,
+            'periodFlow': 'light',
+            'painLevel': 1,
+          },
+        ],
+        fromDate: DateTime(2026, 9, 5),
+        toDate: DateTime(2026, 9, 5),
+      );
 
-    final otherProjection = await otherRuntime.projectWomenDailyLogs(
-      serverRows: const <Map<String, dynamic>>[],
-      fromDate: DateTime(2026, 9, 6),
-      toDate: DateTime(2026, 9, 6),
-    );
-    expect(otherProjection.rows, isEmpty);
-    expect(otherProjection.pendingDates, isEmpty);
-  });
+      expect(projected.rows, hasLength(1));
+      expect(projected.rows.single['periodFlow'], 'medium');
+      expect(projected.rows.single['pendingSync'], isTrue);
+      expect(projected.rows.single['serverConfirmed'], isFalse);
+      expect(projected.pendingDates, contains('2026-09-05'));
+      expect(projected.conflictDates, isEmpty);
+
+      final stored = await LifeMateLocalMutationOutbox(
+        store: store,
+      ).get(namespace: owner, mutationId: 'women-log-runtime-0001');
+      expect(stored?.domain, LifeMateMutationDomain.womenHealth);
+      expect(stored?.endpointPath, '/api/v1/women-calendar/daily-logs');
+      expect(stored?.payload['mood'], 'good');
+      expect(stored?.payload['energyLevel'], 4);
+      expect(stored?.payload['privateNotes'], 'owner only');
+      expect(stored?.payload.containsKey('shareSummaryWithCompanion'), isFalse);
+    },
+  );
+
+  test(
+    'shared runtime pending Women Health mutation cannot cross Person namespace',
+    () async {
+      final store = LifeMateLocalHealthStore.forTesting(
+        database: sqlite3.openInMemory(),
+        keyBytes: key,
+      );
+      final ownerRuntime = await _openRuntime(store, owner);
+      final otherRuntime = await _openRuntime(store, otherPerson);
+      addTearDown(() {
+        ownerRuntime.close();
+        otherRuntime.close();
+        store.close();
+      });
+
+      await ownerRuntime.enqueueWomenDailyLogUpsert(
+        mutationId: 'women-log-runtime-0002',
+        loggedOn: DateTime(2026, 9, 6),
+        version: 0,
+        symptoms: const <String>{'headache'},
+        createdAtUtc: DateTime.utc(2026, 9, 5, 20),
+      );
+
+      final otherProjection = await otherRuntime.projectWomenDailyLogs(
+        serverRows: const <Map<String, dynamic>>[],
+        fromDate: DateTime(2026, 9, 6),
+        toDate: DateTime(2026, 9, 6),
+      );
+      expect(otherProjection.rows, isEmpty);
+      expect(otherProjection.pendingDates, isEmpty);
+    },
+  );
 
   test('shared runtime preserves explicit pending delete semantics', () async {
     final store = LifeMateLocalHealthStore.forTesting(
