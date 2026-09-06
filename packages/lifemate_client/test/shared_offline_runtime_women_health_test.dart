@@ -74,7 +74,6 @@ void main() {
         version: 3,
         mood: 'good',
         energyLevel: 4,
-        periodFlow: 'medium',
         painLevel: 2,
         symptoms: const <String>{'cramps'},
         privateNotes: 'owner only',
@@ -95,7 +94,9 @@ void main() {
       );
 
       expect(projected.rows, hasLength(1));
-      expect(projected.rows.single['periodFlow'], 'medium');
+      expect(projected.rows.single['mood'], 'good');
+      expect(projected.rows.single['energyLevel'], 4);
+      expect(projected.rows.single['periodFlow'], 'light');
       expect(projected.rows.single['pendingSync'], isTrue);
       expect(projected.rows.single['serverConfirmed'], isFalse);
       expect(projected.pendingDates, contains('2026-09-05'));
@@ -109,6 +110,7 @@ void main() {
       expect(stored?.payload['mood'], 'good');
       expect(stored?.payload['energyLevel'], 4);
       expect(stored?.payload['privateNotes'], 'owner only');
+      expect(stored?.payload.containsKey('periodFlow'), isFalse);
       expect(stored?.payload.containsKey('shareSummaryWithCompanion'), isFalse);
     },
   );

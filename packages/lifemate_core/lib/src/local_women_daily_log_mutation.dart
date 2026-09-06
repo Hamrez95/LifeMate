@@ -95,18 +95,41 @@ final class LifeMateOfflineWomenDailyLogMutation {
           ..sort();
     final created = (createdAtUtc ?? DateTime.now().toUtc()).toUtc();
 
-    final payload = <String, dynamic>{
-      'loggedOn': date,
-      'version': version,
-      if (normalizedMood != null) 'mood': normalizedMood,
-      if (energyLevel != null) 'energyLevel': energyLevel,
-      'periodFlow': _emptyToNull(periodFlow),
-      'bloodAppearance': _emptyToNull(bloodAppearance),
-      'bloodTexture': _emptyToNull(bloodTexture),
-      'painLevel': painLevel,
-      'symptoms': normalizedSymptoms,
-      'privateNotes': _emptyToNull(privateNotes),
-    };
+    final normalizedPeriodFlow = _emptyToNull(periodFlow);
+    final normalizedBloodAppearance = _emptyToNull(bloodAppearance);
+    final normalizedBloodTexture = _emptyToNull(bloodTexture);
+    final ownerCheckIn = normalizedMood != null || energyLevel != null;
+    if (ownerCheckIn &&
+        (normalizedPeriodFlow != null ||
+            normalizedBloodAppearance != null ||
+            normalizedBloodTexture != null)) {
+      throw ArgumentError(
+        'Owner check-in and rich period-only fields must be queued separately.',
+      );
+    }
+
+    final payload = ownerCheckIn
+        ? <String, dynamic>{
+            'version': version,
+            'loggedOn': date,
+            if (normalizedMood != null) 'mood': normalizedMood,
+            if (energyLevel != null) 'energyLevel': energyLevel,
+            'painLevel': painLevel,
+            'symptoms': normalizedSymptoms
+                .map((value) => value.toLowerCase())
+                .toList(growable: false),
+            'privateNotes': _emptyToNull(privateNotes),
+          }
+        : <String, dynamic>{
+            'loggedOn': date,
+            'version': version,
+            'periodFlow': normalizedPeriodFlow,
+            'bloodAppearance': normalizedBloodAppearance,
+            'bloodTexture': normalizedBloodTexture,
+            'painLevel': painLevel,
+            'symptoms': normalizedSymptoms,
+            'privateNotes': _emptyToNull(privateNotes),
+          };
 
     return LifeMateDurableMutation(
       mutationId: key,

@@ -351,7 +351,8 @@ class _FakeWomenCompanionApi extends WomenCompanionApi {
     required int painLevel,
     required List<String> symptoms,
     String? privateNotes,
-    required bool shareSummaryWithCompanion,
+    bool? shareSummaryWithCompanion,
+    String? clientRequestId,
   }) async => {
     'id': 'daily-1',
     'loggedOn': _isoDate(loggedOn),

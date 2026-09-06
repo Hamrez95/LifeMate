@@ -64,7 +64,8 @@ class WomenCompanionApi {
     required int painLevel,
     required List<String> symptoms,
     String? privateNotes,
-    required bool shareSummaryWithCompanion,
+    bool? shareSummaryWithCompanion,
+    String? clientRequestId,
   }) async {
     final value = await _send(
       'PUT',
@@ -79,9 +80,11 @@ class WomenCompanionApi {
             .map((value) => value.trim().toLowerCase())
             .toList(),
         'privateNotes': _emptyToNull(privateNotes),
-        'shareSummaryWithCompanion': shareSummaryWithCompanion,
+        if (shareSummaryWithCompanion != null)
+          'shareSummaryWithCompanion': shareSummaryWithCompanion,
       },
-      idempotencyKey: LifeMateApiClient.createClientRequestId(),
+      idempotencyKey:
+          clientRequestId ?? LifeMateApiClient.createClientRequestId(),
       retryable: true,
     );
     return Map<String, dynamic>.from(value as Map);
@@ -134,10 +137,12 @@ class WomenCompanionApi {
       late final http.Response response;
       try {
         response = switch (method) {
-          'GET' => await _http.get(uri, headers: headers).timeout(attemptTimeout),
-          'PUT' => await _http
-              .put(uri, headers: headers, body: encodedBody)
-              .timeout(attemptTimeout),
+          'GET' =>
+            await _http.get(uri, headers: headers).timeout(attemptTimeout),
+          'PUT' =>
+            await _http
+                .put(uri, headers: headers, body: encodedBody)
+                .timeout(attemptTimeout),
           _ => throw ArgumentError.value(method, 'method'),
         };
       } on TimeoutException {
@@ -160,17 +165,17 @@ class WomenCompanionApi {
         );
       }
 
-      if (
-        attempt < maxAttempts &&
-        _shouldRetryResponse(response) &&
-        await _waitBeforeRetry(attempt, budget, response: response)
-      ) {
+      if (attempt < maxAttempts &&
+          _shouldRetryResponse(response) &&
+          await _waitBeforeRetry(attempt, budget, response: response)) {
         continue;
       }
       return _decode(response);
     }
 
-    throw StateError('LifeMate women companion retry loop exited unexpectedly.');
+    throw StateError(
+      'LifeMate women companion retry loop exited unexpectedly.',
+    );
   }
 
   Future<bool> _waitBeforeRetry(
@@ -186,10 +191,8 @@ class WomenCompanionApi {
       final serverDelay = Duration(seconds: retryAfter);
       if (serverDelay > delay) delay = serverDelay;
     }
-    if (
-      budget.elapsedMilliseconds + delay.inMilliseconds >=
-          _retryBudget.inMilliseconds
-    ) {
+    if (budget.elapsedMilliseconds + delay.inMilliseconds >=
+        _retryBudget.inMilliseconds) {
       return false;
     }
     await Future<void>.delayed(delay);
@@ -200,10 +203,7 @@ class WomenCompanionApi {
     final exponential = _retryBaseDelay.inMilliseconds * (1 << (attempt - 1));
     final jitter = _retryRandom.nextInt(_retryBaseDelay.inMilliseconds + 1);
     return Duration(
-      milliseconds: min(
-        _retryMaxDelay.inMilliseconds,
-        exponential + jitter,
-      ),
+      milliseconds: min(_retryMaxDelay.inMilliseconds, exponential + jitter),
     );
   }
 

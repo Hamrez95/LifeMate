@@ -72,7 +72,9 @@ final class LifeMateWomenDailyLogProjection {
 
       final payload = Map<String, dynamic>.from(mutation.payload);
       _nonNegativeInt(payload['version'], 'version');
+      final serverRow = rowsByDate[dateKey];
       rowsByDate[dateKey] = Map<String, dynamic>.unmodifiable(<String, dynamic>{
+        if (serverRow != null) ...serverRow,
         ...payload,
         'pendingSync': true,
         'serverConfirmed': false,

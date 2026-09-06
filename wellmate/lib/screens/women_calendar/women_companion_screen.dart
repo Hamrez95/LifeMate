@@ -8,8 +8,10 @@ import '../../core/theme/app_style.dart';
 import '../../core/utils/persian_date_utils.dart';
 import 'women_calendar_month_card.dart';
 import 'women_calendar_screen.dart';
+import 'women_companion_daily_log_offline_policy.dart';
 import 'women_companion_dashboard_loader.dart';
 import 'women_companion_people_hero.dart';
+import 'women_daily_log_offline_bridge.dart';
 
 class WomenCompanionScreen extends StatefulWidget {
   const WomenCompanionScreen({
@@ -236,6 +238,18 @@ class _WomenCompanionScreenState extends State<WomenCompanionScreen> {
     );
     if (draft == null || _saving) return;
     setState(() => _saving = true);
+    final clientRequestId = LifeMateApiClient.createClientRequestId();
+    final currentShare = current?['shareSummaryWithCompanion'] == true;
+    final shareTransition = currentShare == draft.shareWithCompanion
+        ? null
+        : draft.shareWithCompanion;
+    final canonicalSymptoms =
+        draft.symptoms
+            .map((value) => value.trim().toLowerCase())
+            .where((value) => value.isNotEmpty)
+            .toSet()
+            .toList(growable: false)
+          ..sort();
     try {
       await _companionApi.saveDailyLog(
         version: current?['version'] is int ? current!['version'] as int : 0,
@@ -243,9 +257,10 @@ class _WomenCompanionScreenState extends State<WomenCompanionScreen> {
         mood: draft.mood,
         energyLevel: draft.energyLevel,
         painLevel: draft.painLevel,
-        symptoms: draft.symptoms,
+        symptoms: canonicalSymptoms,
         privateNotes: draft.privateNotes,
-        shareSummaryWithCompanion: draft.shareWithCompanion,
+        shareSummaryWithCompanion: shareTransition,
+        clientRequestId: clientRequestId,
       );
       if (!mounted) return;
       final isToday = _dateKey(date) == _dateKey(DateTime.now());
@@ -285,6 +300,75 @@ class _WomenCompanionScreenState extends State<WomenCompanionScreen> {
       );
       await _load();
     } on LifeMateApiException catch (error) {
+      if (WomenCompanionDailyLogOfflinePolicy.canQueueAfter(error) &&
+          WomenCompanionDailyLogOfflinePolicy.canQueuePrivateMutation(
+            current: current,
+            requestedShareWithCompanion: draft.shareWithCompanion,
+          )) {
+        WomenDailyLogOfflineBridge? offline;
+        try {
+          offline = await WomenDailyLogOfflineBridge.open(
+            apiClient: context.read<LifeMateApiClient>(),
+          );
+          await offline.enqueueUpsert(
+            mutationId: clientRequestId,
+            loggedOn: date,
+            version: current?['version'] is int
+                ? current!['version'] as int
+                : 0,
+            mood: draft.mood,
+            energyLevel: draft.energyLevel,
+            painLevel: draft.painLevel,
+            symptoms: canonicalSymptoms.toSet(),
+            privateNotes: draft.privateNotes,
+          );
+          if (!mounted) return;
+          final pending = <String, dynamic>{
+            ...?current,
+            'loggedOn': _dateKey(date),
+            'mood': draft.mood.trim().toLowerCase(),
+            'energyLevel': draft.energyLevel,
+            'painLevel': draft.painLevel,
+            'symptoms': canonicalSymptoms,
+            'privateNotes': draft.privateNotes,
+            'shareSummaryWithCompanion': false,
+            'version': current?['version'] is int
+                ? current!['version'] as int
+                : 0,
+            'pendingSync': true,
+            'serverConfirmed': false,
+          };
+          setState(() {
+            _dailyLogs = <Map<String, dynamic>>[
+              ..._dailyLogs.where(
+                (log) => log['loggedOn']?.toString() != _dateKey(date),
+              ),
+              pending,
+            ];
+          });
+          LifeMateNotice.show(
+            context,
+            type: LifeMateNoticeType.success,
+            title: LifeMateRuntimeLocale.select(
+              fa: 'روی این دستگاه ذخیره شد',
+              en: 'Saved on this device',
+            ),
+            message: LifeMateRuntimeLocale.select(
+              fa: 'این ثبت خصوصی است و بعد از اتصال دوباره همگام می‌شود.',
+              en: 'This private check-in will sync after reconnection.',
+            ),
+          );
+          return;
+        } on UnsupportedError {
+          // Web deliberately has no protected PHI persistence.
+        } on LifeMateApiException {
+          // Protected runtime unavailable: preserve the original API failure.
+        } on StateError {
+          // Protected runtime unavailable: preserve the original API failure.
+        } finally {
+          offline?.close();
+        }
+      }
       if (!mounted) return;
       LifeMateNotice.show(
         context,
