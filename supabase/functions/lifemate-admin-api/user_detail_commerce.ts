@@ -34,7 +34,8 @@ export async function getUserCommerceSummary(
            entitlement.source,
            entitlement.status,
            entitlement.starts_at_utc,
-           entitlement.expires_at_utc
+           entitlement.expires_at_utc,
+           entitlement.version
     from commerce.entitlements entitlement
     join commerce.features feature on feature.id = entitlement.feature_id
     where entitlement.grantee_account_id = ${accountId}::uuid
@@ -63,6 +64,7 @@ export async function getUserCommerceSummary(
       status: String(row.status),
       startsAtUtc: iso(row.starts_at_utc),
       expiresAtUtc: row.expires_at_utc == null ? null : iso(row.expires_at_utc),
+      version: Number(row.version),
     })),
   };
 }
