@@ -65,9 +65,7 @@ class DurableLifeMateApiClient extends LifeMateApiClient {
          httpClient: innerHttpClient,
        );
 
-  /// Browser builds intentionally never expose a protected local PHI
-  /// namespace. Keeping this getter in parity with the native implementation
-  /// lets shared UI code fail closed without conditional type casts.
+  /// Browser builds deliberately never expose a protected local PHI namespace.
   LifeMateOfflineNamespace? get activeOfflineNamespace => null;
 
   Future<void> adoptSharedOfflineRuntime({
@@ -183,12 +181,10 @@ class DurableLifeMateApiClient extends LifeMateApiClient {
   Future<LifeMateCareEventProjectionSyncResult> syncCareEventProjections({
     int pageSize = 100,
     int maximumPages = 10,
-  }) => Future<LifeMateCareEventProjectionSyncResult>.value(
-    const LifeMateCareEventProjectionSyncResult(),
+    LifeMateBeforeProjectionCheckpoint? beforeCheckpoint,
+  }) => Future<LifeMateCareEventProjectionSyncResult>.error(
+    UnsupportedError('Protected offline health execution is unavailable on web.'),
   );
 
-  @override
-  void close() {
-    super.close();
-  }
+  Future<int> pendingMutationCount() async => 0;
 }
