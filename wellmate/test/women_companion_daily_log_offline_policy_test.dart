@@ -13,9 +13,7 @@ void main() {
     );
     expect(
       WomenCompanionDailyLogOfflinePolicy.canQueuePrivateMutation(
-        current: const <String, dynamic>{
-          'shareSummaryWithCompanion': false,
-        },
+        current: const <String, dynamic>{'shareSummaryWithCompanion': false},
         requestedShareWithCompanion: false,
       ),
       isTrue,
@@ -25,18 +23,14 @@ void main() {
   test('offline queue cannot enable sharing or hide an online revocation', () {
     expect(
       WomenCompanionDailyLogOfflinePolicy.canQueuePrivateMutation(
-        current: const <String, dynamic>{
-          'shareSummaryWithCompanion': false,
-        },
+        current: const <String, dynamic>{'shareSummaryWithCompanion': false},
         requestedShareWithCompanion: true,
       ),
       isFalse,
     );
     expect(
       WomenCompanionDailyLogOfflinePolicy.canQueuePrivateMutation(
-        current: const <String, dynamic>{
-          'shareSummaryWithCompanion': true,
-        },
+        current: const <String, dynamic>{'shareSummaryWithCompanion': true},
         requestedShareWithCompanion: false,
       ),
       isFalse,
