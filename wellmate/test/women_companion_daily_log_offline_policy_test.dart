@@ -63,4 +63,23 @@ void main() {
       );
     }
   });
+
+  test('durable private replay uses a distinct bounded mutation identity', () {
+    expect(
+      WomenCompanionDailyLogOfflinePolicy.durableReplayMutationId(
+        'women-owner-request-0001',
+      ),
+      'women-owner-request-0001.offline',
+    );
+    expect(
+      () => WomenCompanionDailyLogOfflinePolicy.durableReplayMutationId(''),
+      throwsArgumentError,
+    );
+    expect(
+      () => WomenCompanionDailyLogOfflinePolicy.durableReplayMutationId(
+        'x' * 180,
+      ),
+      throwsArgumentError,
+    );
+  });
 }
