@@ -87,6 +87,21 @@ class LifeMateHealthDocumentDownload {
   final Duration expiresIn;
 }
 
+/// A bounded slice of the private Health Record timeline. `nextCursor` is an
+/// opaque server value and must be forwarded unchanged; it is not a document
+/// identifier or Storage path.
+class LifeMateHealthDocumentPage {
+  const LifeMateHealthDocumentPage({
+    required this.items,
+    required this.nextCursor,
+  });
+
+  final List<LifeMateHealthDocument> items;
+  final String? nextCursor;
+
+  bool get hasMore => nextCursor != null;
+}
+
 class LifeMateApiException implements Exception {
   const LifeMateApiException({
     required this.statusCode,
@@ -266,17 +281,51 @@ class LifeMateApiClient {
     ),
   );
 
-  Future<List<LifeMateHealthDocument>> getHealthDocuments() async {
+  Future<LifeMateHealthDocumentPage> getHealthDocumentPage({
+    LifeMateHealthDocumentCategory? category,
+    String? sourceProduct,
+    DateTime? fromDate,
+    DateTime? toDate,
+    String? cursor,
+    int limit = 25,
+  }) async {
+    if (limit < 1 || limit > 100) {
+      throw ArgumentError.value(limit, 'limit', 'must be between 1 and 100.');
+    }
     final payload = _asObject(
-      await _send('GET', '/api/v1/health-record/documents', retryable: true),
+      await _send(
+        'GET',
+        '/api/v1/health-record/documents',
+        query: {
+          if (category != null) 'category': category.wireValue,
+          if (sourceProduct?.trim().isNotEmpty ?? false)
+            'sourceProduct': sourceProduct!.trim(),
+          if (fromDate != null) 'fromDate': _date(fromDate),
+          if (toDate != null) 'toDate': _date(toDate),
+          if (cursor?.trim().isNotEmpty ?? false) 'cursor': cursor!.trim(),
+          'limit': '$limit',
+        },
+        retryable: true,
+      ),
     );
     final items = payload['items'];
     if (items is! List) {
       throw const FormatException('Invalid Health Record document list.');
     }
-    return items
+    final nextCursor = payload['nextCursor'];
+    if (nextCursor != null && nextCursor is! String) {
+      throw const FormatException('Invalid Health Record document cursor.');
+    }
+    return LifeMateHealthDocumentPage(
+      items: items
         .map((value) => LifeMateHealthDocument.fromJson(_asObject(value)))
-        .toList(growable: false);
+        .toList(growable: false),
+      nextCursor: nextCursor as String?,
+    );
+  }
+
+  Future<List<LifeMateHealthDocument>> getHealthDocuments() async {
+    return (await getHealthDocumentPage(limit: 100)).items;
   }
 
   Future<LifeMateHealthDocument> uploadHealthDocument({
