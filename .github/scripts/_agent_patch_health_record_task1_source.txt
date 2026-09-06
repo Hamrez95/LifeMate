@@ -1,0 +1,448 @@
+name: Agent patch health record task 1
+on:
+  push:
+    branches:
+      - feat/health-record-caregiver-doc-access-20260907
+permissions:
+  contents: write
+jobs:
+  patch:
+    if: github.actor != 'github-actions[bot]'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: feat/health-record-caregiver-doc-access-20260907
+          fetch-depth: 0
+      - name: Apply focused patch
+        shell: python
+        run: |
+          from pathlib import Path
+
+          def replace_once(path, old, new):
+              p = Path(path)
+              text = p.read_text()
+              if text.count(old) != 1:
+                  raise SystemExit(f"expected exactly one anchor in {path}: {old[:80]!r}, got {text.count(old)}")
+              p.write_text(text.replace(old, new, 1))
+
+          # Health document store: authorize Self or exact consent-scoped caregiver.
+          p = Path('supabase/functions/lifemate-api/health_documents.ts')
+          text = p.read_text()
+          anchor = '  async function ownerForUpload(appUserId: string) {\n'
+          if text.count(anchor) != 1:
+              raise SystemExit('health_documents ownerForUpload anchor mismatch')
+          insertion = r'''  async function authorizedSubject(
+            connection: any,
+            appUserId: string,
+            subjectPersonIdValue: unknown,
+          ) {
+            const requester = await ownerIdentity(connection, appUserId);
+            const subjectPersonId = subjectPersonIdValue == null ||
+                String(subjectPersonIdValue).trim().length === 0
+              ? requester.personId
+              : requiredUuid(subjectPersonIdValue, "personId");
+            const rows = await connection`
+              select security.can_access_health_document_scope(
+                ${requester.accountId}::uuid,
+                ${subjectPersonId}::uuid,
+                'health_record.documents.read'
+              ) as allowed
+            `;
+            if (rows[0]?.allowed !== true) {
+              throw new ApiError(
+                403,
+                "health_document_access_denied",
+                "Explicit Health Record document access is required.",
+              );
+            }
+            return { accountId: requester.accountId, personId: subjectPersonId };
+          }
+
+          async function listDocuments(
+            appUserId: string,
+            subjectPersonIdValue: unknown,
+            query: HealthDocumentListQuery,
+          ) {
+            const { personId } = await authorizedSubject(
+              sql,
+              appUserId,
+              subjectPersonIdValue,
+            );
+            const cursor = parseDocumentCursor(query.cursor);
+            const rows = await sql`
+              select d.*,
+                coalesce(jsonb_agg(jsonb_build_object(
+                  'contextType', l.context_type,
+                  'contextId', l.context_id
+                )) filter (where l.document_id is not null), '[]'::jsonb) as links
+              from lifemate.health_documents d
+              left join lifemate.health_document_links l on l.document_id = d.id
+              where d.owner_person_id = ${personId}::uuid
+                and d.status = 'Available'
+                and (${query.category}::text is null or d.category = ${query.category})
+                and (${query.sourceProduct}::text is null or d.source_product = ${query.sourceProduct})
+                and (${query.fromDate}::date is null
+                  or coalesce(d.captured_on, d.created_at_utc::date) >= ${query.fromDate}::date)
+                and (${query.toDate}::date is null
+                  or coalesce(d.captured_on, d.created_at_utc::date) <= ${query.toDate}::date)
+                and (
+                  ${cursor?.createdAtUtc ?? null}::timestamptz is null
+                  or (d.created_at_utc, d.id) < (
+                    ${cursor?.createdAtUtc ?? null}::timestamptz,
+                    ${cursor?.id ?? null}::uuid
+                  )
+                )
+              group by d.id
+              order by d.created_at_utc desc, d.id desc
+              limit ${query.limit + 1}
+            `;
+            const hasMore = rows.length > query.limit;
+            const items = rows.slice(0, query.limit).map(mapDocument);
+            const last = rows[Math.min(rows.length, query.limit) - 1];
+            return {
+              items,
+              nextCursor: hasMore && last ? encodeDocumentCursor(last) : null,
+            };
+          }
+
+          async function getAuthorizedDownload(
+            appUserId: string,
+            documentIdValue: unknown,
+          ) {
+            const documentId = requiredUuid(documentIdValue, "documentId");
+            return await sql.begin(async (tx: any) => {
+              const requester = await ownerIdentity(tx, appUserId);
+              const rows = await tx`
+                select d.*
+                from lifemate.health_documents d
+                where d.id = ${documentId}::uuid
+                  and d.status = 'Available'
+                  and security.can_access_health_document_scope(
+                    ${requester.accountId}::uuid,
+                    d.owner_person_id,
+                    'health_record.documents.read'
+                  )
+                limit 1
+              `;
+              if (!rows[0]) {
+                throw new ApiError(
+                  404,
+                  "health_document_not_found",
+                  "Document was not found.",
+                );
+              }
+              await tx`
+                insert into lifemate.health_document_audit_events
+                  (id, document_id, actor_account_id, action)
+                values
+                  (${crypto.randomUUID()}::uuid, ${documentId}::uuid,
+                   ${requester.accountId}::uuid, 'Downloaded')
+              `;
+              return {
+                ...mapDocument(rows[0]),
+                storageObjectKey: String(rows[0].storage_object_key),
+              };
+            });
+          }
+
+'''
+          p.write_text(text.replace(anchor, insertion + anchor, 1))
+          replace_once(
+              'supabase/functions/lifemate-api/health_documents.ts',
+              '''  return {\n    ownerForUpload,\n    registerOwnerUpload,\n    listOwnerDocuments,\n    getOwnerDownload,\n  };''',
+              '''  return {\n    ownerForUpload,\n    registerOwnerUpload,\n    listOwnerDocuments,\n    getOwnerDownload,\n    listDocuments,\n    getAuthorizedDownload,\n  };''',
+          )
+
+          # Main Edge API wiring.
+          replace_once(
+              'supabase/functions/lifemate-api/index.ts',
+              'import type { HealthDocumentCategory } from "./health_documents.ts";\n',
+              '''import type { HealthDocumentCategory } from "./health_documents.ts";\nimport {\n  createHealthDocumentSharingStore,\n  parseHealthDocumentSharingUpdate,\n} from "./health_document_sharing.ts";\n''',
+          )
+          replace_once(
+              'supabase/functions/lifemate-api/index.ts',
+              'const healthDocuments = createHealthDocumentStore(databaseUrl);\n',
+              '''const healthDocuments = createHealthDocumentStore(databaseUrl);\nconst healthDocumentSharing = createHealthDocumentSharingStore(databaseUrl);\n''',
+          )
+          sharing_routes = r'''  const healthDocumentSharingMatch = path.match(
+            /^\/api\/v1\/health-record\/relationships\/([0-9a-f-]{36})\/document-sharing$/i,
+          );
+          if (healthDocumentSharingMatch && request.method === "GET") {
+            enforceRateLimit(
+              `health-document-sharing-read:${identity.appUserId}`,
+              60,
+              60 * 60_000,
+            );
+            return json(
+              await healthDocumentSharing.getPermission(
+                identity.appUserId,
+                healthDocumentSharingMatch[1],
+              ),
+            );
+          }
+          if (healthDocumentSharingMatch && request.method === "PATCH") {
+            enforceRateLimit(
+              `health-document-sharing-write:${identity.appUserId}`,
+              20,
+              60 * 60_000,
+            );
+            return json(
+              await healthDocumentSharing.updatePermission(
+                identity.appUserId,
+                healthDocumentSharingMatch[1],
+                parseHealthDocumentSharingUpdate(await readJsonObject(request)),
+              ),
+            );
+          }
+
+'''
+          replace_once(
+              'supabase/functions/lifemate-api/index.ts',
+              '  if (request.method === "GET" && path === "/api/v1/health-record/documents") {\n',
+              sharing_routes + '  if (request.method === "GET" && path === "/api/v1/health-record/documents") {\n',
+          )
+          replace_once(
+              'supabase/functions/lifemate-api/index.ts',
+              '...(await healthDocuments.listOwnerDocuments(identity.appUserId, query)),',
+              '''...(await healthDocuments.listDocuments(\n        identity.appUserId,\n        new URL(request.url).searchParams.get("personId"),\n        query,\n      )),''',
+          )
+          replace_once(
+              'supabase/functions/lifemate-api/index.ts',
+              'const document = await healthDocuments.getOwnerDownload(\n      identity.appUserId,\n      healthDocumentDownloadMatch[1],\n    );',
+              '''const document = await healthDocuments.getAuthorizedDownload(\n      identity.appUserId,\n      healthDocumentDownloadMatch[1],\n    );''',
+          )
+
+          # Client contract: target a patient Person only when the API authorizes it.
+          replace_once(
+              'packages/lifemate_client/lib/src/lifemate_api_client.dart',
+              '''  Future<LifeMateHealthDocumentPage> getHealthDocumentPage({\n    LifeMateHealthDocumentCategory? category,''',
+              '''  Future<LifeMateHealthDocumentPage> getHealthDocumentPage({\n    String? personId,\n    LifeMateHealthDocumentCategory? category,''',
+          )
+          replace_once(
+              'packages/lifemate_client/lib/src/lifemate_api_client.dart',
+              '''        query: {\n          if (category != null) 'category': category.wireValue,''',
+              '''        query: {\n          if (personId?.trim().isNotEmpty ?? false) 'personId': personId!.trim(),\n          if (category != null) 'category': category.wireValue,''',
+          )
+          client_methods = r'''  Future<Map<String, dynamic>> getHealthDocumentSharingPermission({
+            required String relationshipId,
+          }) async => _asObject(
+            await _send(
+              'GET',
+              '/api/v1/health-record/relationships/${relationshipId.trim()}/document-sharing',
+              retryable: true,
+            ),
+          );
+
+          Future<Map<String, dynamic>> updateHealthDocumentSharingPermission({
+            required String relationshipId,
+            required bool enabled,
+            bool confirmConsent = false,
+          }) async => _asObject(
+            await _send(
+              'PATCH',
+              '/api/v1/health-record/relationships/${relationshipId.trim()}/document-sharing',
+              body: {
+                'canViewDocuments': enabled,
+                if (enabled) ...{
+                  'confirmConsent': confirmConsent,
+                  'consentVersion': 'health-record-documents-sharing-v1',
+                },
+              },
+            ),
+          );
+
+'''
+          replace_once(
+              'packages/lifemate_client/lib/src/lifemate_api_client.dart',
+              '  Future<Map<String, dynamic>> deleteCurrentProfilePhoto() async =>\n',
+              client_methods + '  Future<Map<String, dynamic>> deleteCurrentProfilePhoto() async =>\n',
+          )
+
+          # Health Record screen can render either Self or an authorized patient Person.
+          replace_once(
+              'wellmate/lib/screens/profile/health_record_screen.dart',
+              '''class HealthRecordScreen extends StatefulWidget {\n  const HealthRecordScreen({super.key});''',
+              '''class HealthRecordScreen extends StatefulWidget {\n  const HealthRecordScreen({super.key, this.personId});\n\n  final String? personId;''',
+          )
+          replace_once(
+              'wellmate/lib/screens/profile/health_record_screen.dart',
+              '''      context.read<LifeMateApiClient>().getHealthDocumentPage(\n        category: _selectedCategory,''',
+              '''      context.read<LifeMateApiClient>().getHealthDocumentPage(\n        personId: widget.personId,\n        category: _selectedCategory,''',
+          )
+
+          # Owner UI gets a separate read-only documents switch. Management remains independent.
+          replace_once(
+              'wellmate/lib/screens/profile/care_access_settings_screen.dart',
+              '''  bool _savingHealthRecord = false;\n  bool _womenCalendarEnabled = false;''',
+              '''  bool _savingHealthRecord = false;\n  bool _savingHealthDocuments = false;\n  bool _womenCalendarEnabled = false;''',
+          )
+          replace_once(
+              'wellmate/lib/screens/profile/care_access_settings_screen.dart',
+              '''  bool _canViewWomenCalendar = false;\n  bool _canManageHealthRecord = false;''',
+              '''  bool _canViewWomenCalendar = false;\n  bool _canManageHealthRecord = false;\n  bool _canViewHealthDocuments = false;''',
+          )
+          load_anchor = '''    if (mounted) {\n      setState(() {\n        _error = errorMessage;\n        _loading = false;\n      });\n    }\n  }\n\n  Future<void> _setWomenCalendarAccess'''
+          load_insert = r'''    try {
+            final permission = await context
+                .read<LifeMateApiClient>()
+                .getHealthDocumentSharingPermission(
+                  relationshipId: _relationshipId,
+                );
+            if (mounted) {
+              setState(() {
+                _canViewHealthDocuments =
+                    permission['canViewDocuments'] == true;
+              });
+            }
+          } catch (error) {
+            debugPrint('Care document sharing permission load failed: $error');
+            errorMessage ??= LifeMateRuntimeLocale.select(
+              fa: 'وضعیت اشتراک مدارک پرونده سلامت دریافت نشد.',
+              en: 'Health Record document sharing status could not be loaded.',
+            );
+          }
+
+          if (mounted) {
+            setState(() {
+              _error = errorMessage;
+              _loading = false;
+            });
+          }
+        }
+
+        Future<void> _setWomenCalendarAccess'''
+          replace_once('wellmate/lib/screens/profile/care_access_settings_screen.dart', load_anchor, load_insert)
+
+          access_anchor = '  Future<void> _setHealthRecordAccess(bool value) async {\n'
+          document_method = r'''  Future<void> _setHealthDocumentAccess(bool value) async {
+            if (_savingHealthDocuments) return;
+            if (value) {
+              final accepted = await showDialog<bool>(
+                context: context,
+                barrierDismissible: false,
+                builder: (dialogContext) => AlertDialog(
+                  title: Text(LifeMateRuntimeLocale.select(
+                    fa: 'اشتراک مدارک پرونده سلامت',
+                    en: 'Share Health Record documents',
+                  )),
+                  content: Text(LifeMateRuntimeLocale.select(
+                    fa: 'این مراقب فقط می‌تواند مدارک را مشاهده و دانلود کند. اجازه افزودن، ویرایش یا حذف مدرک داده نمی‌شود و هر زمان بخواهید می‌توانید این دسترسی را لغو کنید.',
+                    en: 'This caregiver can only view and download documents. They cannot add, edit or delete documents, and you can revoke access at any time.',
+                  )),
+                  actions: [
+                    TextButton(
+                      onPressed: () => Navigator.of(dialogContext).pop(false),
+                      child: Text(LifeMateRuntimeLocale.select(
+                        fa: 'انصراف',
+                        en: 'Cancel',
+                      )),
+                    ),
+                    FilledButton(
+                      onPressed: () => Navigator.of(dialogContext).pop(true),
+                      child: Text(LifeMateRuntimeLocale.select(
+                        fa: 'تأیید و اشتراک',
+                        en: 'Confirm sharing',
+                      )),
+                    ),
+                  ],
+                ),
+              );
+              if (accepted != true || !mounted) return;
+            }
+
+            setState(() => _savingHealthDocuments = true);
+            try {
+              final updated = await context
+                  .read<LifeMateApiClient>()
+                  .updateHealthDocumentSharingPermission(
+                    relationshipId: _relationshipId,
+                    enabled: value,
+                    confirmConsent: value,
+                  );
+              if (!mounted) return;
+              setState(() {
+                _canViewHealthDocuments = updated['canViewDocuments'] == true;
+              });
+              LifeMateNotice.show(
+                context,
+                type: LifeMateNoticeType.success,
+                title: LifeMateRuntimeLocale.select(
+                  fa: value ? 'اشتراک مدارک فعال شد' : 'اشتراک مدارک لغو شد',
+                  en: value ? 'Document sharing enabled' : 'Document sharing revoked',
+                ),
+                message: LifeMateRuntimeLocale.select(
+                  fa: value
+                      ? 'این مراقب اکنون دسترسی فقط‌خواندنی به مدارک دارد.'
+                      : 'صدور دسترسی جدید به مدارک برای این مراقب فوراً متوقف شد.',
+                  en: value
+                      ? 'This caregiver now has read-only document access.'
+                      : 'New document access for this caregiver has been stopped immediately.',
+                ),
+              );
+            } on LifeMateApiException catch (error) {
+              if (!mounted) return;
+              LifeMateNotice.show(
+                context,
+                type: LifeMateNoticeType.error,
+                title: LifeMateRuntimeLocale.select(
+                  fa: 'تغییر اشتراک انجام نشد',
+                  en: 'Sharing change failed',
+                ),
+                message: error.code == 'health_document_sharing_consent_required'
+                    ? LifeMateRuntimeLocale.select(
+                        fa: 'برای اشتراک مدارک، تأیید صریح شما لازم است.',
+                        en: 'Your explicit consent is required to share documents.',
+                      )
+                    : LifeMateRuntimeLocale.select(
+                        fa: 'اشتراک مدارک ذخیره نشد. دوباره تلاش کنید.',
+                        en: 'Document sharing was not saved. Try again.',
+                      ),
+              );
+            } finally {
+              if (mounted) setState(() => _savingHealthDocuments = false);
+            }
+          }
+
+'''
+          replace_once(
+              'wellmate/lib/screens/profile/care_access_settings_screen.dart',
+              access_anchor,
+              document_method + access_anchor,
+          )
+
+          card_anchor = '''            SizedBox(height: 12),\n            _PermissionCard(\n              key: ValueKey('care-permission-health-record'),'''
+          document_card = r'''            SizedBox(height: 12),
+            _PermissionCard(
+              key: ValueKey('care-permission-health-documents'),
+              icon: Icons.description_rounded,
+              accent: Color(0xFF397B70),
+              softColor: Color(0xFFEAF7F2),
+              title: LifeMateRuntimeLocale.select(
+                fa: 'مدارک پرونده سلامت',
+                en: 'Health Record documents',
+              ),
+              subtitle: LifeMateRuntimeLocale.select(
+                fa: 'فقط مشاهده و دانلود مدارک؛ بدون اجازه افزودن، ویرایش یا حذف.',
+                en: 'View and download only; no permission to add, edit or delete documents.',
+              ),
+              value: _canViewHealthDocuments,
+              enabled: !_loading && !_savingHealthDocuments,
+              onChanged: _setHealthDocumentAccess,
+              loading: _savingHealthDocuments,
+              isSensitive: true,
+            ),
+            SizedBox(height: 12),
+            _PermissionCard(
+              key: ValueKey('care-permission-health-record'),'''
+          replace_once('wellmate/lib/screens/profile/care_access_settings_screen.dart', card_anchor, document_card)
+
+          Path('.github/workflows/_agent_patch_health_record_task1.yml').unlink()
+      - name: Commit focused patch
+        run: |
+          git config user.name github-actions[bot]
+          git config user.email 41898282+github-actions[bot]@users.noreply.github.com
+          git add -A
+          git diff --cached --check
+          git commit -m "feat(health-record): enable revocable caregiver document reads"
+          git push origin HEAD:feat/health-record-caregiver-doc-access-20260907
