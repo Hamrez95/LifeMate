@@ -239,20 +239,41 @@ export function parseHealthDocumentListQuery(
   const fromDate = optionalListDate(value.get("fromDate"), "fromDate");
   const toDate = optionalListDate(value.get("toDate"), "toDate");
   if (fromDate && toDate && fromDate > toDate) {
-    throw new ApiError(400, "health_document_date_range_invalid", "Date range is invalid.");
+    throw new ApiError(
+      400,
+      "health_document_date_range_invalid",
+      "Date range is invalid.",
+    );
   }
   const rawLimit = value.get("limit");
-  const parsedLimit = rawLimit == null || rawLimit.trim() === "" ? 25 : Number(rawLimit);
+  const parsedLimit = rawLimit == null || rawLimit.trim() === ""
+    ? 25
+    : Number(rawLimit);
   if (!Number.isInteger(parsedLimit) || parsedLimit < 1 || parsedLimit > 100) {
-    throw new ApiError(400, "health_document_limit_invalid", "Document list limit is invalid.");
+    throw new ApiError(
+      400,
+      "health_document_limit_invalid",
+      "Document list limit is invalid.",
+    );
   }
   const cursor = value.get("cursor")?.trim() || null;
   if (cursor) parseDocumentCursor(cursor);
-  return { category, sourceProduct, fromDate, toDate, cursor, limit: parsedLimit };
+  return {
+    category,
+    sourceProduct,
+    fromDate,
+    toDate,
+    cursor,
+    limit: parsedLimit,
+  };
 }
 
 function invalidListQuery(field: string): never {
-  throw new ApiError(400, "health_document_filter_invalid", `${field} filter is invalid.`);
+  throw new ApiError(
+    400,
+    "health_document_filter_invalid",
+    `${field} filter is invalid.`,
+  );
 }
 
 function normalizeOptionalSource(value: string | null): string | null {
@@ -274,19 +295,32 @@ function parseDocumentCursor(value: string | null): DocumentCursor | null {
   if (!value) return null;
   try {
     const decoded = JSON.parse(atob(value)) as Record<string, unknown>;
-    const createdAtUtc = typeof decoded.createdAtUtc === "string" ? decoded.createdAtUtc : "";
+    const createdAtUtc = typeof decoded.createdAtUtc === "string"
+      ? decoded.createdAtUtc
+      : "";
     const id = typeof decoded.id === "string" ? decoded.id : "";
-    if (Number.isNaN(Date.parse(createdAtUtc)) || !/^[0-9a-f-]{36}$/i.test(id)) {
+    if (
+      Number.isNaN(Date.parse(createdAtUtc)) || !/^[0-9a-f-]{36}$/i.test(id)
+    ) {
       throw new Error("invalid");
     }
     return { createdAtUtc, id };
   } catch (_) {
-    throw new ApiError(400, "health_document_cursor_invalid", "Document list cursor is invalid.");
+    throw new ApiError(
+      400,
+      "health_document_cursor_invalid",
+      "Document list cursor is invalid.",
+    );
   }
 }
 
 function encodeDocumentCursor(row: Row): string {
-  return btoa(JSON.stringify({ createdAtUtc: iso(row.created_at_utc), id: String(row.id) }));
+  return btoa(
+    JSON.stringify({
+      createdAtUtc: iso(row.created_at_utc),
+      id: String(row.id),
+    }),
+  );
 }
 
 function validateRegistration(input: HealthDocumentRegistration): void {
