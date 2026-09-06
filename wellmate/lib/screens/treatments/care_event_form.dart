@@ -651,20 +651,18 @@ class _CareEventFormState extends State<CareEventForm> {
 
     return Form(
       key: _formKey,
-      child: ListView(
-        key: ValueKey<String>(
-          _isAppointment
-              ? 'wellmate-appointment-form'
-              : 'wellmate-injection-form',
-        ),
-        padding: EdgeInsets.fromLTRB(
-          20,
-          14,
-          20,
-          MediaQuery.paddingOf(context).bottom + 170,
-        ),
-        keyboardDismissBehavior: ScrollViewKeyboardDismissBehavior.onDrag,
+      child: Column(
         children: [
+          Expanded(
+            child: ListView(
+              key: ValueKey<String>(
+                _isAppointment
+                    ? 'wellmate-appointment-form'
+                    : 'wellmate-injection-form',
+              ),
+              padding: const EdgeInsets.fromLTRB(20, 14, 20, 32),
+              keyboardDismissBehavior: ScrollViewKeyboardDismissBehavior.onDrag,
+              children: [
           Text(
             title,
             style: TextStyle(
@@ -1500,61 +1498,14 @@ class _CareEventFormState extends State<CareEventForm> {
             SizedBox(height: 14),
             _ErrorPanel(message: _error!),
           ],
-          SizedBox(height: 18),
-          FilledButton.icon(
-            key: ValueKey<String>('care-event-submit'),
-            style: FilledButton.styleFrom(
-              minimumSize: Size.fromHeight(54),
-              backgroundColor: AppColors.primary,
-              shape: RoundedRectangleBorder(
-                borderRadius: BorderRadius.circular(18),
-              ),
+              ],
             ),
+          ),
+          _StickyCareEventSubmit(
+            isAppointment: _isAppointment,
+            busy: _busy,
+            retryingDocuments: _attachmentEventId != null,
             onPressed: _busy ? null : _submit,
-            icon: _busy
-                ? SizedBox.square(
-                    dimension: 20,
-                    child: CircularProgressIndicator(
-                      strokeWidth: 2,
-                      color: Colors.white,
-                    ),
-                  )
-                : Icon(
-                    _isAppointment
-                        ? Icons.event_available_rounded
-                        : Icons.add_task_rounded,
-                  ),
-            label: Text(
-              _busy
-                  ? LifeMateRuntimeLocale.select(
-                      fa: LifeMateRuntimeLocale.select(
-                        fa: 'در حال ثبت...',
-                        en: "Registering...",
-                      ),
-                      en: "Registering...",
-                    )
-                  : _attachmentEventId != null
-                  ? LifeMateRuntimeLocale.select(
-                      fa: 'ارسال دوباره فایل‌ها',
-                      en: 'Retry document uploads',
-                    )
-                  : _isAppointment
-                  ? LifeMateRuntimeLocale.select(
-                      fa: LifeMateRuntimeLocale.select(
-                        fa: 'ثبت ویزیت',
-                        en: "Register a visit",
-                      ),
-                      en: "Register a visit",
-                    )
-                  : LifeMateRuntimeLocale.select(
-                      fa: LifeMateRuntimeLocale.select(
-                        fa: 'ثبت نوبت تزریق',
-                        en: "Registration of injection appointments",
-                      ),
-                      en: "Registration of injection appointments",
-                    ),
-              style: TextStyle(fontWeight: FontWeight.w900),
-            ),
           ),
         ],
       ),
@@ -1650,6 +1601,76 @@ class _CareEventFormState extends State<CareEventForm> {
             ],
           );
         },
+      ),
+    );
+  }
+}
+
+class _StickyCareEventSubmit extends StatelessWidget {
+  const _StickyCareEventSubmit({
+    required this.isAppointment,
+    required this.busy,
+    required this.retryingDocuments,
+    required this.onPressed,
+  });
+
+  final bool isAppointment;
+  final bool busy;
+  final bool retryingDocuments;
+  final VoidCallback? onPressed;
+
+  @override
+  Widget build(BuildContext context) {
+    final label = busy
+        ? LifeMateRuntimeLocale.select(fa: 'در حال ثبت...', en: 'Saving...')
+        : retryingDocuments
+        ? LifeMateRuntimeLocale.select(
+            fa: 'ارسال دوباره فایل‌ها',
+            en: 'Retry document uploads',
+          )
+        : isAppointment
+        ? LifeMateRuntimeLocale.select(fa: 'ثبت ویزیت', en: 'Save visit')
+        : LifeMateRuntimeLocale.select(fa: 'ثبت نوبت تزریق', en: 'Save injection');
+    return DecoratedBox(
+      decoration: BoxDecoration(
+        color: AppColors.background.withValues(alpha: 0.97),
+        border: Border(
+          top: BorderSide(color: AppColors.primary.withValues(alpha: 0.10)),
+        ),
+      ),
+      child: SafeArea(
+        top: false,
+        child: Padding(
+          padding: const EdgeInsets.fromLTRB(20, 12, 20, 12),
+          child: SizedBox(
+            key: const ValueKey<String>('care-event-submit'),
+            width: double.infinity,
+            height: 56,
+            child: FilledButton.icon(
+              onPressed: onPressed,
+              icon: busy
+                  ? const SizedBox.square(
+                      dimension: 20,
+                      child: CircularProgressIndicator(strokeWidth: 2),
+                    )
+                  : Icon(
+                      retryingDocuments
+                          ? Icons.cloud_upload_rounded
+                          : isAppointment
+                          ? Icons.event_available_rounded
+                          : Icons.add_task_rounded,
+                    ),
+              label: AnimatedSwitcher(
+                duration: const Duration(milliseconds: 160),
+                child: Text(
+                  label,
+                  key: ValueKey<String>(label),
+                  style: const TextStyle(fontWeight: FontWeight.w900),
+                ),
+              ),
+            ),
+          ),
+        ),
       ),
     );
   }
