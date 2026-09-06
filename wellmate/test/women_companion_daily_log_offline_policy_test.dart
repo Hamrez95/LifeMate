@@ -37,6 +37,22 @@ void main() {
     );
   });
 
+  test('unknown existing sharing state fails closed offline', () {
+    for (final current in <Map<String, dynamic>>[
+      const <String, dynamic>{},
+      const <String, dynamic>{'shareSummaryWithCompanion': 'false'},
+      const <String, dynamic>{'shareSummaryWithCompanion': null},
+    ]) {
+      expect(
+        WomenCompanionDailyLogOfflinePolicy.canQueuePrivateMutation(
+          current: current,
+          requestedShareWithCompanion: false,
+        ),
+        isFalse,
+      );
+    }
+  });
+
   test('only transient transport/server failures permit local fallback', () {
     for (final status in <int>[0, 408, 429, 500, 502, 503, 504]) {
       expect(
