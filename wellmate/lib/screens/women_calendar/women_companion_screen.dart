@@ -239,6 +239,17 @@ class _WomenCompanionScreenState extends State<WomenCompanionScreen> {
     if (draft == null || _saving) return;
     setState(() => _saving = true);
     final clientRequestId = LifeMateApiClient.createClientRequestId();
+    final currentShare = current?['shareSummaryWithCompanion'] == true;
+    final shareTransition = currentShare == draft.shareWithCompanion
+        ? null
+        : draft.shareWithCompanion;
+    final canonicalSymptoms =
+        draft.symptoms
+            .map((value) => value.trim().toLowerCase())
+            .where((value) => value.isNotEmpty)
+            .toSet()
+            .toList(growable: false)
+          ..sort();
     try {
       await _companionApi.saveDailyLog(
         version: current?['version'] is int ? current!['version'] as int : 0,
@@ -246,9 +257,9 @@ class _WomenCompanionScreenState extends State<WomenCompanionScreen> {
         mood: draft.mood,
         energyLevel: draft.energyLevel,
         painLevel: draft.painLevel,
-        symptoms: draft.symptoms,
+        symptoms: canonicalSymptoms,
         privateNotes: draft.privateNotes,
-        shareSummaryWithCompanion: draft.shareWithCompanion,
+        shareSummaryWithCompanion: shareTransition,
         clientRequestId: clientRequestId,
       );
       if (!mounted) return;
@@ -308,7 +319,7 @@ class _WomenCompanionScreenState extends State<WomenCompanionScreen> {
             mood: draft.mood,
             energyLevel: draft.energyLevel,
             painLevel: draft.painLevel,
-            symptoms: draft.symptoms.toSet(),
+            symptoms: canonicalSymptoms.toSet(),
             privateNotes: draft.privateNotes,
           );
           if (!mounted) return;
@@ -318,7 +329,7 @@ class _WomenCompanionScreenState extends State<WomenCompanionScreen> {
             'mood': draft.mood.trim().toLowerCase(),
             'energyLevel': draft.energyLevel,
             'painLevel': draft.painLevel,
-            'symptoms': draft.symptoms,
+            'symptoms': canonicalSymptoms,
             'privateNotes': draft.privateNotes,
             'shareSummaryWithCompanion': false,
             'version': current?['version'] is int

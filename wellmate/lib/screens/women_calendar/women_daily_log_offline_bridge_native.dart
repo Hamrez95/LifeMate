@@ -146,14 +146,8 @@ final class WomenDailyLogOfflineBridge {
     Set<String> symptoms = const <String>{},
     String? privateNotes,
   }) {
-    final ownerCheckIn = mood != null || energyLevel != null;
-    final durableMutationId = ownerCheckIn
-        ? WomenCompanionDailyLogOfflinePolicy.durableReplayMutationId(
-            mutationId,
-          )
-        : mutationId;
     return _runtime.enqueueWomenDailyLogUpsert(
-      mutationId: durableMutationId,
+      mutationId: mutationId,
       loggedOn: loggedOn,
       version: version,
       mood: mood,

@@ -64,7 +64,7 @@ class WomenCompanionApi {
     required int painLevel,
     required List<String> symptoms,
     String? privateNotes,
-    required bool shareSummaryWithCompanion,
+    bool? shareSummaryWithCompanion,
     String? clientRequestId,
   }) async {
     final value = await _send(
@@ -80,7 +80,8 @@ class WomenCompanionApi {
             .map((value) => value.trim().toLowerCase())
             .toList(),
         'privateNotes': _emptyToNull(privateNotes),
-        'shareSummaryWithCompanion': shareSummaryWithCompanion,
+        if (shareSummaryWithCompanion != null)
+          'shareSummaryWithCompanion': shareSummaryWithCompanion,
       },
       idempotencyKey:
           clientRequestId ?? LifeMateApiClient.createClientRequestId(),
