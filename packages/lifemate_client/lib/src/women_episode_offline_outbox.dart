@@ -93,12 +93,7 @@ final class WomenEpisodeOfflineOutbox {
     if (current == null) {
       throw StateError('Pending Women episode create was not found.');
     }
-    if (current.domain != LifeMateMutationDomain.womenHealth ||
-        current.sourceKey != 'women-episode-create:${current.mutationId}' ||
-        current.method != 'POST' ||
-        current.endpointPath != _createEndpoint ||
-        current.expectedRevision != null ||
-        current.timeZone != _timeZone) {
+    if (!_isExactCreate(current)) {
       throw StateError('Mutation is not the matching Women episode create.');
     }
     if (current.state != LifeMateMutationSyncState.pending ||
@@ -138,6 +133,47 @@ final class WomenEpisodeOfflineOutbox {
     );
   }
 
+  /// Returns only owner period CREATE intents that still participate in replay.
+  /// No canonical server ID or version is fabricated; callers must keep these
+  /// rows visually pending until authoritative refresh removes the outbox item.
+  Future<List<Map<String, dynamic>>> pendingCreates() async {
+    _requireOpen();
+    final mutations = await _outbox.list(namespace: _namespace);
+    final rows = <Map<String, dynamic>>[];
+    for (final mutation in mutations) {
+      if (mutation.domain != LifeMateMutationDomain.womenHealth ||
+          !mutation.sourceKey.startsWith('women-episode-create:')) {
+        continue;
+      }
+      if (!_isExactCreate(mutation)) {
+        throw StateError('Malformed pending Women episode create encountered.');
+      }
+      if (mutation.state != LifeMateMutationSyncState.pending &&
+          mutation.state != LifeMateMutationSyncState.retryScheduled) {
+        continue;
+      }
+      rows.add(<String, dynamic>{
+        'clientRequestId': mutation.mutationId,
+        'startedOn': mutation.payload['startedOn'],
+        'endedOn': mutation.payload['endedOn'],
+        'privateNotes': mutation.payload['privateNotes'],
+        'pendingSync': true,
+        'syncState': mutation.state.wireName,
+        'canEditLocally':
+            mutation.state == LifeMateMutationSyncState.pending &&
+            mutation.errorClass == LifeMateMutationErrorClass.none &&
+            mutation.attemptCount == 0 &&
+            mutation.nextAttemptAtUtc == null,
+      });
+    }
+    rows.sort(
+      (a, b) => (a['startedOn']?.toString() ?? '').compareTo(
+        b['startedOn']?.toString() ?? '',
+      ),
+    );
+    return List<Map<String, dynamic>>.unmodifiable(rows);
+  }
+
   Future<void> enqueueUpdate({
     required String mutationId,
     required String episodeId,
@@ -167,6 +203,14 @@ final class WomenEpisodeOfflineOutbox {
     _closed = true;
     if (_ownsStore) _store.close();
   }
+
+  bool _isExactCreate(LifeMateDurableMutation mutation) =>
+      mutation.domain == LifeMateMutationDomain.womenHealth &&
+      mutation.sourceKey == 'women-episode-create:${mutation.mutationId}' &&
+      mutation.method == 'POST' &&
+      mutation.endpointPath == _createEndpoint &&
+      mutation.expectedRevision == null &&
+      mutation.timeZone == _timeZone;
 
   void _requireOpen() {
     if (_closed) throw StateError('Women episode offline outbox is closed.');
