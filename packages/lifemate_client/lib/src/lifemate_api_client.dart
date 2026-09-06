@@ -40,7 +40,7 @@ class LifeMateHealthDocument {
   const LifeMateHealthDocument({
     required this.id, required this.contentType, required this.byteSize,
     required this.category, required this.capturedOn, required this.createdAtUtc,
-    required this.links,
+    required this.links, required this.sourceProduct,
   });
 
   factory LifeMateHealthDocument.fromJson(Map<String, dynamic> json) {
@@ -48,8 +48,10 @@ class LifeMateHealthDocument {
     final contentType = json['contentType']?.toString() ?? '';
     final byteSize = json['byteSize'];
     final category = json['category']?.toString() ?? '';
+    final sourceProduct = json['sourceProduct']?.toString().trim() ?? '';
     final createdAtUtc = DateTime.tryParse(json['createdAtUtc']?.toString() ?? '');
-    if (id.isEmpty || contentType.isEmpty || byteSize is! num || createdAtUtc == null) {
+    if (id.isEmpty || contentType.isEmpty || sourceProduct.isEmpty ||
+        byteSize is! num || createdAtUtc == null) {
       throw const FormatException('Invalid Health Record document payload.');
     }
     final links = (json['links'] as List<dynamic>? ?? const <dynamic>[])
@@ -61,6 +63,7 @@ class LifeMateHealthDocument {
       category: LifeMateHealthDocumentCategory.fromWire(category),
       capturedOn: DateTime.tryParse(json['capturedOn']?.toString() ?? ''),
       createdAtUtc: createdAtUtc.toUtc(), links: links,
+      sourceProduct: sourceProduct,
     );
   }
 
@@ -71,6 +74,7 @@ class LifeMateHealthDocument {
   final DateTime? capturedOn;
   final DateTime createdAtUtc;
   final List<Map<String, dynamic>> links;
+  final String sourceProduct;
 }
 
 class LifeMateHealthDocumentDownload {
