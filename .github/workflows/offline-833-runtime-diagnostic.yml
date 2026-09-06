@@ -1,0 +1,37 @@
+name: offline-833-runtime-diagnostic
+on:
+  push:
+    branches:
+      - diag/offline-833-runtime-bridge-ci-20260906
+permissions:
+  contents: read
+jobs:
+  verify:
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd
+        with:
+          persist-credentials: false
+      - uses: subosito/flutter-action@4cab68ce0f1c7c924f688bff4792e044f1aeb30c
+        with:
+          flutter-version: '3.44.0'
+          channel: stable
+          cache: true
+      - name: Pub get
+        working-directory: packages/lifemate_client
+        run: flutter pub get
+      - name: Analyze
+        working-directory: packages/lifemate_client
+        run: flutter analyze --no-fatal-warnings --no-fatal-infos
+      - name: Account onboarding contract
+        working-directory: packages/lifemate_client
+        run: flutter test test/account_onboarding_api_test.dart
+      - name: Legal privacy contract
+        working-directory: packages/lifemate_client
+        run: flutter test test/legal_privacy_api_test.dart
+      - name: Remote config contract
+        working-directory: packages/lifemate_client
+        run: flutter test test/remote_config_test.dart
+      - name: Women runtime bridge regression
+        working-directory: packages/lifemate_client
+        run: flutter test test/shared_offline_runtime_women_health_test.dart test/women_episode_offline_outbox_test.dart
