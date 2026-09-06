@@ -27,7 +27,10 @@ void main() {
       },
     );
     expect(mutation.expectedRevision, isNull);
-    expect(mutation.payload.containsKey('shareSummaryWithCompanion'), isFalse);
+    expect(
+      mutation.payload.containsKey('shareSummaryWithCompanion'),
+      isFalse,
+    );
     expect(mutation.payload.containsKey('relationshipId'), isFalse);
   });
 
