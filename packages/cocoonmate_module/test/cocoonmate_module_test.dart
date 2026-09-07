@@ -179,6 +179,8 @@ void main() {
     expect(find.text('ثبت حال امروز'), findsOneWidget);
     await tester.tap(find.text('آرام و خوب'));
     await tester.tap(find.text('معمولی'));
+    await tester.pump();
+    await tester.ensureVisible(find.text('ثبت حال امروز'));
     await tester.tap(find.text('ثبت حال امروز'));
     await tester.pump();
 
@@ -205,7 +207,69 @@ void main() {
     expect(find.text('Queued; not yet server-confirmed'), findsOneWidget);
     expect(find.text('Saved and server-confirmed'), findsNothing);
   });
+
+  testWidgets('appointments distinguish cached pending-sync state', (
+    tester,
+  ) async {
+    await tester.pumpWidget(
+      MaterialApp(
+        theme: CocoonTheme.light(),
+        home: Scaffold(
+          body: CocoonAppointmentsScreen(
+            fa: true,
+            offline: true,
+            items: const [
+              CocoonAppointmentViewData(
+                id: 'appointment-1',
+                title: 'ویزیت دوره‌ای',
+                dateLabel: 'سه‌شنبه ۱۸ شهریور',
+                timeLabel: '۱۶:۳۰',
+                status: CocoonAppointmentStatus.pendingSync,
+                cached: true,
+              ),
+            ],
+            onAdd: _noop,
+            onOpen: (_) {},
+            onRetry: _noop,
+          ),
+        ),
+      ),
+    );
+
+    expect(find.text('در انتظار همگام‌سازی'), findsOneWidget);
+    expect(
+      find.text('نسخه‌ی ذخیره‌شده؛ وضعیت آنلاین تأیید نشده'),
+      findsOneWidget,
+    );
+    expect(find.text('پیش رو'), findsNothing);
+  });
+
+  testWidgets('appointments empty state has one clear add action', (
+    tester,
+  ) async {
+    var requested = false;
+    await tester.pumpWidget(
+      MaterialApp(
+        theme: CocoonTheme.light(),
+        home: Scaffold(
+          body: CocoonAppointmentsScreen(
+            fa: false,
+            items: const [],
+            onAdd: () => requested = true,
+            onOpen: (_) {},
+            onRetry: _noop,
+          ),
+        ),
+      ),
+    );
+
+    expect(find.text('No appointments yet'), findsOneWidget);
+    await tester.tap(find.text('Add appointment'));
+    expect(requested, isTrue);
+  });
 }
+
+void _noop() {}
 
 CocoonPregnancySnapshot _pregnancyAtWeek(int week, int day) {
   final totalDays = week * 7 + day;
