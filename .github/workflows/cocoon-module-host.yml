@@ -9,6 +9,7 @@ on:
       - 'packages/lifemate_client/lib/src/lifemate_auth.dart'
       - 'supabase/functions/lifemate-api/client_remote_config.ts'
       - 'supabase/functions/lifemate-api/client_remote_config_test.ts'
+      - 'tools/release/prepare-cocoon-android.sh'
       - '.github/workflows/cocoon-module-host.yml'
 
 permissions:
@@ -75,12 +76,14 @@ jobs:
         working-directory: packages/cocoonmate_module
         run: flutter test
       - name: Generate standalone Android platform
-        working-directory: cocoonmate
         shell: bash
+        env:
+          LIFEMATE_RELEASE_ENVIRONMENT: ci
+          SUPABASE_URL: https://cocoon-ci.invalid
+          LIFEMATE_API_BASE_URL: https://cocoon-ci.invalid/functions/v1/lifemate-api
         run: |
           set -euo pipefail
-          flutter create --platforms=android --org com.mylifemate --project-name cocoonmate .
-          rm -f test/widget_test.dart analysis_options.yaml
+          bash tools/release/prepare-cocoon-android.sh prepare
       - name: Resolve standalone host
         working-directory: cocoonmate
         run: flutter pub get
@@ -105,6 +108,8 @@ jobs:
           grep -Fq "LifeMateExperienceGate" cocoonmate/lib/app/cocoon_standalone_app.dart
           grep -Fq "CocoonPregnancyApiClient" cocoonmate/lib/app/cocoon_standalone_app.dart
           grep -Fq "LifeMateRemoteConfigClient" cocoonmate/lib/app/cocoon_standalone_app.dart
+          grep -Fq 'isCoreLibraryDesugaringEnabled = true' cocoonmate/android/app/build.gradle.kts
+          grep -Fq 'coreLibraryDesugaring("com.android.tools:desugar_jdk_libs:2.1.5")' cocoonmate/android/app/build.gradle.kts
       - uses: actions/upload-artifact@v4
         with:
           name: cocoonmate-debug-apk
