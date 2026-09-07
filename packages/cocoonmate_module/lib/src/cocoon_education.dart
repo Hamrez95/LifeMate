@@ -34,11 +34,27 @@ class CocoonPregnancyEducation extends StatelessWidget {
       }
     }
     final week = (age?.week ?? 0).clamp(1, 42).toInt();
-    final selection = bundledPregnancyClinicalContent.weekly(
-      gestationalWeek: week,
-      locale: fa ? 'fa' : 'en',
-      atUtc: DateTime.now().toUtc(),
-    );
+    ClinicalContentSelection selection;
+    try {
+      selection = bundledPregnancyClinicalContent.weekly(
+        gestationalWeek: week,
+        locale: fa ? 'fa' : 'en',
+        atUtc: DateTime.now().toUtc(),
+      );
+    } on StateError {
+      return CocoonEducationScreen(
+        fa: fa,
+        state: CocoonEducationLoadState.unavailable,
+        onRetry: host.refresh,
+      );
+    }
+    if (selection.usedSafetyFallback) {
+      return CocoonEducationScreen(
+        fa: fa,
+        state: CocoonEducationLoadState.unavailable,
+        onRetry: host.refresh,
+      );
+    }
     return CocoonEducationScreen(
       fa: fa,
       state: CocoonEducationLoadState.ready,
@@ -194,7 +210,7 @@ class _EducationArticle extends StatelessWidget {
                         style: Theme.of(context)
                             .textTheme
                             .labelLarge
-                            ?.copyWith(color: CocoonTheme.coral),
+                            ?.copyWith(color: CocoonTheme.ink),
                       ),
                     ],
                   ),
@@ -254,10 +270,17 @@ class _EducationCacheNotice extends StatelessWidget {
   final String? savedAtLabel;
 
   @override
-  Widget build(BuildContext context) => Semantics(
-        label: fa
-            ? 'محتوای ذخیره‌شده روی دستگاه'
-            : 'Content saved on this device',
+  Widget build(BuildContext context) {
+    final message = savedAtLabel == null
+        ? (fa
+            ? 'آخرین محتوای تأییدشده ذخیره‌شده روی دستگاه'
+            : 'Last approved content saved on this device')
+        : (fa
+            ? 'ذخیره‌شده روی دستگاه · $savedAtLabel'
+            : 'Saved on device · $savedAtLabel');
+    return Semantics(
+        label: message,
+        excludeSemantics: true,
         child: Container(
           padding: const EdgeInsetsDirectional.all(13),
           decoration: BoxDecoration(
@@ -271,23 +294,18 @@ class _EducationCacheNotice extends StatelessWidget {
               const SizedBox(width: 9),
               Expanded(
                 child: Text(
-                  savedAtLabel == null
-                      ? (fa
-                          ? 'آخرین محتوای تأییدشده ذخیره‌شده روی دستگاه'
-                          : 'Last approved content saved on this device')
-                      : (fa
-                          ? 'ذخیره‌شده روی دستگاه · $savedAtLabel'
-                          : 'Saved on device · $savedAtLabel'),
+                  message,
                   style: Theme.of(context)
                       .textTheme
                       .labelMedium
-                      ?.copyWith(color: CocoonTheme.skyStrong),
+                      ?.copyWith(color: CocoonTheme.ink),
                 ),
               ),
             ],
           ),
         ),
       );
+  }
 }
 
 class _LocaleFallbackNotice extends StatelessWidget {
