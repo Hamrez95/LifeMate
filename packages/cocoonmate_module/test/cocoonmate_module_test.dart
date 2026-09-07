@@ -362,6 +362,7 @@ void main() {
     await tester.tap(find.text('ادامه'));
     await tester.pumpAndSettle();
     await tester.tap(find.text('تاریخ احتمالی زایمان'));
+    await tester.pump();
     await tester.tap(find.text('ادامه'));
     await tester.pumpAndSettle();
     await tester.tap(find.text('انتخاب تاریخ'));
