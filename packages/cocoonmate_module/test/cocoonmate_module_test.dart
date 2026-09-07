@@ -267,6 +267,71 @@ void main() {
     await tester.tap(find.text('Add appointment'));
     expect(requested, isTrue);
   });
+
+  testWidgets('appointment form validates before external submission', (
+    tester,
+  ) async {
+    CocoonAppointmentDraft? submitted;
+    await tester.pumpWidget(
+      MaterialApp(
+        theme: CocoonTheme.light(),
+        home: CocoonAppointmentFormScreen(
+          fa: true,
+          submitState: CocoonAppointmentSubmitState.idle,
+          initialDateLabel: '۱۸ شهریور',
+          initialTimeLabel: '۱۶:۳۰',
+          onPickDate: () async => '۱۸ شهریور',
+          onPickTime: () async => '۱۶:۳۰',
+          onSubmit: (draft) async => submitted = draft,
+        ),
+      ),
+    );
+
+    await tester.tap(find.text('ثبت قرار'));
+    await tester.pump();
+    expect(find.text('یک عنوان روشن وارد کن'), findsOneWidget);
+    expect(submitted, isNull);
+
+    await tester.enterText(find.byType(TextField).first, 'ویزیت دوره‌ای');
+    await tester.tap(find.text('ثبت قرار'));
+    await tester.pump();
+    expect(submitted?.title, 'ویزیت دوره‌ای');
+    expect(submitted?.reminderMinutes, 30);
+  });
+
+  testWidgets('cached appointment detail blocks mutation actions', (
+    tester,
+  ) async {
+    await tester.pumpWidget(
+      MaterialApp(
+        theme: CocoonTheme.light(),
+        home: CocoonAppointmentDetailScreen(
+          fa: true,
+          canMutate: false,
+          data: const CocoonAppointmentDetailViewData(
+            appointment: CocoonAppointmentViewData(
+              id: 'appointment-1',
+              title: 'ویزیت دوره‌ای',
+              dateLabel: '۱۸ شهریور',
+              timeLabel: '۱۶:۳۰',
+              status: CocoonAppointmentStatus.scheduled,
+              cached: true,
+            ),
+            reminderLabel: '۳۰ دقیقه قبل',
+          ),
+          onEdit: _noop,
+          onCancel: () async {},
+        ),
+      ),
+    );
+
+    expect(find.text('جزئیات قرار'), findsOneWidget);
+    expect(find.textContaining('نسخه‌ی ذخیره‌شده'), findsOneWidget);
+    final cancel = tester.widget<OutlinedButton>(
+      find.widgetWithText(OutlinedButton, 'لغو قرار'),
+    );
+    expect(cancel.onPressed, isNull);
+  });
 }
 
 void _noop() {}
