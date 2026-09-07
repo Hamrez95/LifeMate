@@ -55,7 +55,7 @@ class _CocoonShellState extends State<CocoonShell> {
               'فضایی آرام برای لحظه‌های بارداری، قدم‌های مراقبتی و سوابق مشترک LifeMate.',
             ),
             t('Continue', 'ادامه'),
-            host.refresh,
+            () => _beginPregnancySetup(host),
           ),
         CocoonEntryState.notEntitled => _gate(
             Icons.workspace_premium_outlined,
@@ -77,7 +77,7 @@ class _CocoonShellState extends State<CocoonShell> {
               'فقط اطلاعات ضروری را وارد می‌کنی و پیش از فعال‌سازی، منبع تاریخ‌گذاری را می‌بینی.',
             ),
             t('Start setup', 'شروع ثبت'),
-            host.beginPregnancySetup,
+            () => _beginPregnancySetup(host),
             secondary: t(
               'This does not share anything with a partner or caregiver.',
               'این کار چیزی را با همسر یا مراقب به اشتراک نمی‌گذارد.',
@@ -141,6 +141,30 @@ class _CocoonShellState extends State<CocoonShell> {
           ),
         ),
       );
+
+  Future<void> _beginPregnancySetup(CocoonHostContract host) async {
+    final pickDate = widget.config.pickPregnancyDate;
+    final activate = widget.config.activatePregnancy;
+    if (pickDate == null || activate == null) {
+      await host.beginPregnancySetup();
+      return;
+    }
+    if (!mounted) return;
+    await Navigator.of(context).push<void>(
+      MaterialPageRoute<void>(
+        builder: (_) => Directionality(
+          textDirection: _fa ? TextDirection.rtl : TextDirection.ltr,
+          child: CocoonPregnancyOnboardingScreen(
+            fa: _fa,
+            timezone: widget.config.timezone,
+            onPickDate: pickDate,
+            onActivate: activate,
+          ),
+        ),
+      ),
+    );
+    await host.refresh();
+  }
 
   Widget _productShell(CocoonHostContract host, {bool offline = false}) {
     final labels = [

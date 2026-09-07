@@ -332,6 +332,51 @@ void main() {
     );
     expect(cancel.onPressed, isNull);
   });
+
+  testWidgets('pregnancy onboarding activates only after review', (
+    tester,
+  ) async {
+    CocoonPregnancySetupDraft? submitted;
+    await tester.pumpWidget(
+      MaterialApp(
+        theme: CocoonTheme.light(),
+        home: Directionality(
+          textDirection: TextDirection.rtl,
+          child: CocoonPregnancyOnboardingScreen(
+            fa: true,
+            timezone: 'Asia/Tehran',
+            onPickDate: (_) async => CocoonPregnancyDateSelection(
+              value: DateTime(2026, 9, 7),
+              displayLabel: '۱۶ شهریور ۱۴۰۵',
+              semanticLabel: 'شانزدهم شهریور ۱۴۰۵',
+            ),
+            onActivate: (draft) async {
+              submitted = draft;
+              return false;
+            },
+          ),
+        ),
+      ),
+    );
+
+    await tester.tap(find.text('ادامه'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('تاریخ احتمالی زایمان'));
+    await tester.pump();
+    await tester.tap(find.text('ادامه'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('انتخاب تاریخ'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('ادامه'));
+    await tester.pumpAndSettle();
+
+    expect(find.text('یک مرور کوتاه'), findsOneWidget);
+    await tester.tap(find.text('شروع همراهی من'));
+    await tester.pumpAndSettle();
+    expect(submitted?.datingSource, CocoonDatingSource.estimatedDueDate);
+    expect(submitted?.timezone, 'Asia/Tehran');
+    expect(find.textContaining('فعال‌سازی انجام نشد'), findsOneWidget);
+  });
 }
 
 void _noop() {}

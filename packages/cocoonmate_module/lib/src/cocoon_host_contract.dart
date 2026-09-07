@@ -35,10 +35,22 @@ abstract interface class CocoonHostContract {
 }
 
 class CocoonModuleConfig {
-  const CocoonModuleConfig({required this.host, this.initialTab = 0});
+  const CocoonModuleConfig({
+    required this.host,
+    this.initialTab = 0,
+    this.timezone = 'UTC',
+    this.pickPregnancyDate,
+    this.activatePregnancy,
+  });
 
   final CocoonHostContract host;
   final int initialTab;
+  final String timezone;
+  final Future<CocoonPregnancyDateSelection?> Function(
+    CocoonDatingSource source,
+  )? pickPregnancyDate;
+  final Future<bool> Function(CocoonPregnancySetupDraft draft)?
+      activatePregnancy;
 }
 
 class CocoonMateModule extends StatelessWidget {
