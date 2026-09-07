@@ -172,14 +172,14 @@ class _CocoonShellState extends State<CocoonShell> {
       t('Calendar', 'تقویم'),
       t('Add', 'افزودن'),
       t('Records', 'سوابق'),
-      t('Care', 'مراقبت'),
+      t('Learn', 'آموزش'),
     ];
     final icons = const [
       Icons.home_outlined,
       Icons.calendar_month_outlined,
       Icons.add_rounded,
       Icons.folder_outlined,
-      Icons.people_outline_rounded,
+      Icons.auto_stories_outlined,
     ];
     return Scaffold(
       appBar: AppBar(
@@ -204,7 +204,7 @@ class _CocoonShellState extends State<CocoonShell> {
                 retryLabel: t('Retry', 'تلاش دوباره'),
                 onRetry: host.refresh,
               ),
-            Expanded(child: _tabBody(host, labels)),
+            Expanded(child: _tabBody(host, labels, offline: offline)),
           ],
         ),
       ),
@@ -222,7 +222,11 @@ class _CocoonShellState extends State<CocoonShell> {
     );
   }
 
-  Widget _tabBody(CocoonHostContract host, List<String> labels) =>
+  Widget _tabBody(
+    CocoonHostContract host,
+    List<String> labels, {
+    required bool offline,
+  }) =>
       switch (_index) {
         0 => CocoonPregnancyHome(
             host: host,
@@ -237,6 +241,7 @@ class _CocoonShellState extends State<CocoonShell> {
             ),
           ),
         1 => CocoonPregnancyCalendar(host: host, fa: _fa),
+        4 => CocoonPregnancyEducation(host: host, fa: _fa, offline: offline),
         _ => _DestinationState(
             icon: switch (_index) {
               2 => Icons.add_rounded,
@@ -253,10 +258,7 @@ class _CocoonShellState extends State<CocoonShell> {
                   'Shared LifeMate records remain connected to the same Person.',
                   'سوابق مشترک LifeMate به همان پروندهٔ شخص متصل می‌مانند.',
                 ),
-              _ => t(
-                  'Every access scope is explicit, limited and revocable.',
-                  'هر سطح دسترسی، روشن، محدود و قابل لغو است.',
-                ),
+              _ => '',
             },
           ),
       };

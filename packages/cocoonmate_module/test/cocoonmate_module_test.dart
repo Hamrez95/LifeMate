@@ -377,6 +377,24 @@ void main() {
     expect(submitted?.timezone, 'Asia/Tehran');
     expect(find.textContaining('فعال‌سازی انجام نشد'), findsOneWidget);
   });
+
+  testWidgets('education tab shows only registry-approved weekly content', (
+    tester,
+  ) async {
+    final host = FakeHost(
+      CocoonEntryState.activePregnancy,
+      const Locale('fa'),
+      pregnancySnapshot: _pregnancyAtWeek(4, 2),
+    );
+    await tester.pumpWidget(appFor(host));
+    await tester.tap(find.text('آموزش'));
+    await tester.pumpAndSettle();
+
+    expect(find.text('راهنمای این هفته'), findsOneWidget);
+    expect(find.text('هفته ۴'), findsWidgets);
+    expect(find.text('بازبینی بالینی'), findsOneWidget);
+    expect(tester.takeException(), isNull);
+  });
 }
 
 void _noop() {}
