@@ -12,6 +12,8 @@ part 'src/cocoon_components.dart';
 part 'src/cocoon_calendar.dart';
 part 'src/cocoon_home.dart';
 part 'src/cocoon_appointments.dart';
+part 'src/cocoon_appointment_form.dart';
+part 'src/cocoon_appointment_detail.dart';
 part 'src/cocoon_quick_checkin.dart';
 part 'src/cocoon_shell.dart';
 part 'src/cocoon_theme.dart';
