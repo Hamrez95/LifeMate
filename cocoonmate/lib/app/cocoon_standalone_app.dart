@@ -115,6 +115,7 @@ class _CocoonAuthenticatedHostState extends State<CocoonAuthenticatedHost>
   CocoonEntryState _entryState = CocoonEntryState.loading;
   String? _personId;
   CocoonPregnancySnapshot? _offlinePregnancySnapshot;
+  CocoonPregnancySnapshot? _pregnancySnapshot;
   bool _refreshing = false;
   CocoonPregnancyOfflineOwnerCoordinator? _offlineOwnerCoordinator;
   String? _offlineOwnerLegacyAccountId;
@@ -161,6 +162,9 @@ class _CocoonAuthenticatedHostState extends State<CocoonAuthenticatedHost>
       _offlinePregnancySnapshot;
 
   @override
+  CocoonPregnancySnapshot? get pregnancySnapshot => _pregnancySnapshot;
+
+  @override
   Widget build(BuildContext context) =>
       CocoonMateModule(config: CocoonModuleConfig(host: this));
 
@@ -185,7 +189,16 @@ class _CocoonAuthenticatedHostState extends State<CocoonAuthenticatedHost>
               _pregnancyClient!.bootstrap(asOfDate: DateTime.now()));
       if (!await _cacheAuthoritativeBootstrap(snapshot)) return;
       final next = resolveCocoonEntryState(snapshot);
-      _apply(next, snapshot.personId.isEmpty ? null : snapshot.personId);
+      _apply(
+        next,
+        snapshot.personId.isEmpty ? null : snapshot.personId,
+        pregnancySnapshot: snapshot.activeEpisode == null
+            ? null
+            : CocoonPregnancySnapshot(
+                contractVersion: snapshot.contractVersion,
+                episode: snapshot.activeEpisode,
+              ),
+      );
     } on LifeMateApiException catch (error) {
       if (error.isUnauthorized) {
         await _forgetOfflineOwner();
@@ -245,7 +258,11 @@ class _CocoonAuthenticatedHostState extends State<CocoonAuthenticatedHost>
           episode.motherPersonId.trim().isNotEmpty &&
           episode.status == CocoonPregnancyEpisodeStatus.active) {
         _offlinePregnancySnapshot = cached;
-        _apply(CocoonEntryState.offlineOwnerPregnancy, episode.motherPersonId);
+        _apply(
+          CocoonEntryState.offlineOwnerPregnancy,
+          episode.motherPersonId,
+          pregnancySnapshot: cached,
+        );
         return;
       }
     } on UnsupportedError {
@@ -301,14 +318,20 @@ class _CocoonAuthenticatedHostState extends State<CocoonAuthenticatedHost>
       recordSafeEvent('cocoon_offline_identity_forget_failed');
     } finally {
       _offlinePregnancySnapshot = null;
+      _pregnancySnapshot = null;
     }
   }
 
-  void _apply(CocoonEntryState state, String? personId) {
+  void _apply(
+    CocoonEntryState state,
+    String? personId, {
+    CocoonPregnancySnapshot? pregnancySnapshot,
+  }) {
     if (!mounted) return;
     setState(() {
       _entryState = state;
       _personId = personId;
+      _pregnancySnapshot = pregnancySnapshot;
       if (state != CocoonEntryState.offlineOwnerPregnancy) {
         _offlinePregnancySnapshot = null;
       }

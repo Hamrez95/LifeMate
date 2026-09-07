@@ -4,19 +4,21 @@ import 'package:flutter_test/flutter_test.dart';
 void main() {
   final activeTime = DateTime.utc(2026, 10, 1);
 
-  test('weekly content maps deterministically without mutable current week',
-      () {
-    final selection = bundledPregnancyClinicalContent.weekly(
-      gestationalWeek: 4,
-      locale: 'fa',
-      atUtc: activeTime,
-    );
-    expect(selection.content.key, 'pregnancy.week.4.summary');
-    expect(selection.content.gestationalWeek, 4);
-    expect(selection.content.locale, 'fa');
-    expect(selection.usedLocaleFallback, isFalse);
-    expect(selection.usedSafetyFallback, isFalse);
-  });
+  test(
+    'weekly content maps deterministically without mutable current week',
+    () {
+      final selection = bundledPregnancyClinicalContent.weekly(
+        gestationalWeek: 4,
+        locale: 'fa',
+        atUtc: activeTime,
+      );
+      expect(selection.content.key, 'pregnancy.week.4.summary');
+      expect(selection.content.gestationalWeek, 4);
+      expect(selection.content.locale, 'fa');
+      expect(selection.usedLocaleFallback, isFalse);
+      expect(selection.usedSafetyFallback, isFalse);
+    },
+  );
 
   test('missing week uses approved fallback rather than invented content', () {
     final selection = bundledPregnancyClinicalContent.weekly(
@@ -87,10 +89,7 @@ void main() {
     );
     expect(decision.ruleSetVersion, 1);
     expect(decision.outcome, PregnancySafetyOutcome.emergency);
-    expect(
-      decision.guidanceKey,
-      'pregnancy.safety.seek_emergency_care',
-    );
+    expect(decision.guidanceKey, 'pregnancy.safety.seek_emergency_care');
   });
 
   test('unsupported safety input fails to conservative guidance', () {
