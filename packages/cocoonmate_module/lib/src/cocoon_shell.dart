@@ -212,19 +212,15 @@ class _CocoonShellState extends State<CocoonShell> {
               ),
             ),
           ),
+        1 => CocoonPregnancyCalendar(host: host, fa: _fa),
         _ => _DestinationState(
             icon: switch (_index) {
-              1 => Icons.calendar_month_outlined,
               2 => Icons.add_rounded,
               3 => Icons.folder_outlined,
               _ => Icons.people_outline_rounded,
             },
             title: labels[_index],
             body: switch (_index) {
-              1 => t(
-                  'Appointments and reminders will stay in one calm timeline.',
-                  'قرارها و یادآوری‌ها در یک خط زمانی آرام کنار هم قرار می‌گیرند.',
-                ),
               2 => t(
                   'Log a check-in without leaving your current context.',
                   'بدون خارج‌شدن از مسیر فعلی، یک ثبت سریع انجام بده.',
