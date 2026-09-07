@@ -117,8 +117,8 @@ class CocoonAppointmentDetailScreen extends StatelessWidget {
                       'نسخه‌ی ذخیره‌شده است؛ پیش از ویرایش برای تأیید تغییرات متصل شو.',
                     ),
                     style: Theme.of(context).textTheme.labelMedium?.copyWith(
-                      color: CocoonTheme.skyStrong,
-                    ),
+                          color: CocoonTheme.skyStrong,
+                        ),
                   ),
                 ),
               ],
@@ -242,13 +242,13 @@ class _DetailInlineMeta extends StatelessWidget {
   final String text;
   @override
   Widget build(BuildContext context) => Row(
-    mainAxisSize: MainAxisSize.min,
-    children: [
-      Icon(icon, size: 18, color: CocoonTheme.coral),
-      const SizedBox(width: 6),
-      Text(text, style: Theme.of(context).textTheme.bodyMedium),
-    ],
-  );
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Icon(icon, size: 18, color: CocoonTheme.coral),
+          const SizedBox(width: 6),
+          Text(text, style: Theme.of(context).textTheme.bodyMedium),
+        ],
+      );
 }
 
 class _DetailRow extends StatelessWidget {
@@ -264,28 +264,30 @@ class _DetailRow extends StatelessWidget {
   final bool last;
   @override
   Widget build(BuildContext context) => Column(
-    children: [
-      Padding(
-        padding: const EdgeInsetsDirectional.all(16),
-        child: Row(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Icon(icon, size: 21, color: CocoonTheme.sageStrong),
-            const SizedBox(width: 12),
-            Expanded(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(label, style: Theme.of(context).textTheme.labelMedium),
-                  const SizedBox(height: 3),
-                  Text(value, style: Theme.of(context).textTheme.bodyMedium),
-                ],
-              ),
+        children: [
+          Padding(
+            padding: const EdgeInsetsDirectional.all(16),
+            child: Row(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Icon(icon, size: 21, color: CocoonTheme.sageStrong),
+                const SizedBox(width: 12),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(label,
+                          style: Theme.of(context).textTheme.labelMedium),
+                      const SizedBox(height: 3),
+                      Text(value,
+                          style: Theme.of(context).textTheme.bodyMedium),
+                    ],
+                  ),
+                ),
+              ],
             ),
-          ],
-        ),
-      ),
-      if (!last) const Divider(height: 1, indent: 48),
-    ],
-  );
+          ),
+          if (!last) const Divider(height: 1, indent: 48),
+        ],
+      );
 }
