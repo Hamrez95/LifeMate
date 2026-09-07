@@ -154,6 +154,57 @@ void main() {
     expect(find.text('برنامه‌ای ثبت نشده'), findsOneWidget);
     expect(tester.takeException(), isNull);
   });
+
+  testWidgets('quick check-in supports selection and external submission', (
+    tester,
+  ) async {
+    CocoonCheckInDraft? submitted;
+    await tester.pumpWidget(
+      MaterialApp(
+        theme: CocoonTheme.light(),
+        home: Directionality(
+          textDirection: TextDirection.rtl,
+          child: Scaffold(
+            body: CocoonQuickCheckInScreen(
+              fa: true,
+              syncState: CocoonCheckInSyncState.idle,
+              onSubmit: (draft) async => submitted = draft,
+            ),
+          ),
+        ),
+      ),
+    );
+
+    expect(find.text('یک مکث کوتاه برای خودت'), findsOneWidget);
+    expect(find.text('ثبت حال امروز'), findsOneWidget);
+    await tester.tap(find.text('آرام و خوب'));
+    await tester.tap(find.text('معمولی'));
+    await tester.tap(find.text('ثبت حال امروز'));
+    await tester.pump();
+
+    expect(submitted?.feeling, CocoonCheckInFeeling.comfortable);
+    expect(submitted?.energy, CocoonCheckInEnergy.steady);
+  });
+
+  testWidgets('queued check-in is not presented as server confirmed', (
+    tester,
+  ) async {
+    await tester.pumpWidget(
+      MaterialApp(
+        theme: CocoonTheme.light(),
+        home: Scaffold(
+          body: CocoonQuickCheckInScreen(
+            fa: false,
+            syncState: CocoonCheckInSyncState.queued,
+            onSubmit: (_) async {},
+          ),
+        ),
+      ),
+    );
+
+    expect(find.text('Queued; not yet server-confirmed'), findsOneWidget);
+    expect(find.text('Saved and server-confirmed'), findsNothing);
+  });
 }
 
 CocoonPregnancySnapshot _pregnancyAtWeek(int week, int day) {
