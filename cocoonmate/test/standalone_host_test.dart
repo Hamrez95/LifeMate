@@ -99,7 +99,62 @@ void main() {
     },
   );
 
-  testWidgets('network failure routes to the offline gate', (tester) async {
+  testWidgets('authoritative bootstrap is offered to protected cache seam', (
+    tester,
+  ) async {
+    CocoonBootstrapSnapshot? cached;
+    await tester.pumpWidget(
+      MaterialApp(
+        home: CocoonAuthenticatedHost(
+          config: configured,
+          locale: const Locale('en'),
+          runtimeLoader: () async => _validRuntime(),
+          bootstrapLoader: () async => _snapshot(),
+          offlineBootstrapCache: (snapshot) async {
+            cached = snapshot;
+          },
+        ),
+      ),
+    );
+    await tester.pump();
+    await tester.pump();
+
+    expect(cached, isNotNull);
+    expect(cached!.personId, '00000000-0000-0000-0000-000000000001');
+    expect(find.text('Home'), findsWidgets);
+  });
+
+  testWidgets(
+    'network failure routes to the offline gate without owner cache',
+    (tester) async {
+      await tester.pumpWidget(
+        MaterialApp(
+          home: CocoonAuthenticatedHost(
+            config: configured,
+            locale: const Locale('en'),
+            runtimeLoader: () async => _validRuntime(),
+            bootstrapLoader: () async => throw const LifeMateApiException(
+              statusCode: 0,
+              code: 'network_unavailable',
+              message: 'Network unavailable',
+            ),
+          ),
+        ),
+      );
+      await tester.pump();
+      await tester.pump();
+      expect(find.text('You are offline'), findsOneWidget);
+    },
+  );
+
+  testWidgets('network failure reopens protected active owner snapshot', (
+    tester,
+  ) async {
+    final authoritative = _snapshot();
+    final cached = CocoonPregnancySnapshot(
+      contractVersion: authoritative.contractVersion,
+      episode: authoritative.activeEpisode,
+    );
     await tester.pumpWidget(
       MaterialApp(
         home: CocoonAuthenticatedHost(
@@ -111,17 +166,25 @@ void main() {
             code: 'network_unavailable',
             message: 'Network unavailable',
           ),
+          offlineSnapshotLoader: () async => cached,
         ),
       ),
     );
     await tester.pump();
     await tester.pump();
-    expect(find.text('You are offline'), findsOneWidget);
+
+    expect(find.text('Home'), findsWidgets);
+    expect(
+      find.text('Offline — showing protected data saved on this device'),
+      findsOneWidget,
+    );
+    expect(find.text('You are offline'), findsNothing);
   });
 
-  testWidgets('expired session signs out and returns to auth gate', (
+  testWidgets('expired session revokes offline lookup before auth gate', (
     tester,
   ) async {
+    var forgotten = false;
     var signedOut = false;
     await tester.pumpWidget(
       MaterialApp(
@@ -134,7 +197,11 @@ void main() {
             code: 'unauthorized',
             message: 'Session expired',
           ),
+          offlineOwnerForget: () async {
+            forgotten = true;
+          },
           signOut: () async {
+            expect(forgotten, isTrue);
             signedOut = true;
           },
         ),
@@ -142,6 +209,7 @@ void main() {
     );
     await tester.pump();
     await tester.pump();
+    expect(forgotten, isTrue);
     expect(signedOut, isTrue);
     expect(find.text('Sign in to continue'), findsOneWidget);
   });

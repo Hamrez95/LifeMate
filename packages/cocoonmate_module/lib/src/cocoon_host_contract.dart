@@ -8,6 +8,7 @@ enum CocoonEntryState {
   notEntitled,
   noPregnancy,
   activePregnancy,
+  offlineOwnerPregnancy,
   offline,
 }
 
@@ -15,6 +16,11 @@ abstract interface class CocoonHostContract {
   CocoonEntryState get entryState;
   Locale get locale;
   String? get personId;
+
+  /// Last protected owner-only pregnancy projection used only when the host is
+  /// in [CocoonEntryState.offlineOwnerPregnancy]. It is never entitlement,
+  /// relationship or sharing authority.
+  CocoonPregnancySnapshot? get offlinePregnancySnapshot;
 
   Future<void> refresh();
   Future<void> openLogin();
