@@ -115,11 +115,11 @@ class _TimelineIntroduction extends StatelessWidget {
               Text(
                 week == null || day == null
                     ? (fa
-                          ? 'در حال همگام‌سازی زمان بارداری'
-                          : 'Pregnancy dating is syncing')
+                        ? 'در حال همگام‌سازی زمان بارداری'
+                        : 'Pregnancy dating is syncing')
                     : (fa
-                          ? 'هفته‌ی ${cocoonDigits('$week', true)} و روز ${cocoonDigits('$day', true)}'
-                          : 'Week $week, day $day'),
+                        ? 'هفته‌ی ${cocoonDigits('$week', true)} و روز ${cocoonDigits('$day', true)}'
+                        : 'Week $week, day $day'),
                 style: Theme.of(context).textTheme.headlineSmall,
               ),
               const SizedBox(height: 5),
@@ -167,8 +167,8 @@ class _GestationalTimeline extends StatelessWidget {
       label: currentWeek == null
           ? (fa ? 'زمان بارداری نامشخص' : 'Pregnancy dating unavailable')
           : (fa
-                ? 'پیشرفت تا هفته ${cocoonDigits('$currentWeek', true)}'
-                : 'Progress through week $currentWeek'),
+              ? 'پیشرفت تا هفته ${cocoonDigits('$currentWeek', true)}'
+              : 'Progress through week $currentWeek'),
       child: Container(
         padding: const EdgeInsetsDirectional.fromSTEB(18, 20, 18, 18),
         decoration: BoxDecoration(
@@ -200,8 +200,7 @@ class _GestationalTimeline extends StatelessWidget {
                 _TrimesterLabel(
                   title: fa ? 'سه‌ماهه دوم' : 'Second',
                   range: fa ? '۱۴–۲۷' : '14–27',
-                  active:
-                      currentWeek != null &&
+                  active: currentWeek != null &&
                       currentWeek >= 14 &&
                       currentWeek <= 27,
                 ),
@@ -235,35 +234,35 @@ class _TrimesterLabel extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) => Expanded(
-    child: Container(
-      padding: const EdgeInsetsDirectional.symmetric(
-        horizontal: 8,
-        vertical: 10,
-      ),
-      decoration: BoxDecoration(
-        color: active ? CocoonTheme.warm : CocoonTheme.cream,
-        borderRadius: BorderRadius.circular(16),
-        border: Border.all(
-          color: active ? CocoonTheme.coral : CocoonTheme.line,
-        ),
-      ),
-      child: Column(
-        children: [
-          Text(
-            title,
-            maxLines: 2,
-            overflow: TextOverflow.ellipsis,
-            textAlign: TextAlign.center,
-            style: Theme.of(context).textTheme.labelMedium?.copyWith(
-              color: active ? CocoonTheme.coral : CocoonTheme.muted,
+        child: Container(
+          padding: const EdgeInsetsDirectional.symmetric(
+            horizontal: 8,
+            vertical: 10,
+          ),
+          decoration: BoxDecoration(
+            color: active ? CocoonTheme.warm : CocoonTheme.cream,
+            borderRadius: BorderRadius.circular(16),
+            border: Border.all(
+              color: active ? CocoonTheme.coral : CocoonTheme.line,
             ),
           ),
-          const SizedBox(height: 2),
-          Text(range, style: Theme.of(context).textTheme.labelMedium),
-        ],
-      ),
-    ),
-  );
+          child: Column(
+            children: [
+              Text(
+                title,
+                maxLines: 2,
+                overflow: TextOverflow.ellipsis,
+                textAlign: TextAlign.center,
+                style: Theme.of(context).textTheme.labelMedium?.copyWith(
+                      color: active ? CocoonTheme.coral : CocoonTheme.muted,
+                    ),
+              ),
+              const SizedBox(height: 2),
+              Text(range, style: Theme.of(context).textTheme.labelMedium),
+            ],
+          ),
+        ),
+      );
 }
 
 class _NearbyWeeks extends StatelessWidget {
@@ -308,15 +307,15 @@ class _NearbyWeeks extends StatelessWidget {
                     Text(
                       fa ? 'هفته' : 'Week',
                       style: Theme.of(context).textTheme.labelMedium?.copyWith(
-                        color: active ? Colors.white70 : CocoonTheme.muted,
-                      ),
+                            color: active ? Colors.white70 : CocoonTheme.muted,
+                          ),
                     ),
                     const SizedBox(height: 2),
                     Text(
                       cocoonDigits('$week', fa),
                       style: Theme.of(context).textTheme.titleMedium?.copyWith(
-                        color: active ? Colors.white : CocoonTheme.ink,
-                      ),
+                            color: active ? Colors.white : CocoonTheme.ink,
+                          ),
                     ),
                   ],
                 ),
@@ -336,46 +335,46 @@ class _CalendarEmptyState extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) => Container(
-    padding: const EdgeInsetsDirectional.all(20),
-    decoration: BoxDecoration(
-      color: CocoonTheme.sky,
-      borderRadius: BorderRadius.circular(24),
-    ),
-    child: Row(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        const CircleAvatar(
-          radius: 24,
-          backgroundColor: Colors.white,
-          child: Icon(
-            Icons.event_available_outlined,
-            color: CocoonTheme.skyStrong,
-          ),
+        padding: const EdgeInsetsDirectional.all(20),
+        decoration: BoxDecoration(
+          color: CocoonTheme.sky,
+          borderRadius: BorderRadius.circular(24),
         ),
-        const SizedBox(width: 14),
-        Expanded(
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Text(
-                fa ? 'برنامه‌ای ثبت نشده' : 'No saved care plan',
-                style: Theme.of(context).textTheme.titleMedium,
+        child: Row(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            const CircleAvatar(
+              radius: 24,
+              backgroundColor: Colors.white,
+              child: Icon(
+                Icons.event_available_outlined,
+                color: CocoonTheme.skyStrong,
               ),
-              const SizedBox(height: 5),
-              Text(
-                fa
-                    ? 'وقتی قرار یا یادآوری معتبر ثبت شود، اینجا به‌ترتیب زمان دیده می‌شود.'
-                    : 'Saved appointments and reminders will appear here in time order.',
-                style: Theme.of(
-                  context,
-                ).textTheme.bodyMedium?.copyWith(color: CocoonTheme.muted),
+            ),
+            const SizedBox(width: 14),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    fa ? 'برنامه‌ای ثبت نشده' : 'No saved care plan',
+                    style: Theme.of(context).textTheme.titleMedium,
+                  ),
+                  const SizedBox(height: 5),
+                  Text(
+                    fa
+                        ? 'وقتی قرار یا یادآوری معتبر ثبت شود، اینجا به‌ترتیب زمان دیده می‌شود.'
+                        : 'Saved appointments and reminders will appear here in time order.',
+                    style: Theme.of(
+                      context,
+                    ).textTheme.bodyMedium?.copyWith(color: CocoonTheme.muted),
+                  ),
+                ],
               ),
-            ],
-          ),
+            ),
+          ],
         ),
-      ],
-    ),
-  );
+      );
 }
 
 class _DatingNote extends StatelessWidget {
@@ -385,22 +384,22 @@ class _DatingNote extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) => Row(
-    crossAxisAlignment: CrossAxisAlignment.start,
-    children: [
-      const Icon(
-        Icons.info_outline_rounded,
-        size: 19,
-        color: CocoonTheme.muted,
-      ),
-      const SizedBox(width: 9),
-      Expanded(
-        child: Text(
-          fa
-              ? 'سن بارداری ممکن است پس از ارزیابی پزشک یا سونوگرافی به‌روزرسانی شود.'
-              : 'Pregnancy dating may be updated after clinician or ultrasound assessment.',
-          style: Theme.of(context).textTheme.labelMedium,
-        ),
-      ),
-    ],
-  );
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          const Icon(
+            Icons.info_outline_rounded,
+            size: 19,
+            color: CocoonTheme.muted,
+          ),
+          const SizedBox(width: 9),
+          Expanded(
+            child: Text(
+              fa
+                  ? 'سن بارداری ممکن است پس از ارزیابی پزشک یا سونوگرافی به‌روزرسانی شود.'
+                  : 'Pregnancy dating may be updated after clinician or ultrasound assessment.',
+              style: Theme.of(context).textTheme.labelMedium,
+            ),
+          ),
+        ],
+      );
 }

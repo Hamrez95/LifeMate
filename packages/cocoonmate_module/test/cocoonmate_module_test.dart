@@ -135,7 +135,8 @@ void main() {
     expect(find.byType(CustomScrollView), findsOneWidget);
   });
 
-  testWidgets('calendar presents gestational timeline without invented events', (
+  testWidgets('calendar presents gestational timeline without invented events',
+      (
     tester,
   ) async {
     final host = FakeHost(
