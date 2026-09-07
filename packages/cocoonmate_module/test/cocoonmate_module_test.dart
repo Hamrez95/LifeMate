@@ -179,6 +179,8 @@ void main() {
     expect(find.text('ثبت حال امروز'), findsOneWidget);
     await tester.tap(find.text('آرام و خوب'));
     await tester.tap(find.text('معمولی'));
+    await tester.pump();
+    await tester.ensureVisible(find.text('ثبت حال امروز'));
     await tester.tap(find.text('ثبت حال امروز'));
     await tester.pump();
 
