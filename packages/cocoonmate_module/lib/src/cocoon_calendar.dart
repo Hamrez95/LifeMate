@@ -161,7 +161,8 @@ class _GestationalTimeline extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final currentWeek = age?.week.clamp(0, 42).toInt();
+    final week = age?.week;
+    final currentWeek = week == null ? null : week.clamp(0, 42).toInt();
     final progress = ((age?.totalDays ?? 0) / 280).clamp(0.0, 1.0).toDouble();
     return Semantics(
       label: currentWeek == null
