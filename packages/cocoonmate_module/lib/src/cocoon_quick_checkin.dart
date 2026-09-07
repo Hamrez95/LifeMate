@@ -82,7 +82,7 @@ class _CocoonQuickCheckInScreenState extends State<CocoonQuickCheckInScreen> {
                           foreground: CocoonTheme.sageStrong,
                         ),
                       CocoonCheckInFeeling.mixed => _ChoiceData(
-                          icon: Icons.partly_cloudy_day_outlined,
+                          icon: Icons.cloud_outlined,
                           label: t('Mixed', 'ترکیبی'),
                           color: CocoonTheme.warm,
                           foreground: CocoonTheme.gold,
