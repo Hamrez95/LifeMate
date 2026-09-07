@@ -16,11 +16,10 @@ class CocoonPregnancyEducation extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final dating = (offline
-            ? host.offlinePregnancySnapshot
-            : host.pregnancySnapshot)
-        ?.episode
-        ?.dating;
+    final dating =
+        (offline ? host.offlinePregnancySnapshot : host.pregnancySnapshot)
+            ?.episode
+            ?.dating;
     CocoonGestationalAge? age;
     if (dating != null) {
       try {
@@ -60,9 +59,7 @@ class CocoonPregnancyEducation extends StatelessWidget {
       state: CocoonEducationLoadState.ready,
       data: CocoonEducationViewData(
         selection: selection,
-        weekLabel: fa
-            ? 'هفته ${cocoonDigits('$week', true)}'
-            : 'Week $week',
+        weekLabel: fa ? 'هفته ${cocoonDigits('$week', true)}' : 'Week $week',
         cached: offline,
       ),
       onRetry: host.refresh,
@@ -106,7 +103,8 @@ class CocoonEducationScreen extends StatelessWidget {
         CocoonEducationLoadState.error => CocoonStatePage(
             icon: Icons.menu_book_outlined,
             eyebrow: t('Education', 'آموزش'),
-            title: t('Could not refresh content', 'به‌روزرسانی محتوا انجام نشد'),
+            title:
+                t('Could not refresh content', 'به‌روزرسانی محتوا انجام نشد'),
             body: t(
               'Nothing was replaced. Try again when your connection is stable.',
               'هیچ محتوایی جایگزین نشده است؛ با اتصال پایدار دوباره تلاش کن.',
@@ -161,7 +159,8 @@ class _EducationArticle extends StatelessWidget {
               crossAxisAlignment: CrossAxisAlignment.stretch,
               children: [
                 if (data.cached) ...[
-                  _EducationCacheNotice(fa: fa, savedAtLabel: data.savedAtLabel),
+                  _EducationCacheNotice(
+                      fa: fa, savedAtLabel: data.savedAtLabel),
                   const SizedBox(height: 16),
                 ],
                 Container(
@@ -279,32 +278,32 @@ class _EducationCacheNotice extends StatelessWidget {
             ? 'ذخیره‌شده روی دستگاه · $savedAtLabel'
             : 'Saved on device · $savedAtLabel');
     return Semantics(
-        label: message,
-        excludeSemantics: true,
-        child: Container(
-          padding: const EdgeInsetsDirectional.all(13),
-          decoration: BoxDecoration(
-            color: CocoonTheme.sky,
-            borderRadius: BorderRadius.circular(17),
-          ),
-          child: Row(
-            children: [
-              const Icon(Icons.offline_pin_outlined,
-                  size: 20, color: CocoonTheme.skyStrong),
-              const SizedBox(width: 9),
-              Expanded(
-                child: Text(
-                  message,
-                  style: Theme.of(context)
-                      .textTheme
-                      .labelMedium
-                      ?.copyWith(color: CocoonTheme.ink),
-                ),
-              ),
-            ],
-          ),
+      label: message,
+      excludeSemantics: true,
+      child: Container(
+        padding: const EdgeInsetsDirectional.all(13),
+        decoration: BoxDecoration(
+          color: CocoonTheme.sky,
+          borderRadius: BorderRadius.circular(17),
         ),
-      );
+        child: Row(
+          children: [
+            const Icon(Icons.offline_pin_outlined,
+                size: 20, color: CocoonTheme.skyStrong),
+            const SizedBox(width: 9),
+            Expanded(
+              child: Text(
+                message,
+                style: Theme.of(context)
+                    .textTheme
+                    .labelMedium
+                    ?.copyWith(color: CocoonTheme.ink),
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
   }
 }
 
@@ -345,8 +344,8 @@ class _ReviewMetadata extends StatelessWidget {
   Widget build(BuildContext context) => ExpansionTile(
         tilePadding: EdgeInsets.zero,
         childrenPadding: const EdgeInsetsDirectional.only(bottom: 14),
-        leading: const Icon(Icons.verified_outlined,
-            color: CocoonTheme.sageStrong),
+        leading:
+            const Icon(Icons.verified_outlined, color: CocoonTheme.sageStrong),
         title: Text(
           fa ? 'بازبینی بالینی' : 'Clinical review',
           style: Theme.of(context).textTheme.titleMedium,
@@ -378,7 +377,9 @@ class _EducationLoading extends StatelessWidget {
   @override
   Widget build(BuildContext context) => Semantics(
         liveRegion: true,
-        label: fa ? 'در حال آماده‌سازی محتوای تأییدشده' : 'Loading approved content',
+        label: fa
+            ? 'در حال آماده‌سازی محتوای تأییدشده'
+            : 'Loading approved content',
         child: ListView(
           padding: const EdgeInsetsDirectional.fromSTEB(20, 8, 20, 28),
           children: [
