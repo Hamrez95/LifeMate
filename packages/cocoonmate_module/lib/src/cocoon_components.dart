@@ -7,9 +7,9 @@ class CocoonPagePadding extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) => Padding(
-    padding: const EdgeInsetsDirectional.fromSTEB(20, 8, 20, 28),
-    child: child,
-  );
+        padding: const EdgeInsetsDirectional.fromSTEB(20, 8, 20, 28),
+        child: child,
+      );
 }
 
 class CocoonSectionHeading extends StatelessWidget {
@@ -26,28 +26,28 @@ class CocoonSectionHeading extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) => Row(
-    crossAxisAlignment: CrossAxisAlignment.start,
-    children: [
-      Expanded(
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Text(title, style: Theme.of(context).textTheme.titleLarge),
-            if (supporting != null) ...[
-              const SizedBox(height: 3),
-              Text(
-                supporting!,
-                style: Theme.of(
-                  context,
-                ).textTheme.bodyMedium?.copyWith(color: CocoonTheme.muted),
-              ),
-            ],
-          ],
-        ),
-      ),
-      if (action != null) action!,
-    ],
-  );
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(title, style: Theme.of(context).textTheme.titleLarge),
+                if (supporting != null) ...[
+                  const SizedBox(height: 3),
+                  Text(
+                    supporting!,
+                    style: Theme.of(
+                      context,
+                    ).textTheme.bodyMedium?.copyWith(color: CocoonTheme.muted),
+                  ),
+                ],
+              ],
+            ),
+          ),
+          if (action != null) action!,
+        ],
+      );
 }
 
 class CocoonOfflineStrip extends StatelessWidget {
@@ -64,33 +64,36 @@ class CocoonOfflineStrip extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) => Semantics(
-    liveRegion: true,
-    label: message,
-    child: Container(
-      width: double.infinity,
-      color: CocoonTheme.sky,
-      padding: const EdgeInsetsDirectional.fromSTEB(20, 8, 12, 8),
-      child: Row(
-        children: [
-          const Icon(
-            Icons.cloud_done_outlined,
-            size: 18,
-            color: CocoonTheme.skyStrong,
+        liveRegion: true,
+        label: message,
+        child: Container(
+          width: double.infinity,
+          color: CocoonTheme.sky,
+          padding: const EdgeInsetsDirectional.fromSTEB(20, 8, 12, 8),
+          child: Row(
+            children: [
+              const Icon(
+                Icons.cloud_done_outlined,
+                size: 18,
+                color: CocoonTheme.skyStrong,
+              ),
+              const SizedBox(width: 8),
+              Expanded(
+                child: Text(
+                  message,
+                  style: Theme.of(
+                    context,
+                  )
+                      .textTheme
+                      .labelMedium
+                      ?.copyWith(color: CocoonTheme.skyStrong),
+                ),
+              ),
+              TextButton(onPressed: onRetry, child: Text(retryLabel)),
+            ],
           ),
-          const SizedBox(width: 8),
-          Expanded(
-            child: Text(
-              message,
-              style: Theme.of(
-                context,
-              ).textTheme.labelMedium?.copyWith(color: CocoonTheme.skyStrong),
-            ),
-          ),
-          TextButton(onPressed: onRetry, child: Text(retryLabel)),
-        ],
-      ),
-    ),
-  );
+        ),
+      );
 }
 
 class CocoonStatePage extends StatelessWidget {
@@ -115,60 +118,64 @@ class CocoonStatePage extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) => Scaffold(
-    body: SafeArea(
-      child: Center(
-        child: SingleChildScrollView(
-          padding: const EdgeInsetsDirectional.all(28),
-          child: ConstrainedBox(
-            constraints: const BoxConstraints(maxWidth: 440),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.stretch,
-              children: [
-                Align(
-                  alignment: AlignmentDirectional.centerStart,
-                  child: Container(
-                    width: 72,
-                    height: 72,
-                    decoration: const BoxDecoration(
-                      color: CocoonTheme.coralSoft,
-                      shape: BoxShape.circle,
+        body: SafeArea(
+          child: Center(
+            child: SingleChildScrollView(
+              padding: const EdgeInsetsDirectional.all(28),
+              child: ConstrainedBox(
+                constraints: const BoxConstraints(maxWidth: 440),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.stretch,
+                  children: [
+                    Align(
+                      alignment: AlignmentDirectional.centerStart,
+                      child: Container(
+                        width: 72,
+                        height: 72,
+                        decoration: const BoxDecoration(
+                          color: CocoonTheme.coralSoft,
+                          shape: BoxShape.circle,
+                        ),
+                        child: Icon(icon, size: 32, color: CocoonTheme.coral),
+                      ),
                     ),
-                    child: Icon(icon, size: 32, color: CocoonTheme.coral),
-                  ),
+                    const SizedBox(height: 40),
+                    Text(
+                      eyebrow,
+                      style: Theme.of(
+                        context,
+                      )
+                          .textTheme
+                          .labelLarge
+                          ?.copyWith(color: CocoonTheme.coral),
+                    ),
+                    const SizedBox(height: 10),
+                    Text(title,
+                        style: Theme.of(context).textTheme.headlineSmall),
+                    const SizedBox(height: 14),
+                    Text(
+                      body,
+                      style: Theme.of(
+                        context,
+                      ).textTheme.bodyLarge?.copyWith(color: CocoonTheme.muted),
+                    ),
+                    const SizedBox(height: 32),
+                    FilledButton(onPressed: onPressed, child: Text(action)),
+                    if (secondary != null) ...[
+                      const SizedBox(height: 12),
+                      Text(
+                        secondary!,
+                        textAlign: TextAlign.center,
+                        style: Theme.of(context).textTheme.labelMedium,
+                      ),
+                    ],
+                  ],
                 ),
-                const SizedBox(height: 40),
-                Text(
-                  eyebrow,
-                  style: Theme.of(
-                    context,
-                  ).textTheme.labelLarge?.copyWith(color: CocoonTheme.coral),
-                ),
-                const SizedBox(height: 10),
-                Text(title, style: Theme.of(context).textTheme.headlineSmall),
-                const SizedBox(height: 14),
-                Text(
-                  body,
-                  style: Theme.of(
-                    context,
-                  ).textTheme.bodyLarge?.copyWith(color: CocoonTheme.muted),
-                ),
-                const SizedBox(height: 32),
-                FilledButton(onPressed: onPressed, child: Text(action)),
-                if (secondary != null) ...[
-                  const SizedBox(height: 12),
-                  Text(
-                    secondary!,
-                    textAlign: TextAlign.center,
-                    style: Theme.of(context).textTheme.labelMedium,
-                  ),
-                ],
-              ],
+              ),
             ),
           ),
         ),
-      ),
-    ),
-  );
+      );
 }
 
 class CocoonGrowthOrb extends StatelessWidget {
@@ -185,62 +192,62 @@ class CocoonGrowthOrb extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) => Semantics(
-    image: true,
-    label: semanticLabel,
-    child: SizedBox.square(
-      dimension: size,
-      child: Stack(
-        alignment: Alignment.center,
-        children: [
-          Container(
-            decoration: BoxDecoration(
-              shape: BoxShape.circle,
-              color: CocoonTheme.warm,
-              border: Border.all(color: Colors.white, width: 8),
-              boxShadow: const [
-                BoxShadow(
-                  color: Color(0x1FD96055),
-                  blurRadius: 36,
-                  offset: Offset(0, 14),
-                ),
-              ],
-            ),
-          ),
-          SizedBox.square(
-            dimension: size - 24,
-            child: CircularProgressIndicator(
-              value: progress.clamp(0, 1).toDouble(),
-              strokeWidth: 7,
-              strokeCap: StrokeCap.round,
-              color: CocoonTheme.coral,
-              backgroundColor: const Color(0xFFFFE6DF),
-            ),
-          ),
-          Container(
-            width: size * .45,
-            height: size * .58,
-            decoration: BoxDecoration(
-              borderRadius: BorderRadius.circular(size),
-              color: const Color(0xFFFFC5B7),
-            ),
-            transform: Matrix4.rotationZ(-.42),
-            child: Align(
-              alignment: Alignment.bottomCenter,
-              child: Container(
-                margin: EdgeInsets.only(bottom: size * .08),
-                width: size * .15,
-                height: size * .15,
-                decoration: const BoxDecoration(
-                  color: CocoonTheme.sageStrong,
+        image: true,
+        label: semanticLabel,
+        child: SizedBox.square(
+          dimension: size,
+          child: Stack(
+            alignment: Alignment.center,
+            children: [
+              Container(
+                decoration: BoxDecoration(
                   shape: BoxShape.circle,
+                  color: CocoonTheme.warm,
+                  border: Border.all(color: Colors.white, width: 8),
+                  boxShadow: const [
+                    BoxShadow(
+                      color: Color(0x1FD96055),
+                      blurRadius: 36,
+                      offset: Offset(0, 14),
+                    ),
+                  ],
                 ),
               ),
-            ),
+              SizedBox.square(
+                dimension: size - 24,
+                child: CircularProgressIndicator(
+                  value: progress.clamp(0, 1).toDouble(),
+                  strokeWidth: 7,
+                  strokeCap: StrokeCap.round,
+                  color: CocoonTheme.coral,
+                  backgroundColor: const Color(0xFFFFE6DF),
+                ),
+              ),
+              Container(
+                width: size * .45,
+                height: size * .58,
+                decoration: BoxDecoration(
+                  borderRadius: BorderRadius.circular(size),
+                  color: const Color(0xFFFFC5B7),
+                ),
+                transform: Matrix4.rotationZ(-.42),
+                child: Align(
+                  alignment: Alignment.bottomCenter,
+                  child: Container(
+                    margin: EdgeInsets.only(bottom: size * .08),
+                    width: size * .15,
+                    height: size * .15,
+                    decoration: const BoxDecoration(
+                      color: CocoonTheme.sageStrong,
+                      shape: BoxShape.circle,
+                    ),
+                  ),
+                ),
+              ),
+            ],
           ),
-        ],
-      ),
-    ),
-  );
+        ),
+      );
 }
 
 String cocoonDigits(String value, bool fa) {

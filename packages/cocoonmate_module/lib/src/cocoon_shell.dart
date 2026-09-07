@@ -22,83 +22,83 @@ class _CocoonShellState extends State<CocoonShell> {
       child: switch (host.entryState) {
         CocoonEntryState.loading => _loading(),
         CocoonEntryState.unauthenticated => _gate(
-          Icons.lock_outline,
-          t('Private by design', 'حریم تو، از همان ابتدا'),
-          t('Sign in to continue', 'برای ادامه وارد شوید'),
-          t(
-            'Your pregnancy information stays connected to your protected LifeMate account.',
-            'اطلاعات بارداری‌ات به حساب محافظت‌شدهٔ LifeMate متصل می‌ماند.',
+            Icons.lock_outline,
+            t('Private by design', 'حریم تو، از همان ابتدا'),
+            t('Sign in to continue', 'برای ادامه وارد شوید'),
+            t(
+              'Your pregnancy information stays connected to your protected LifeMate account.',
+              'اطلاعات بارداری‌ات به حساب محافظت‌شدهٔ LifeMate متصل می‌ماند.',
+            ),
+            t('Sign in', 'ورود'),
+            host.openLogin,
           ),
-          t('Sign in', 'ورود'),
-          host.openLogin,
-        ),
         CocoonEntryState.runtimeUnavailable => _gate(
-          Icons.cloud_off_outlined,
-          t('A short pause', 'یک مکث کوتاه'),
-          t(
-            'CocoonMate is temporarily unavailable',
-            'کوکون‌میت موقتاً در دسترس نیست',
+            Icons.cloud_off_outlined,
+            t('A short pause', 'یک مکث کوتاه'),
+            t(
+              'CocoonMate is temporarily unavailable',
+              'کوکون‌میت موقتاً در دسترس نیست',
+            ),
+            t(
+              'We could not verify the latest protected information. Nothing has been changed.',
+              'نتوانستیم تازه‌ترین اطلاعات محافظت‌شده را تأیید کنیم؛ چیزی تغییر نکرده است.',
+            ),
+            t('Retry', 'تلاش دوباره'),
+            host.refresh,
           ),
-          t(
-            'We could not verify the latest protected information. Nothing has been changed.',
-            'نتوانستیم تازه‌ترین اطلاعات محافظت‌شده را تأیید کنیم؛ چیزی تغییر نکرده است.',
-          ),
-          t('Retry', 'تلاش دوباره'),
-          host.refresh,
-        ),
         CocoonEntryState.notEnrolled => _gate(
-          Icons.favorite_border,
-          t('Welcome to CocoonMate', 'به کوکون‌میت خوش آمدی'),
-          t('CocoonMate is ready for you', 'کوکون‌میت آماده است'),
-          t(
-            'A calm place for pregnancy moments, care steps and your shared LifeMate records.',
-            'فضایی آرام برای لحظه‌های بارداری، قدم‌های مراقبتی و سوابق مشترک LifeMate.',
+            Icons.favorite_border,
+            t('Welcome to CocoonMate', 'به کوکون‌میت خوش آمدی'),
+            t('CocoonMate is ready for you', 'کوکون‌میت آماده است'),
+            t(
+              'A calm place for pregnancy moments, care steps and your shared LifeMate records.',
+              'فضایی آرام برای لحظه‌های بارداری، قدم‌های مراقبتی و سوابق مشترک LifeMate.',
+            ),
+            t('Continue', 'ادامه'),
+            host.refresh,
           ),
-          t('Continue', 'ادامه'),
-          host.refresh,
-        ),
         CocoonEntryState.notEntitled => _gate(
-          Icons.workspace_premium_outlined,
-          t('Access', 'دسترسی'),
-          t('Choose access to CocoonMate', 'دسترسی کوکون‌میت را انتخاب کنید'),
-          t(
-            'Your health information is separate from subscription. Review the available options before continuing.',
-            'اطلاعات سلامت از اشتراک جداست؛ پیش از ادامه گزینه‌های موجود را ببین.',
+            Icons.workspace_premium_outlined,
+            t('Access', 'دسترسی'),
+            t('Choose access to CocoonMate', 'دسترسی کوکون‌میت را انتخاب کنید'),
+            t(
+              'Your health information is separate from subscription. Review the available options before continuing.',
+              'اطلاعات سلامت از اشتراک جداست؛ پیش از ادامه گزینه‌های موجود را ببین.',
+            ),
+            t('View options', 'مشاهده گزینه‌ها'),
+            host.openCommerce,
           ),
-          t('View options', 'مشاهده گزینه‌ها'),
-          host.openCommerce,
-        ),
         CocoonEntryState.noPregnancy => _gate(
-          Icons.spa_outlined,
-          t('Begin gently', 'آرام شروع کنیم'),
-          t('No active pregnancy yet', 'هنوز بارداری فعالی ثبت نشده'),
-          t(
-            'Answer only the essentials. You can review the dating source before anything is activated.',
-            'فقط اطلاعات ضروری را وارد می‌کنی و پیش از فعال‌سازی، منبع تاریخ‌گذاری را می‌بینی.',
+            Icons.spa_outlined,
+            t('Begin gently', 'آرام شروع کنیم'),
+            t('No active pregnancy yet', 'هنوز بارداری فعالی ثبت نشده'),
+            t(
+              'Answer only the essentials. You can review the dating source before anything is activated.',
+              'فقط اطلاعات ضروری را وارد می‌کنی و پیش از فعال‌سازی، منبع تاریخ‌گذاری را می‌بینی.',
+            ),
+            t('Start setup', 'شروع ثبت'),
+            host.beginPregnancySetup,
+            secondary: t(
+              'This does not share anything with a partner or caregiver.',
+              'این کار چیزی را با همسر یا مراقب به اشتراک نمی‌گذارد.',
+            ),
           ),
-          t('Start setup', 'شروع ثبت'),
-          host.beginPregnancySetup,
-          secondary: t(
-            'This does not share anything with a partner or caregiver.',
-            'این کار چیزی را با همسر یا مراقب به اشتراک نمی‌گذارد.',
-          ),
-        ),
         CocoonEntryState.offline => _gate(
-          Icons.wifi_off_outlined,
-          t('No saved pregnancy yet', 'هنوز اطلاعات ذخیره‌شده‌ای نداریم'),
-          t('You are offline', 'آفلاین هستید'),
-          t(
-            'Connect once so we can verify your account and prepare protected offline access.',
-            'یک‌بار متصل شو تا حساب تأیید و دسترسی آفلاین محافظت‌شده آماده شود.',
+            Icons.wifi_off_outlined,
+            t('No saved pregnancy yet', 'هنوز اطلاعات ذخیره‌شده‌ای نداریم'),
+            t('You are offline', 'آفلاین هستید'),
+            t(
+              'Connect once so we can verify your account and prepare protected offline access.',
+              'یک‌بار متصل شو تا حساب تأیید و دسترسی آفلاین محافظت‌شده آماده شود.',
+            ),
+            t('Retry', 'تلاش دوباره'),
+            host.refresh,
           ),
-          t('Retry', 'تلاش دوباره'),
-          host.refresh,
-        ),
         CocoonEntryState.activePregnancy => _productShell(host),
         CocoonEntryState.offlineOwnerPregnancy => _productShell(
-          host,
-          offline: true,
-        ),
+            host,
+            offline: true,
+          ),
       },
     );
   }
@@ -124,23 +124,23 @@ class _CocoonShellState extends State<CocoonShell> {
   }
 
   Widget _loading() => Scaffold(
-    body: SafeArea(
-      child: Center(
-        child: Semantics(
-          liveRegion: true,
-          label: t('Loading CocoonMate', 'در حال آماده‌سازی کوکون‌میت'),
-          child: const SizedBox.square(
-            dimension: 72,
-            child: CircularProgressIndicator(
-              strokeWidth: 5,
-              color: CocoonTheme.coral,
-              backgroundColor: CocoonTheme.coralSoft,
+        body: SafeArea(
+          child: Center(
+            child: Semantics(
+              liveRegion: true,
+              label: t('Loading CocoonMate', 'در حال آماده‌سازی کوکون‌میت'),
+              child: const SizedBox.square(
+                dimension: 72,
+                child: CircularProgressIndicator(
+                  strokeWidth: 5,
+                  color: CocoonTheme.coral,
+                  backgroundColor: CocoonTheme.coralSoft,
+                ),
+              ),
             ),
           ),
         ),
-      ),
-    ),
-  );
+      );
 
   Widget _productShell(CocoonHostContract host, {bool offline = false}) {
     final labels = [
@@ -201,44 +201,44 @@ class _CocoonShellState extends State<CocoonShell> {
   Widget _tabBody(CocoonHostContract host, List<String> labels) =>
       switch (_index) {
         0 => CocoonPregnancyHome(
-          host: host,
-          fa: _fa,
-          onOpenWeek: () => Navigator.of(context).push(
-            MaterialPageRoute<void>(
-              builder: (_) => Directionality(
-                textDirection: _fa ? TextDirection.rtl : TextDirection.ltr,
-                child: CocoonWeekDetail(host: host, fa: _fa),
+            host: host,
+            fa: _fa,
+            onOpenWeek: () => Navigator.of(context).push(
+              MaterialPageRoute<void>(
+                builder: (_) => Directionality(
+                  textDirection: _fa ? TextDirection.rtl : TextDirection.ltr,
+                  child: CocoonWeekDetail(host: host, fa: _fa),
+                ),
               ),
             ),
           ),
-        ),
         _ => _DestinationState(
-          icon: switch (_index) {
-            1 => Icons.calendar_month_outlined,
-            2 => Icons.add_rounded,
-            3 => Icons.folder_outlined,
-            _ => Icons.people_outline_rounded,
-          },
-          title: labels[_index],
-          body: switch (_index) {
-            1 => t(
-              'Appointments and reminders will stay in one calm timeline.',
-              'قرارها و یادآوری‌ها در یک خط زمانی آرام کنار هم قرار می‌گیرند.',
-            ),
-            2 => t(
-              'Log a check-in without leaving your current context.',
-              'بدون خارج‌شدن از مسیر فعلی، یک ثبت سریع انجام بده.',
-            ),
-            3 => t(
-              'Shared LifeMate records remain connected to the same Person.',
-              'سوابق مشترک LifeMate به همان پروندهٔ شخص متصل می‌مانند.',
-            ),
-            _ => t(
-              'Every access scope is explicit, limited and revocable.',
-              'هر سطح دسترسی، روشن، محدود و قابل لغو است.',
-            ),
-          },
-        ),
+            icon: switch (_index) {
+              1 => Icons.calendar_month_outlined,
+              2 => Icons.add_rounded,
+              3 => Icons.folder_outlined,
+              _ => Icons.people_outline_rounded,
+            },
+            title: labels[_index],
+            body: switch (_index) {
+              1 => t(
+                  'Appointments and reminders will stay in one calm timeline.',
+                  'قرارها و یادآوری‌ها در یک خط زمانی آرام کنار هم قرار می‌گیرند.',
+                ),
+              2 => t(
+                  'Log a check-in without leaving your current context.',
+                  'بدون خارج‌شدن از مسیر فعلی، یک ثبت سریع انجام بده.',
+                ),
+              3 => t(
+                  'Shared LifeMate records remain connected to the same Person.',
+                  'سوابق مشترک LifeMate به همان پروندهٔ شخص متصل می‌مانند.',
+                ),
+              _ => t(
+                  'Every access scope is explicit, limited and revocable.',
+                  'هر سطح دسترسی، روشن، محدود و قابل لغو است.',
+                ),
+            },
+          ),
       };
 }
 
@@ -255,38 +255,38 @@ class _DestinationState extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) => Center(
-    child: SingleChildScrollView(
-      padding: const EdgeInsetsDirectional.all(28),
-      child: ConstrainedBox(
-        constraints: const BoxConstraints(maxWidth: 420),
-        child: Column(
-          children: [
-            Container(
-              width: 72,
-              height: 72,
-              decoration: const BoxDecoration(
-                color: CocoonTheme.sage,
-                shape: BoxShape.circle,
-              ),
-              child: Icon(icon, color: CocoonTheme.sageStrong, size: 32),
+        child: SingleChildScrollView(
+          padding: const EdgeInsetsDirectional.all(28),
+          child: ConstrainedBox(
+            constraints: const BoxConstraints(maxWidth: 420),
+            child: Column(
+              children: [
+                Container(
+                  width: 72,
+                  height: 72,
+                  decoration: const BoxDecoration(
+                    color: CocoonTheme.sage,
+                    shape: BoxShape.circle,
+                  ),
+                  child: Icon(icon, color: CocoonTheme.sageStrong, size: 32),
+                ),
+                const SizedBox(height: 24),
+                Text(
+                  title,
+                  textAlign: TextAlign.center,
+                  style: Theme.of(context).textTheme.headlineSmall,
+                ),
+                const SizedBox(height: 8),
+                Text(
+                  body,
+                  textAlign: TextAlign.center,
+                  style: Theme.of(
+                    context,
+                  ).textTheme.bodyLarge?.copyWith(color: CocoonTheme.muted),
+                ),
+              ],
             ),
-            const SizedBox(height: 24),
-            Text(
-              title,
-              textAlign: TextAlign.center,
-              style: Theme.of(context).textTheme.headlineSmall,
-            ),
-            const SizedBox(height: 8),
-            Text(
-              body,
-              textAlign: TextAlign.center,
-              style: Theme.of(
-                context,
-              ).textTheme.bodyLarge?.copyWith(color: CocoonTheme.muted),
-            ),
-          ],
+          ),
         ),
-      ),
-    ),
-  );
+      );
 }

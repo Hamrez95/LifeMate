@@ -32,9 +32,9 @@ class FakeHost implements CocoonHostContract {
 }
 
 Widget appFor(FakeHost host) => MaterialApp(
-  theme: CocoonTheme.light(),
-  home: CocoonMateModule(config: CocoonModuleConfig(host: host)),
-);
+      theme: CocoonTheme.light(),
+      home: CocoonMateModule(config: CocoonModuleConfig(host: host)),
+    );
 
 void main() {
   testWidgets('module mounts under a host and uses Persian RTL', (

@@ -214,24 +214,24 @@ class PregnancySafetyRuleSet {
   }
 
   PregnancySafetyDecision _fallback() => PregnancySafetyDecision(
-    ruleSetVersion: version,
-    outcome: PregnancySafetyOutcome.conservativeFallback,
-    guidanceKey: 'pregnancy.safety.conservative_fallback',
-  );
+        ruleSetVersion: version,
+        outcome: PregnancySafetyOutcome.conservativeFallback,
+        guidanceKey: 'pregnancy.safety.conservative_fallback',
+      );
 }
 
 final DateTime _reviewedAt = DateTime.utc(2026, 9, 4);
 final DateTime _reviewDueAt = DateTime.utc(2027, 3, 4);
 
 ClinicalReviewMetadata _review(List<String> sources) => ClinicalReviewMetadata(
-  reviewedByRef: 'clinical-review/pregnancy-foundation-v1',
-  reviewedAtUtc: _reviewedAt,
-  reviewDueAtUtc: _reviewDueAt,
-  sourceReferences: sources,
-);
+      reviewedByRef: 'clinical-review/pregnancy-foundation-v1',
+      reviewedAtUtc: _reviewedAt,
+      reviewDueAtUtc: _reviewDueAt,
+      sourceReferences: sources,
+    );
 
-final PregnancyClinicalContentRegistry
-bundledPregnancyClinicalContent = PregnancyClinicalContentRegistry([
+final PregnancyClinicalContentRegistry bundledPregnancyClinicalContent =
+    PregnancyClinicalContentRegistry([
   PregnancyClinicalContent(
     key: 'pregnancy.week.4.summary',
     version: 1,
@@ -286,7 +286,7 @@ bundledPregnancyClinicalContent = PregnancyClinicalContentRegistry([
 
 final PregnancySafetyRuleSet bundledPregnancySafetyRules =
     PregnancySafetyRuleSet(
-      version: 1,
-      status: ClinicalContentStatus.published,
-      review: _review(['internal-clinical-review-v1']),
-    );
+  version: 1,
+  status: ClinicalContentStatus.published,
+  review: _review(['internal-clinical-review-v1']),
+);

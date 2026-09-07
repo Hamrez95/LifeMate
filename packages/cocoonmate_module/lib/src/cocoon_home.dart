@@ -88,38 +88,39 @@ class _HomeGreeting extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) => Row(
-    children: [
-      Expanded(
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Text(
-              fa ? 'امروز در مسیر تو' : 'Your pregnancy, today',
-              style: Theme.of(context).textTheme.headlineSmall,
+        children: [
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  fa ? 'امروز در مسیر تو' : 'Your pregnancy, today',
+                  style: Theme.of(context).textTheme.headlineSmall,
+                ),
+                const SizedBox(height: 4),
+                Text(
+                  fa
+                      ? 'آرام، روشن و قدم‌به‌قدم'
+                      : 'Calm, clear, one step at a time',
+                  style: Theme.of(
+                    context,
+                  ).textTheme.bodyMedium?.copyWith(color: CocoonTheme.muted),
+                ),
+              ],
             ),
-            const SizedBox(height: 4),
-            Text(
-              fa
-                  ? 'آرام، روشن و قدم‌به‌قدم'
-                  : 'Calm, clear, one step at a time',
-              style: Theme.of(
-                context,
-              ).textTheme.bodyMedium?.copyWith(color: CocoonTheme.muted),
+          ),
+          Semantics(
+            button: true,
+            label: fa ? 'اعلان‌ها' : 'Notifications',
+            child: const CircleAvatar(
+              radius: 24,
+              backgroundColor: Colors.white,
+              child: Icon(Icons.notifications_none_rounded,
+                  color: CocoonTheme.ink),
             ),
-          ],
-        ),
-      ),
-      Semantics(
-        button: true,
-        label: fa ? 'اعلان‌ها' : 'Notifications',
-        child: const CircleAvatar(
-          radius: 24,
-          backgroundColor: Colors.white,
-          child: Icon(Icons.notifications_none_rounded, color: CocoonTheme.ink),
-        ),
-      ),
-    ],
-  );
+          ),
+        ],
+      );
 }
 
 class _PregnancyMoment extends StatelessWidget {
@@ -147,8 +148,8 @@ class _PregnancyMoment extends StatelessWidget {
       label: hasAge
           ? (fa ? 'هفته $week و $day روز' : 'Week $week and $day days')
           : (fa
-                ? 'زمان بارداری در حال همگام‌سازی'
-                : 'Pregnancy dating syncing'),
+              ? 'زمان بارداری در حال همگام‌سازی'
+              : 'Pregnancy dating syncing'),
       child: InkWell(
         borderRadius: BorderRadius.circular(30),
         onTap: onTap,
@@ -160,8 +161,7 @@ class _PregnancyMoment extends StatelessWidget {
           ),
           child: LayoutBuilder(
             builder: (context, constraints) {
-              final compact =
-                  constraints.maxWidth < 340 ||
+              final compact = constraints.maxWidth < 340 ||
                   MediaQuery.textScalerOf(context).scale(16) > 22;
               final copy = Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
@@ -180,7 +180,9 @@ class _PregnancyMoment extends StatelessWidget {
                     children: [
                       Text(
                         weekText,
-                        style: Theme.of(context).textTheme.displaySmall
+                        style: Theme.of(context)
+                            .textTheme
+                            .displaySmall
                             ?.copyWith(color: CocoonTheme.coral),
                       ),
                       Padding(
@@ -197,8 +199,8 @@ class _PregnancyMoment extends StatelessWidget {
                     hasAge
                         ? (fa ? 'جزئیات این هفته را ببین' : 'Explore this week')
                         : (fa
-                              ? 'پس از دریافت تاریخ معتبر نمایش داده می‌شود'
-                              : 'Shown after verified dating is available'),
+                            ? 'پس از دریافت تاریخ معتبر نمایش داده می‌شود'
+                            : 'Shown after verified dating is available'),
                     style: Theme.of(
                       context,
                     ).textTheme.bodyMedium?.copyWith(color: CocoonTheme.muted),
@@ -249,32 +251,32 @@ class _TodayTimeline extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) => Container(
-    decoration: const BoxDecoration(
-      border: BorderDirectional(
-        start: BorderSide(color: CocoonTheme.sageStrong, width: 2),
-      ),
-    ),
-    padding: const EdgeInsetsDirectional.only(start: 18),
-    child: Column(
-      children: [
-        _TimelineRow(
-          icon: Icons.task_alt_rounded,
-          title: fa ? 'برنامه‌ی مراقبت امروز' : "Today's care plan",
-          body: fa
-              ? 'کارهای ثبت‌شده‌ی LifeMate اینجا مرتب می‌شوند.'
-              : 'Your saved LifeMate actions appear here.',
+        decoration: const BoxDecoration(
+          border: BorderDirectional(
+            start: BorderSide(color: CocoonTheme.sageStrong, width: 2),
+          ),
         ),
-        const SizedBox(height: 18),
-        _TimelineRow(
-          icon: Icons.event_outlined,
-          title: fa ? 'قرار بعدی' : 'Next appointment',
-          body: fa
-              ? 'قرار تأییدشده‌ای برای نمایش نداریم.'
-              : 'No confirmed appointment to show.',
+        padding: const EdgeInsetsDirectional.only(start: 18),
+        child: Column(
+          children: [
+            _TimelineRow(
+              icon: Icons.task_alt_rounded,
+              title: fa ? 'برنامه‌ی مراقبت امروز' : "Today's care plan",
+              body: fa
+                  ? 'کارهای ثبت‌شده‌ی LifeMate اینجا مرتب می‌شوند.'
+                  : 'Your saved LifeMate actions appear here.',
+            ),
+            const SizedBox(height: 18),
+            _TimelineRow(
+              icon: Icons.event_outlined,
+              title: fa ? 'قرار بعدی' : 'Next appointment',
+              body: fa
+                  ? 'قرار تأییدشده‌ای برای نمایش نداریم.'
+                  : 'No confirmed appointment to show.',
+            ),
+          ],
         ),
-      ],
-    ),
-  );
+      );
 }
 
 class _TimelineRow extends StatelessWidget {
@@ -289,35 +291,35 @@ class _TimelineRow extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) => Row(
-    crossAxisAlignment: CrossAxisAlignment.start,
-    children: [
-      Container(
-        width: 42,
-        height: 42,
-        decoration: const BoxDecoration(
-          color: CocoonTheme.sage,
-          shape: BoxShape.circle,
-        ),
-        child: Icon(icon, size: 21, color: CocoonTheme.sageStrong),
-      ),
-      const SizedBox(width: 13),
-      Expanded(
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Text(title, style: Theme.of(context).textTheme.titleMedium),
-            const SizedBox(height: 3),
-            Text(
-              body,
-              style: Theme.of(
-                context,
-              ).textTheme.bodyMedium?.copyWith(color: CocoonTheme.muted),
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Container(
+            width: 42,
+            height: 42,
+            decoration: const BoxDecoration(
+              color: CocoonTheme.sage,
+              shape: BoxShape.circle,
             ),
-          ],
-        ),
-      ),
-    ],
-  );
+            child: Icon(icon, size: 21, color: CocoonTheme.sageStrong),
+          ),
+          const SizedBox(width: 13),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(title, style: Theme.of(context).textTheme.titleMedium),
+                const SizedBox(height: 3),
+                Text(
+                  body,
+                  style: Theme.of(
+                    context,
+                  ).textTheme.bodyMedium?.copyWith(color: CocoonTheme.muted),
+                ),
+              ],
+            ),
+          ),
+        ],
+      );
 }
 
 class _WeeklyEditorial extends StatelessWidget {
@@ -378,8 +380,8 @@ class _WeeklyEditorial extends StatelessWidget {
                       ? 'محتوای دارای بازبینی بالینی'
                       : 'Clinically reviewed content',
                   style: Theme.of(context).textTheme.labelMedium?.copyWith(
-                    color: CocoonTheme.skyStrong,
-                  ),
+                        color: CocoonTheme.skyStrong,
+                      ),
                 ),
               ),
             ],
@@ -398,37 +400,38 @@ class _SafetyEntry extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) => Container(
-    padding: const EdgeInsetsDirectional.all(18),
-    decoration: BoxDecoration(
-      border: Border.all(color: CocoonTheme.line),
-      borderRadius: BorderRadius.circular(22),
-    ),
-    child: Row(
-      children: [
-        const Icon(Icons.health_and_safety_outlined, color: CocoonTheme.coral),
-        const SizedBox(width: 12),
-        Expanded(
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Text(
-                fa ? 'نگرانی پزشکی داری؟' : 'Have a medical concern?',
-                style: Theme.of(context).textTheme.titleMedium,
-              ),
-              const SizedBox(height: 3),
-              Text(
-                fa
-                    ? 'سطح توجه و قدم بعدی را روشن ببین.'
-                    : 'See the level of attention and your next step.',
-                style: Theme.of(
-                  context,
-                ).textTheme.bodyMedium?.copyWith(color: CocoonTheme.muted),
-              ),
-            ],
-          ),
+        padding: const EdgeInsetsDirectional.all(18),
+        decoration: BoxDecoration(
+          border: Border.all(color: CocoonTheme.line),
+          borderRadius: BorderRadius.circular(22),
         ),
-        const Icon(Icons.chevron_right_rounded),
-      ],
-    ),
-  );
+        child: Row(
+          children: [
+            const Icon(Icons.health_and_safety_outlined,
+                color: CocoonTheme.coral),
+            const SizedBox(width: 12),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    fa ? 'نگرانی پزشکی داری؟' : 'Have a medical concern?',
+                    style: Theme.of(context).textTheme.titleMedium,
+                  ),
+                  const SizedBox(height: 3),
+                  Text(
+                    fa
+                        ? 'سطح توجه و قدم بعدی را روشن ببین.'
+                        : 'See the level of attention and your next step.',
+                    style: Theme.of(
+                      context,
+                    ).textTheme.bodyMedium?.copyWith(color: CocoonTheme.muted),
+                  ),
+                ],
+              ),
+            ),
+            const Icon(Icons.chevron_right_rounded),
+          ],
+        ),
+      );
 }
