@@ -92,7 +92,8 @@ class _CocoonPregnancyOnboardingScreenState
                 padding: const EdgeInsetsDirectional.only(end: 20),
                 child: Center(
                   child: Text(
-                    t('${_step + 1} of 4', '${cocoonDigits('${_step + 1}', true)} از ۴'),
+                    t('${_step + 1} of 4',
+                        '${cocoonDigits('${_step + 1}', true)} از ۴'),
                     style: Theme.of(context).textTheme.labelMedium,
                   ),
                 ),
@@ -195,7 +196,9 @@ class _CocoonPregnancyOnboardingScreenState
         ),
       );
 
-  bool get _canContinue => !_busy && switch (_step) {
+  bool get _canContinue =>
+      !_busy &&
+      switch (_step) {
         0 => true,
         1 => _source != null,
         2 => _date != null,
@@ -227,13 +230,13 @@ class _CocoonPregnancyOnboardingScreenState
       if (activated) {
         Navigator.of(context).pop();
       } else {
-        setState(() =>
-            _localActivationState = CocoonPregnancyActivationState.error);
+        setState(
+            () => _localActivationState = CocoonPregnancyActivationState.error);
       }
     } catch (_) {
       if (mounted) {
-        setState(() =>
-            _localActivationState = CocoonPregnancyActivationState.error);
+        setState(
+            () => _localActivationState = CocoonPregnancyActivationState.error);
       }
     }
   }
@@ -265,7 +268,9 @@ class _WelcomeStep extends StatelessWidget {
           ),
           const SizedBox(height: 34),
           Text(
-            fa ? 'این مسیر برای تو ساخته می‌شود' : 'A journey shaped around you',
+            fa
+                ? 'این مسیر برای تو ساخته می‌شود'
+                : 'A journey shaped around you',
             style: Theme.of(context).textTheme.displaySmall,
           ),
           const SizedBox(height: 16),
@@ -341,7 +346,9 @@ class _DatingSourceStep extends StatelessWidget {
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
           Text(
-            fa ? 'زمان‌بندی را از کجا می‌دانی؟' : 'How is your pregnancy dated?',
+            fa
+                ? 'زمان‌بندی را از کجا می‌دانی؟'
+                : 'How is your pregnancy dated?',
             style: Theme.of(context).textTheme.headlineSmall,
           ),
           const SizedBox(height: 8),
@@ -425,7 +432,8 @@ class _DatingSourceTile extends StatelessWidget {
           ),
           child: Row(
             children: [
-              Icon(icon, color: selected ? CocoonTheme.coral : CocoonTheme.muted),
+              Icon(icon,
+                  color: selected ? CocoonTheme.coral : CocoonTheme.muted),
               const SizedBox(width: 14),
               Expanded(
                 child: Column(
@@ -518,7 +526,8 @@ class _PregnancyDetailsStep extends StatelessWidget {
                     const SizedBox(width: 14),
                     Expanded(
                       child: Text(
-                        date?.displayLabel ?? (fa ? 'انتخاب تاریخ' : 'Select date'),
+                        date?.displayLabel ??
+                            (fa ? 'انتخاب تاریخ' : 'Select date'),
                         style: Theme.of(context).textTheme.titleMedium,
                       ),
                     ),
@@ -548,9 +557,8 @@ class _PregnancyDetailsStep extends StatelessWidget {
                 .map(
                   (value) => ChoiceChip(
                     selected: multiplicity == value,
-                    onSelected: enabled
-                        ? (_) => onMultiplicityChanged(value)
-                        : null,
+                    onSelected:
+                        enabled ? (_) => onMultiplicityChanged(value) : null,
                     label: Text(switch (value) {
                       CocoonPregnancyMultiplicity.notSpecified =>
                         fa ? 'فعلاً نمی‌دانم' : 'Not sure yet',
@@ -566,9 +574,7 @@ class _PregnancyDetailsStep extends StatelessWidget {
           const SizedBox(height: 28),
           _OnboardingAssurance(
             icon: Icons.public_outlined,
-            text: fa
-                ? 'منطقه زمانی: $timezone'
-                : 'Timezone: $timezone',
+            text: fa ? 'منطقه زمانی: $timezone' : 'Timezone: $timezone',
           ),
         ],
       );
@@ -621,8 +627,7 @@ class _ReviewStep extends StatelessWidget {
                 ),
                 child: Row(
                   children: [
-                    const Icon(Icons.error_outline,
-                        color: Color(0xFFB42318)),
+                    const Icon(Icons.error_outline, color: Color(0xFFB42318)),
                     const SizedBox(width: 10),
                     Expanded(
                       child: Text(
@@ -649,7 +654,8 @@ class _ReviewStep extends StatelessWidget {
                 _ReviewRow(
                   label: fa ? 'منبع تاریخ‌گذاری' : 'Dating source',
                   value: switch (source) {
-                    CocoonDatingSource.lastPeriod => fa ? 'آخرین قاعدگی' : 'LMP',
+                    CocoonDatingSource.lastPeriod =>
+                      fa ? 'آخرین قاعدگی' : 'LMP',
                     CocoonDatingSource.estimatedDueDate =>
                       fa ? 'تاریخ احتمالی زایمان' : 'EDD',
                     CocoonDatingSource.ultrasound =>
@@ -657,7 +663,8 @@ class _ReviewStep extends StatelessWidget {
                   },
                 ),
                 const Divider(height: 28),
-                _ReviewRow(label: fa ? 'تاریخ' : 'Date', value: date.displayLabel),
+                _ReviewRow(
+                    label: fa ? 'تاریخ' : 'Date', value: date.displayLabel),
                 const Divider(height: 28),
                 _ReviewRow(
                   label: fa ? 'نوع بارداری' : 'Pregnancy type',
@@ -671,7 +678,8 @@ class _ReviewStep extends StatelessWidget {
                   },
                 ),
                 const Divider(height: 28),
-                _ReviewRow(label: fa ? 'منطقه زمانی' : 'Timezone', value: timezone),
+                _ReviewRow(
+                    label: fa ? 'منطقه زمانی' : 'Timezone', value: timezone),
               ],
             ),
           ),
