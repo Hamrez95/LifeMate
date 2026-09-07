@@ -134,6 +134,25 @@ void main() {
     expect(tester.takeException(), isNull);
     expect(find.byType(CustomScrollView), findsOneWidget);
   });
+
+  testWidgets('calendar presents gestational timeline without invented events', (
+    tester,
+  ) async {
+    final host = FakeHost(
+      CocoonEntryState.activePregnancy,
+      const Locale('fa'),
+      pregnancySnapshot: _pregnancyAtWeek(23, 4),
+    );
+
+    await tester.pumpWidget(appFor(host));
+    await tester.tap(find.text('تقویم'));
+    await tester.pumpAndSettle();
+
+    expect(find.text('مسیر بارداری'), findsOneWidget);
+    expect(find.text('هفته‌ی ۲۳ و روز ۴'), findsOneWidget);
+    expect(find.text('برنامه‌ای ثبت نشده'), findsOneWidget);
+    expect(tester.takeException(), isNull);
+  });
 }
 
 CocoonPregnancySnapshot _pregnancyAtWeek(int week, int day) {
