@@ -175,7 +175,7 @@ void main() {
 
     expect(find.text('Home'), findsWidgets);
     expect(
-      find.text('Offline — showing protected data saved on this device'),
+      find.text('Last protected information saved on this device'),
       findsOneWidget,
     );
     expect(find.text('You are offline'), findsNothing);
