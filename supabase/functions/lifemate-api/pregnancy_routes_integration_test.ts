@@ -31,7 +31,12 @@ Deno.test({
     const handler = createPregnancyRouteHandler(databaseUrl);
 
     try {
-      await seedRemappedIdentity({ appUserId, accountId, personId, authSubject });
+      await seedRemappedIdentity({
+        appUserId,
+        accountId,
+        personId,
+        authSubject,
+      });
 
       const first = await handler({
         request: createRequest(idempotencyKey),
