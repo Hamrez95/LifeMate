@@ -568,6 +568,7 @@ void main() {
       ),
     );
 
+    await tester.ensureVisible(find.text('دارو و مکمل'));
     await tester.tap(find.text('دارو و مکمل'));
     await tester.pumpAndSettle();
     expect(find.text('ثبت دارو و مکمل'), findsOneWidget);
