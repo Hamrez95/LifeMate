@@ -1,0 +1,39 @@
+name: Release CocoonMate
+
+on:
+  workflow_dispatch:
+    inputs:
+      release_type:
+        description: SemVer action
+        type: choice
+        required: true
+        default: patch
+        options: [patch, minor, major]
+      channel:
+        description: Release channel
+        type: choice
+        required: true
+        default: beta
+        options: [beta, stable]
+      release_notes:
+        description: Short release notes
+        type: string
+        required: false
+
+jobs:
+  release:
+    uses: ./.github/workflows/reusable-mobile-product-release.yml
+    with:
+      app: cocoonmate
+      package_id: com.mylifemate.cocoonmate
+      tag_prefix: cocoonmate-v
+      release_type: ${{ inputs.release_type }}
+      channel: ${{ inputs.channel }}
+      release_notes: ${{ inputs.release_notes }}
+      prepare_cocoon_android: true
+    secrets:
+      KEYSTORE_BASE64: ${{ secrets.COCOON_ANDROID_KEYSTORE_BASE64 }}
+      STORE_PASSWORD: ${{ secrets.COCOON_ANDROID_KEYSTORE_PASSWORD }}
+      KEY_ALIAS: ${{ secrets.COCOON_ANDROID_KEY_ALIAS }}
+      KEY_PASSWORD: ${{ secrets.COCOON_ANDROID_KEY_PASSWORD }}
+
