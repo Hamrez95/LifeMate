@@ -406,7 +406,10 @@ export function createPregnancyRouteHandler(databaseUrl: string) {
         });
         return json({
           contractVersion: 1,
-          episode: pregnancyEpisodeReadModel(created, optionalAsOfDate(request)),
+          episode: pregnancyEpisodeReadModel(
+            created,
+            optionalAsOfDate(request),
+          ),
         }, 201);
       }
 
@@ -437,7 +440,10 @@ export function createPregnancyRouteHandler(databaseUrl: string) {
         });
         return json({
           contractVersion: 1,
-          episode: pregnancyEpisodeReadModel(episode, optionalAsOfDate(request)),
+          episode: pregnancyEpisodeReadModel(
+            episode,
+            optionalAsOfDate(request),
+          ),
         });
       }
 
@@ -507,7 +513,10 @@ export function createPregnancyRouteHandler(databaseUrl: string) {
         });
         return json({
           contractVersion: 1,
-          episode: pregnancyEpisodeReadModel(episode, optionalAsOfDate(request)),
+          episode: pregnancyEpisodeReadModel(
+            episode,
+            optionalAsOfDate(request),
+          ),
         });
       }
 
@@ -539,7 +548,10 @@ export function createPregnancyRouteHandler(databaseUrl: string) {
         });
         return json({
           contractVersion: 1,
-          episode: pregnancyEpisodeReadModel(episode, optionalAsOfDate(request)),
+          episode: pregnancyEpisodeReadModel(
+            episode,
+            optionalAsOfDate(request),
+          ),
         });
       }
 
