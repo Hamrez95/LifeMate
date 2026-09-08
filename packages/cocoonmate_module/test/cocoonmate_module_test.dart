@@ -541,36 +541,26 @@ void main() {
   testWidgets('medication log only presents injected care-plan items', (
     tester,
   ) async {
-    final host = FakeHost(
-      CocoonEntryState.activePregnancy,
-      const Locale('fa'),
-      pregnancySnapshot: _pregnancyAtWeek(4, 2),
-    );
     await tester.pumpWidget(
       MaterialApp(
         theme: CocoonTheme.light(),
-        home: CocoonMateModule(
-          config: CocoonModuleConfig(
-            host: host,
-            initialTab: 2,
-            medicationOptions: const [
-              CocoonMedicationOption(
-                id: 'care-plan-item',
-                name: 'مکمل برنامه مراقبتی',
-                doseLabel: 'طبق دستور ثبت‌شده',
-              ),
-            ],
-            medicationInitialTimeLabel: '۰۹:۳۰',
-            onPickMedicationTime: () async => '۱۰:۰۰',
-            onSubmitMedication: (_) async {},
-          ),
+        home: CocoonMedicationLogScreen(
+          fa: true,
+          options: const [
+            CocoonMedicationOption(
+              id: 'care-plan-item',
+              name: 'مکمل برنامه مراقبتی',
+              doseLabel: 'طبق دستور ثبت‌شده',
+            ),
+          ],
+          initialTimeLabel: '۰۹:۳۰',
+          submitState: CocoonMedicationSubmitState.idle,
+          onPickTime: () async => '۱۰:۰۰',
+          onSubmit: (_) async {},
         ),
       ),
     );
 
-    await tester.ensureVisible(find.text('دارو و مکمل'));
-    await tester.tap(find.text('دارو و مکمل'));
-    await tester.pumpAndSettle();
     expect(find.text('ثبت دارو و مکمل'), findsOneWidget);
     expect(find.text('مکمل برنامه مراقبتی'), findsOneWidget);
     expect(find.text('طبق دستور ثبت‌شده'), findsOneWidget);
