@@ -638,8 +638,9 @@ void main() {
     await tester.pumpWidget(
       MaterialApp(
         theme: CocoonTheme.light(),
-        home: CocoonSettingsScreen(
-          fa: true,
+        home: Scaffold(
+          body: CocoonSettingsScreen(
+            fa: true,
           state: CocoonSettingsLoadState.ready,
           data: const CocoonSettingsViewData(
             pregnancyLabel: 'هفته ۲۴ و ۳ روز',
@@ -668,7 +669,8 @@ void main() {
           onOpenSubscription: _noop,
           onOpenSupport: _noop,
           onOpenPrivacyLegal: _noop,
-          onOpenGlobalProfile: _noop,
+            onOpenGlobalProfile: _noop,
+          ),
         ),
       ),
     );
