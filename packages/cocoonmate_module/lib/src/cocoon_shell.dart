@@ -247,7 +247,8 @@ class _CocoonShellState extends State<CocoonShell> {
             items: widget.config.records,
             onOpen: widget.config.onOpenRecord,
             onRetry: widget.config.onRetryRecords ?? host.refresh,
-            onAdd: widget.config.onAddRecord ?? () => setState(() => _index = 2),
+            onAdd:
+                widget.config.onAddRecord ?? () => setState(() => _index = 2),
           ),
         4 => CocoonPregnancyEducation(host: host, fa: _fa, offline: offline),
         _ => _DestinationState(

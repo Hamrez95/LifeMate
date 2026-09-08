@@ -2,7 +2,13 @@ part of '../cocoonmate_module.dart';
 
 enum CocoonRecordsState { loading, ready, empty, error }
 
-enum CocoonRecordKind { checkIn, appointment, measurement, medication, document }
+enum CocoonRecordKind {
+  checkIn,
+  appointment,
+  measurement,
+  medication,
+  document
+}
 
 enum CocoonRecordSyncState { confirmed, pending, cached }
 
@@ -243,16 +249,31 @@ class _RecordTimelineItem extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final (icon, color, background) = switch (item.kind) {
-      CocoonRecordKind.checkIn =>
-        (Icons.favorite_outline_rounded, CocoonTheme.coral, CocoonTheme.warm),
-      CocoonRecordKind.appointment => (Icons.event_outlined,
-          CocoonTheme.skyStrong, CocoonTheme.sky),
-      CocoonRecordKind.measurement => (Icons.monitor_weight_outlined,
-          CocoonTheme.sageStrong, CocoonTheme.sage),
-      CocoonRecordKind.medication =>
-        (Icons.medication_outlined, CocoonTheme.gold, CocoonTheme.warm),
-      CocoonRecordKind.document =>
-        (Icons.description_outlined, CocoonTheme.ink, CocoonTheme.lilac),
+      CocoonRecordKind.checkIn => (
+          Icons.favorite_outline_rounded,
+          CocoonTheme.coral,
+          CocoonTheme.warm
+        ),
+      CocoonRecordKind.appointment => (
+          Icons.event_outlined,
+          CocoonTheme.skyStrong,
+          CocoonTheme.sky
+        ),
+      CocoonRecordKind.measurement => (
+          Icons.monitor_weight_outlined,
+          CocoonTheme.sageStrong,
+          CocoonTheme.sage
+        ),
+      CocoonRecordKind.medication => (
+          Icons.medication_outlined,
+          CocoonTheme.gold,
+          CocoonTheme.warm
+        ),
+      CocoonRecordKind.document => (
+          Icons.description_outlined,
+          CocoonTheme.ink,
+          CocoonTheme.lilac
+        ),
     };
     return IntrinsicHeight(
       child: Row(
@@ -299,7 +320,8 @@ class _RecordTimelineItem extends StatelessWidget {
                             if (item.summary != null) ...[
                               const SizedBox(height: 3),
                               Text(item.summary!,
-                                  style: Theme.of(context).textTheme.bodyMedium),
+                                  style:
+                                      Theme.of(context).textTheme.bodyMedium),
                             ],
                             const SizedBox(height: 6),
                             Wrap(
@@ -312,7 +334,8 @@ class _RecordTimelineItem extends StatelessWidget {
                                         .labelMedium),
                                 if (item.syncState !=
                                     CocoonRecordSyncState.confirmed)
-                                  _RecordSyncLabel(fa: fa, state: item.syncState),
+                                  _RecordSyncLabel(
+                                      fa: fa, state: item.syncState),
                               ],
                             ),
                           ],
