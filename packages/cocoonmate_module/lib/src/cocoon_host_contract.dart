@@ -41,6 +41,11 @@ class CocoonModuleConfig {
     this.timezone = 'UTC',
     this.pickPregnancyDate,
     this.activatePregnancy,
+    this.recordsState = CocoonRecordsState.empty,
+    this.records = const [],
+    this.onOpenRecord,
+    this.onRetryRecords,
+    this.onAddRecord,
   });
 
   final CocoonHostContract host;
@@ -51,6 +56,11 @@ class CocoonModuleConfig {
   )? pickPregnancyDate;
   final Future<bool> Function(CocoonPregnancySetupDraft draft)?
       activatePregnancy;
+  final CocoonRecordsState recordsState;
+  final List<CocoonRecordViewData> records;
+  final ValueChanged<CocoonRecordViewData>? onOpenRecord;
+  final VoidCallback? onRetryRecords;
+  final VoidCallback? onAddRecord;
 }
 
 class CocoonMateModule extends StatelessWidget {

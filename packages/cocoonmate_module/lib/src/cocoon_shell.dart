@@ -241,6 +241,15 @@ class _CocoonShellState extends State<CocoonShell> {
             ),
           ),
         1 => CocoonPregnancyCalendar(host: host, fa: _fa),
+        3 => CocoonRecordsScreen(
+            fa: _fa,
+            state: widget.config.recordsState,
+            items: widget.config.records,
+            onOpen: widget.config.onOpenRecord,
+            onRetry: widget.config.onRetryRecords ?? host.refresh,
+            onAdd:
+                widget.config.onAddRecord ?? () => setState(() => _index = 2),
+          ),
         4 => CocoonPregnancyEducation(host: host, fa: _fa, offline: offline),
         _ => _DestinationState(
             icon: switch (_index) {
