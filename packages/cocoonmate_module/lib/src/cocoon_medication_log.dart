@@ -2,7 +2,14 @@ part of '../cocoonmate_module.dart';
 
 enum CocoonMedicationLogAction { taken, skipped }
 
-enum CocoonMedicationSubmitState { idle, submitting, queued, confirmed, error, offline }
+enum CocoonMedicationSubmitState {
+  idle,
+  submitting,
+  queued,
+  confirmed,
+  error,
+  offline
+}
 
 class CocoonMedicationOption {
   const CocoonMedicationOption({
@@ -53,8 +60,7 @@ class CocoonMedicationLogScreen extends StatefulWidget {
       _CocoonMedicationLogScreenState();
 }
 
-class _CocoonMedicationLogScreenState
-    extends State<CocoonMedicationLogScreen> {
+class _CocoonMedicationLogScreenState extends State<CocoonMedicationLogScreen> {
   final _note = TextEditingController();
   String? _medicationId;
   late String _timeLabel = widget.initialTimeLabel;
@@ -118,10 +124,12 @@ class _CocoonMedicationLogScreenState
                       if (_showErrors && _medicationId == null) ...[
                         const SizedBox(height: 4),
                         Text(
-                          t('Choose an item to continue', 'برای ادامه یک مورد انتخاب کن'),
-                          style: Theme.of(context).textTheme.labelMedium?.copyWith(
-                                color: Theme.of(context).colorScheme.error,
-                              ),
+                          t('Choose an item to continue',
+                              'برای ادامه یک مورد انتخاب کن'),
+                          style:
+                              Theme.of(context).textTheme.labelMedium?.copyWith(
+                                    color: Theme.of(context).colorScheme.error,
+                                  ),
                         ),
                       ],
                       if (widget.options.isNotEmpty) ...[
@@ -245,7 +253,9 @@ class _CocoonMedicationLogScreenState
                     )
                   : const Icon(Icons.check_rounded),
               label: Text(
-                _busy ? t('Saving…', 'در حال ثبت…') : t('Save log', 'ثبت وضعیت'),
+                _busy
+                    ? t('Saving…', 'در حال ثبت…')
+                    : t('Save log', 'ثبت وضعیت'),
               ),
             ),
           ),
@@ -304,8 +314,7 @@ class _MedicationOptionTile extends StatelessWidget {
             ),
             child: Row(
               children: [
-                const Icon(Icons.medication_outlined,
-                    color: CocoonTheme.coral),
+                const Icon(Icons.medication_outlined, color: CocoonTheme.coral),
                 const SizedBox(width: 12),
                 Expanded(
                   child: Column(
@@ -423,12 +432,17 @@ class _MedicationStatus extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final (icon, background, text) = switch (state) {
-      CocoonMedicationSubmitState.submitting =>
-        (Icons.sync_rounded, CocoonTheme.sky, fa ? 'در حال ثبت امن' : 'Saving securely'),
+      CocoonMedicationSubmitState.submitting => (
+          Icons.sync_rounded,
+          CocoonTheme.sky,
+          fa ? 'در حال ثبت امن' : 'Saving securely'
+        ),
       CocoonMedicationSubmitState.queued => (
           Icons.schedule_send_outlined,
           CocoonTheme.warm,
-          fa ? 'در صف همگام‌سازی؛ هنوز تأیید نشده' : 'Queued; not yet confirmed',
+          fa
+              ? 'در صف همگام‌سازی؛ هنوز تأیید نشده'
+              : 'Queued; not yet confirmed',
         ),
       CocoonMedicationSubmitState.confirmed => (
           Icons.cloud_done_outlined,
@@ -443,10 +457,15 @@ class _MedicationStatus extends StatelessWidget {
       CocoonMedicationSubmitState.offline => (
           Icons.wifi_off_outlined,
           CocoonTheme.sky,
-          fa ? 'آفلاین؛ ثبت جدید در دسترس نیست' : 'Offline; new logging unavailable',
+          fa
+              ? 'آفلاین؛ ثبت جدید در دسترس نیست'
+              : 'Offline; new logging unavailable',
         ),
-      CocoonMedicationSubmitState.idle =>
-        (Icons.info_outline, CocoonTheme.cream, ''),
+      CocoonMedicationSubmitState.idle => (
+          Icons.info_outline,
+          CocoonTheme.cream,
+          ''
+        ),
     };
     return Semantics(
       liveRegion: true,

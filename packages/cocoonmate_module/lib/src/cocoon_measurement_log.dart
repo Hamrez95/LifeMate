@@ -1,6 +1,13 @@
 part of '../cocoonmate_module.dart';
 
-enum CocoonMeasurementSubmitState { idle, submitting, queued, confirmed, error, offline }
+enum CocoonMeasurementSubmitState {
+  idle,
+  submitting,
+  queued,
+  confirmed,
+  error,
+  offline
+}
 
 class CocoonMeasurementFieldSpec {
   const CocoonMeasurementFieldSpec({
@@ -132,7 +139,8 @@ class _CocoonMeasurementLogScreenState
                       if (_showErrors && _option == null) ...[
                         const SizedBox(height: 8),
                         _FieldError(
-                          text: t('Choose a measurement type', 'نوع اندازه‌گیری را انتخاب کن'),
+                          text: t('Choose a measurement type',
+                              'نوع اندازه‌گیری را انتخاب کن'),
                         ),
                       ],
                       if (_option != null) ...[
@@ -273,7 +281,9 @@ class _MeasurementHero extends StatelessWidget {
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   Text(
-                    fa ? 'داده‌ای برای دیدن روند' : 'A data point for your trend',
+                    fa
+                        ? 'داده‌ای برای دیدن روند'
+                        : 'A data point for your trend',
                     style: Theme.of(context).textTheme.titleLarge,
                   ),
                   const SizedBox(height: 5),
@@ -391,12 +401,17 @@ class _MeasurementStatus extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final (icon, background, text) = switch (state) {
-      CocoonMeasurementSubmitState.submitting =>
-        (Icons.sync_rounded, CocoonTheme.sky, fa ? 'در حال ثبت امن' : 'Saving securely'),
+      CocoonMeasurementSubmitState.submitting => (
+          Icons.sync_rounded,
+          CocoonTheme.sky,
+          fa ? 'در حال ثبت امن' : 'Saving securely'
+        ),
       CocoonMeasurementSubmitState.queued => (
           Icons.schedule_send_outlined,
           CocoonTheme.warm,
-          fa ? 'در صف همگام‌سازی؛ هنوز تأیید نشده' : 'Queued; not yet confirmed',
+          fa
+              ? 'در صف همگام‌سازی؛ هنوز تأیید نشده'
+              : 'Queued; not yet confirmed',
         ),
       CocoonMeasurementSubmitState.confirmed => (
           Icons.cloud_done_outlined,
@@ -411,10 +426,15 @@ class _MeasurementStatus extends StatelessWidget {
       CocoonMeasurementSubmitState.offline => (
           Icons.wifi_off_outlined,
           CocoonTheme.sky,
-          fa ? 'آفلاین؛ ثبت جدید در دسترس نیست' : 'Offline; new logging unavailable',
+          fa
+              ? 'آفلاین؛ ثبت جدید در دسترس نیست'
+              : 'Offline; new logging unavailable',
         ),
-      CocoonMeasurementSubmitState.idle =>
-        (Icons.info_outline, CocoonTheme.cream, ''),
+      CocoonMeasurementSubmitState.idle => (
+          Icons.info_outline,
+          CocoonTheme.cream,
+          ''
+        ),
     };
     return Semantics(
       liveRegion: true,
