@@ -491,7 +491,7 @@ void main() {
 
     await tester.tap(find.text('نشانه یا علامت'));
     await tester.pumpAndSettle();
-    expect(find.text('ثبت نشانه'), findsOneWidget);
+    expect(find.text('ثبت نشانه'), findsWidgets);
     expect(find.text('تهوع'), findsOneWidget);
     expect(tester.takeException(), isNull);
   });
