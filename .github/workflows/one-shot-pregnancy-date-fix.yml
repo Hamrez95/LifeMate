@@ -16,57 +16,16 @@ jobs:
         with:
           ref: codex/cocoon-pregnancy-activation-788
           fetch-depth: 0
-      - name: Normalize PostgreSQL date-only values and remove one-shot workflow
+      - name: Apply date-only normalization
         shell: bash
         run: |
           set -euo pipefail
-          python3 - <<'PY'
-          from pathlib import Path
-          path = Path('supabase/functions/lifemate-api/pregnancy_store.ts')
-          text = path.read_text()
-          old = '''type Row = Record<string, any>;
-
-function episodeFromRow(row: Row): PregnancyEpisode {
-  return {
-    id: String(row.id),
-    motherPersonId: String(row.mother_person_id),
-    status: row.status as PregnancyEpisodeStatus,
-    datingMethod: row.dating_method as PregnancyDatingMethod | null,
-    lmpDate: row.lmp_date == null ? null : String(row.lmp_date),
-    estimatedDueDate: row.estimated_due_date == null
-      ? null
-      : String(row.estimated_due_date),
-    datingReferenceDate: row.dating_reference_date == null
-      ? null
-      : String(row.dating_reference_date),
-'''
-          new = '''type Row = Record<string, any>;
-
-function dateString(value: unknown): string | null {
-  if (value == null) return null;
-  if (value instanceof Date) return value.toISOString().slice(0, 10);
-  return String(value).slice(0, 10);
-}
-
-function episodeFromRow(row: Row): PregnancyEpisode {
-  return {
-    id: String(row.id),
-    motherPersonId: String(row.mother_person_id),
-    status: row.status as PregnancyEpisodeStatus,
-    datingMethod: row.dating_method as PregnancyDatingMethod | null,
-    lmpDate: dateString(row.lmp_date),
-    estimatedDueDate: dateString(row.estimated_due_date),
-    datingReferenceDate: dateString(row.dating_reference_date),
-'''
-          if old not in text:
-              raise SystemExit('expected pregnancy_store snippet not found')
-          path.write_text(text.replace(old, new, 1))
-          PY
+          python3 -c "from pathlib import Path; p=Path('supabase/functions/lifemate-api/pregnancy_store.ts'); s=p.read_text(); s=s.replace('type Row = Record<string, any>;\n', 'type Row = Record<string, any>;\n\nfunction dateString(value: unknown): string | null {\n  if (value == null) return null;\n  if (value instanceof Date) return value.toISOString().slice(0, 10);\n  return String(value).slice(0, 10);\n}\n', 1); s=s.replace('lmpDate: row.lmp_date == null ? null : String(row.lmp_date),', 'lmpDate: dateString(row.lmp_date),', 1); s=s.replace('estimatedDueDate: row.estimated_due_date == null\n      ? null\n      : String(row.estimated_due_date),', 'estimatedDueDate: dateString(row.estimated_due_date),', 1); s=s.replace('datingReferenceDate: row.dating_reference_date == null\n      ? null\n      : String(row.dating_reference_date),', 'datingReferenceDate: dateString(row.dating_reference_date),', 1); p.write_text(s)"
           deno fmt supabase/functions/lifemate-api/pregnancy_store.ts
           rm .github/workflows/one-shot-pregnancy-date-fix.yml
-          git config user.name 'github-actions[bot]'
-          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
           git add supabase/functions/lifemate-api/pregnancy_store.ts .github/workflows/one-shot-pregnancy-date-fix.yml
           git diff --cached --check
-          git commit -m 'fix(cocoon): normalize pregnancy SQL dates'
+          git commit -m "fix(cocoon): normalize pregnancy SQL dates"
           git push origin HEAD:codex/cocoon-pregnancy-activation-788
