@@ -1,3 +1,4 @@
+import { createCocoonIdentityResolver } from "./cocoon_identity.ts";
 import { getLifeMateSql } from "./database_client.ts";
 import { json } from "./http.ts";
 import { requireMutationIdempotencyKey } from "./idempotency.ts";
@@ -57,9 +58,22 @@ function optionalIsoDate(value: unknown, code: string): string | null {
   return value;
 }
 
-function requiredAsOfDate(request: Request): string {
+function optionalAsOfDate(request: Request): string | null {
   const value = new URL(request.url).searchParams.get("asOfDate");
-  if (!value || !isoDatePattern.test(value)) {
+  if (value == null) return null;
+  if (!isoDatePattern.test(value)) {
+    throw new ApiError(
+      400,
+      "pregnancy_as_of_date_invalid",
+      "asOfDate is invalid.",
+    );
+  }
+  return value;
+}
+
+function requiredAsOfDate(request: Request): string {
+  const value = optionalAsOfDate(request);
+  if (!value) {
     throw new ApiError(
       400,
       "pregnancy_as_of_date_required",
@@ -189,28 +203,9 @@ export function pregnancyEpisodeReadModel(
 
 export function createPregnancyRouteHandler(databaseUrl: string) {
   const sql = getLifeMateSql(databaseUrl);
+  const identity = createCocoonIdentityResolver(databaseUrl);
   const store = createPregnancyStore(databaseUrl);
   const authorization = createPregnancyAuthorization(databaseUrl);
-
-  async function selfPersonId(accountId: string): Promise<string> {
-    const rows = await sql`
-      select person_id
-      from core.account_person_links
-      where account_id=${accountId}::uuid
-        and link_type='Self'
-        and status='Active'
-      order by created_at_utc asc
-      limit 1
-    `;
-    if (!rows[0]?.person_id) {
-      throw new ApiError(
-        409,
-        "cocoon_person_context_missing",
-        "Cocoon person context is not ready.",
-      );
-    }
-    return String(rows[0].person_id);
-  }
 
   async function requireAccess(
     accountId: string,
@@ -226,14 +221,23 @@ export function createPregnancyRouteHandler(databaseUrl: string) {
     });
   }
 
-  async function entitlementState(accountId: string): Promise<Row> {
+  async function entitlementState(
+    accountId: string,
+    personId: string,
+  ): Promise<Row> {
     try {
       const rows = await sql`
         select s.id,s.status,s.current_period_end_utc
         from commerce.subscriptions s
         join commerce.products p on p.id=s.product_id
         where s.owner_account_id=${accountId}::uuid
+          and (s.beneficiary_person_id is null or s.beneficiary_person_id=${personId}::uuid)
           and p.code='cocoonmate'
+          and p.status='Active'
+          and p.lifecycle_status<>'Retired'
+          and s.status in ('Active','Trial')
+          and s.starts_at_utc<=now()
+          and (s.current_period_end_utc is null or s.current_period_end_utc>now())
         order by s.updated_at_utc desc,s.id desc
         limit 1
       `;
@@ -243,11 +247,8 @@ export function createPregnancyRouteHandler(databaseUrl: string) {
           reference: null,
         };
       }
-      const status = String(rows[0].status ?? "").toLowerCase();
-      const active = status === "active" || status === "trialing";
       return {
-        state:
-          (active ? "active" : "inactive") satisfies PregnancyEntitlementState,
+        state: "active" satisfies PregnancyEntitlementState,
         reference: String(rows[0].id),
         currentPeriodEndUtc: rows[0].current_period_end_utc == null
           ? null
@@ -273,15 +274,15 @@ export function createPregnancyRouteHandler(databaseUrl: string) {
 
   async function bootstrap(
     request: Request,
-    accountId: string,
+    appUserId: string,
   ): Promise<Response> {
     const asOfDate = requiredAsOfDate(request);
-    const personId = await selfPersonId(accountId);
+    const { accountId, personId } = await identity.resolve(appUserId);
     await requireAccess(accountId, personId, null, "pregnancy.summary.read");
     const [current, history, entitlement] = await Promise.all([
       store.getCurrentEpisode(personId),
       store.listHistory(personId),
-      entitlementState(accountId),
+      entitlementState(accountId, personId),
     ]);
     return json({
       contractVersion: 1,
@@ -302,10 +303,10 @@ export function createPregnancyRouteHandler(databaseUrl: string) {
 
   async function currentSnapshot(
     request: Request,
-    accountId: string,
+    appUserId: string,
   ): Promise<Response> {
     const asOfDate = requiredAsOfDate(request);
-    const personId = await selfPersonId(accountId);
+    const { accountId, personId } = await identity.resolve(appUserId);
     const current = await store.getCurrentEpisode(personId);
     if (!current) return json({ contractVersion: 1, episode: null });
     await requireAccess(
@@ -342,25 +343,18 @@ export function createPregnancyRouteHandler(databaseUrl: string) {
         return await currentSnapshot(request, appUserId);
       }
 
-      const personId = await selfPersonId(appUserId);
+      const { accountId, personId } = await identity.resolve(appUserId);
 
       if (
         request.method === "GET" && path === "/api/v1/cocoon/pregnancy/episodes"
       ) {
         await requireAccess(
-          appUserId,
+          accountId,
           personId,
           null,
           "pregnancy.summary.read",
         );
-        const asOfDate = new URL(request.url).searchParams.get("asOfDate");
-        if (asOfDate != null && !isoDatePattern.test(asOfDate)) {
-          throw new ApiError(
-            400,
-            "pregnancy_as_of_date_invalid",
-            "asOfDate is invalid.",
-          );
-        }
+        const asOfDate = optionalAsOfDate(request);
         const history = await store.listHistory(personId);
         return json({
           contractVersion: 1,
@@ -375,7 +369,7 @@ export function createPregnancyRouteHandler(databaseUrl: string) {
         path === "/api/v1/cocoon/pregnancy/episodes"
       ) {
         await requireAccess(
-          appUserId,
+          accountId,
           personId,
           null,
           "pregnancy.owner.manage",
@@ -408,11 +402,11 @@ export function createPregnancyRouteHandler(databaseUrl: string) {
             body.gestationalAgeAtReferenceDays,
           ),
           idempotencyKey: requireMutationIdempotencyKey(request),
-          actorAccountId: appUserId,
+          actorAccountId: accountId,
         });
         return json({
           contractVersion: 1,
-          episode: pregnancyEpisodeReadModel(created, null),
+          episode: pregnancyEpisodeReadModel(created, optionalAsOfDate(request)),
         }, 201);
       }
 
@@ -425,7 +419,7 @@ export function createPregnancyRouteHandler(databaseUrl: string) {
           "pregnancy_episode_id_invalid",
         );
         await requireAccess(
-          appUserId,
+          accountId,
           personId,
           episodeId,
           "pregnancy.owner.manage",
@@ -439,11 +433,11 @@ export function createPregnancyRouteHandler(databaseUrl: string) {
             "pregnancy_version_invalid",
           ),
           idempotencyKey: requireMutationIdempotencyKey(request),
-          actorAccountId: appUserId,
+          actorAccountId: accountId,
         });
         return json({
           contractVersion: 1,
-          episode: pregnancyEpisodeReadModel(episode, null),
+          episode: pregnancyEpisodeReadModel(episode, optionalAsOfDate(request)),
         });
       }
 
@@ -456,7 +450,7 @@ export function createPregnancyRouteHandler(databaseUrl: string) {
           "pregnancy_episode_id_invalid",
         );
         await requireAccess(
-          appUserId,
+          accountId,
           personId,
           episodeId,
           "pregnancy.owner.manage",
@@ -509,11 +503,11 @@ export function createPregnancyRouteHandler(databaseUrl: string) {
             ? body.reasonCode.trim().slice(0, 64)
             : null,
           idempotencyKey: requireMutationIdempotencyKey(request),
-          actorAccountId: appUserId,
+          actorAccountId: accountId,
         });
         return json({
           contractVersion: 1,
-          episode: pregnancyEpisodeReadModel(episode, null),
+          episode: pregnancyEpisodeReadModel(episode, optionalAsOfDate(request)),
         });
       }
 
@@ -526,7 +520,7 @@ export function createPregnancyRouteHandler(databaseUrl: string) {
           "pregnancy_episode_id_invalid",
         );
         await requireAccess(
-          appUserId,
+          accountId,
           personId,
           episodeId,
           "pregnancy.owner.manage",
@@ -541,11 +535,11 @@ export function createPregnancyRouteHandler(databaseUrl: string) {
           ),
           outcome: requireOutcome(body.outcome),
           idempotencyKey: requireMutationIdempotencyKey(request),
-          actorAccountId: appUserId,
+          actorAccountId: accountId,
         });
         return json({
           contractVersion: 1,
-          episode: pregnancyEpisodeReadModel(episode, null),
+          episode: pregnancyEpisodeReadModel(episode, optionalAsOfDate(request)),
         });
       }
 
