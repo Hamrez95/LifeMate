@@ -21,7 +21,6 @@ jobs:
         run: |
           set -euo pipefail
           python3 -c "from pathlib import Path; p=Path('supabase/functions/lifemate-api/pregnancy_store.ts'); s=p.read_text(); s=s.replace('type Row = Record<string, any>;\n', 'type Row = Record<string, any>;\n\nfunction dateString(value: unknown): string | null {\n  if (value == null) return null;\n  if (value instanceof Date) return value.toISOString().slice(0, 10);\n  return String(value).slice(0, 10);\n}\n', 1); s=s.replace('lmpDate: row.lmp_date == null ? null : String(row.lmp_date),', 'lmpDate: dateString(row.lmp_date),', 1); s=s.replace('estimatedDueDate: row.estimated_due_date == null\n      ? null\n      : String(row.estimated_due_date),', 'estimatedDueDate: dateString(row.estimated_due_date),', 1); s=s.replace('datingReferenceDate: row.dating_reference_date == null\n      ? null\n      : String(row.dating_reference_date),', 'datingReferenceDate: dateString(row.dating_reference_date),', 1); p.write_text(s)"
-          deno fmt supabase/functions/lifemate-api/pregnancy_store.ts
           rm .github/workflows/one-shot-pregnancy-date-fix.yml
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
