@@ -395,6 +395,45 @@ void main() {
     expect(find.text('بازبینی بالینی'), findsOneWidget);
     expect(tester.takeException(), isNull);
   });
+
+  testWidgets('records keep cached timeline visible after refresh error', (
+    tester,
+  ) async {
+    final host = FakeHost(
+      CocoonEntryState.activePregnancy,
+      const Locale('fa'),
+      pregnancySnapshot: _pregnancyAtWeek(4, 2),
+    );
+    await tester.pumpWidget(
+      MaterialApp(
+        theme: CocoonTheme.light(),
+        home: CocoonMateModule(
+          config: CocoonModuleConfig(
+            host: host,
+            recordsState: CocoonRecordsState.error,
+            records: const [
+              CocoonRecordViewData(
+                id: 'checkin-1',
+                title: 'حال روزانه',
+                dateLabel: 'امروز، ۹:۳۰',
+                sectionLabel: 'امروز',
+                summary: 'آرام و خوب',
+                kind: CocoonRecordKind.checkIn,
+                syncState: CocoonRecordSyncState.cached,
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+    await tester.tap(find.text('سوابق'));
+    await tester.pumpAndSettle();
+
+    expect(find.text('حال روزانه'), findsWidgets);
+    expect(find.text('ذخیره‌شده روی دستگاه'), findsOneWidget);
+    expect(find.textContaining('به‌روزرسانی انجام نشد'), findsOneWidget);
+    expect(tester.takeException(), isNull);
+  });
 }
 
 void _noop() {}
