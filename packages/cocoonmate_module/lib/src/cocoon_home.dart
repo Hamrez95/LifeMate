@@ -5,12 +5,16 @@ class CocoonPregnancyHome extends StatelessWidget {
     required this.host,
     required this.fa,
     required this.onOpenWeek,
+    this.onOpenNotifications,
+    this.onOpenSafety,
     super.key,
   });
 
   final CocoonHostContract host;
   final bool fa;
   final VoidCallback onOpenWeek;
+  final VoidCallback? onOpenNotifications;
+  final VoidCallback? onOpenSafety;
 
   String t(String en, String faText) => fa ? faText : en;
 
@@ -42,7 +46,10 @@ class CocoonPregnancyHome extends StatelessWidget {
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.stretch,
               children: [
-                _HomeGreeting(fa: fa),
+                _HomeGreeting(
+                  fa: fa,
+                  onOpenNotifications: onOpenNotifications,
+                ),
                 const SizedBox(height: 22),
                 _PregnancyMoment(
                   fa: fa,
@@ -72,7 +79,7 @@ class CocoonPregnancyHome extends StatelessWidget {
                 const SizedBox(height: 14),
                 _WeeklyEditorial(fa: fa, week: week),
                 const SizedBox(height: 32),
-                _SafetyEntry(fa: fa),
+                _SafetyEntry(fa: fa, onTap: onOpenSafety),
               ],
             ),
           ),
@@ -83,8 +90,9 @@ class CocoonPregnancyHome extends StatelessWidget {
 }
 
 class _HomeGreeting extends StatelessWidget {
-  const _HomeGreeting({required this.fa});
+  const _HomeGreeting({required this.fa, this.onOpenNotifications});
   final bool fa;
+  final VoidCallback? onOpenNotifications;
 
   @override
   Widget build(BuildContext context) => Row(
@@ -111,12 +119,19 @@ class _HomeGreeting extends StatelessWidget {
           ),
           Semantics(
             button: true,
+            enabled: onOpenNotifications != null,
             label: fa ? 'اعلان‌ها' : 'Notifications',
-            child: const CircleAvatar(
-              radius: 24,
-              backgroundColor: Colors.white,
-              child: Icon(Icons.notifications_none_rounded,
-                  color: CocoonTheme.ink),
+            child: InkResponse(
+              onTap: onOpenNotifications,
+              radius: 28,
+              child: const CircleAvatar(
+                radius: 24,
+                backgroundColor: Colors.white,
+                child: Icon(
+                  Icons.notifications_none_rounded,
+                  color: CocoonTheme.ink,
+                ),
+              ),
             ),
           ),
         ],
@@ -395,17 +410,24 @@ class _WeeklyEditorial extends StatelessWidget {
 }
 
 class _SafetyEntry extends StatelessWidget {
-  const _SafetyEntry({required this.fa});
+  const _SafetyEntry({required this.fa, this.onTap});
   final bool fa;
+  final VoidCallback? onTap;
 
   @override
-  Widget build(BuildContext context) => Container(
-        padding: const EdgeInsetsDirectional.all(18),
-        decoration: BoxDecoration(
-          border: Border.all(color: CocoonTheme.line),
+  Widget build(BuildContext context) => Semantics(
+        button: true,
+        enabled: onTap != null,
+        child: InkWell(
+          onTap: onTap,
           borderRadius: BorderRadius.circular(22),
-        ),
-        child: Row(
+          child: Ink(
+            padding: const EdgeInsetsDirectional.all(18),
+            decoration: BoxDecoration(
+              border: Border.all(color: CocoonTheme.line),
+              borderRadius: BorderRadius.circular(22),
+            ),
+            child: Row(
           children: [
             const Icon(Icons.health_and_safety_outlined,
                 color: CocoonTheme.coral),
@@ -431,7 +453,9 @@ class _SafetyEntry extends StatelessWidget {
               ),
             ),
             const Icon(Icons.chevron_right_rounded),
-          ],
+              ],
+            ),
+          ),
         ),
       );
 }

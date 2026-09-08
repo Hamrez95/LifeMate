@@ -62,6 +62,29 @@ class CocoonModuleConfig {
     this.medicationSubmitState = CocoonMedicationSubmitState.idle,
     this.onPickMedicationTime,
     this.onSubmitMedication,
+    this.reminderLoadState = CocoonReminderLoadState.loading,
+    this.reminderSaveState = CocoonReminderSaveState.idle,
+    this.reminderData,
+    this.onRetryReminders,
+    this.onSaveReminders,
+    this.onRequestNotificationPermission,
+    this.onOpenNotificationSettings,
+    this.onOpenAppointmentReminders,
+    this.onOpenMedicationReminders,
+    this.safetyGuidanceState = CocoonSafetyGuidanceLoadState.unavailable,
+    this.safetyGuidanceCopy,
+    this.safetyGuidanceData,
+    this.onRetrySafetyGuidance,
+    this.onSafetyGuidanceAction,
+    this.settingsState = CocoonSettingsLoadState.loading,
+    this.settingsData,
+    this.onRetrySettings,
+    this.onOpenPregnancyDating,
+    this.onOpenPrivacySharing,
+    this.onOpenLanguage,
+    this.onOpenAccessibility,
+    this.onReducedMotionChanged,
+    this.onOpenDataAndSync,
   });
 
   final CocoonHostContract host;
@@ -95,6 +118,30 @@ class CocoonModuleConfig {
   final Future<String?> Function()? onPickMedicationTime;
   final Future<void> Function(CocoonMedicationLogDraft draft)?
       onSubmitMedication;
+  final CocoonReminderLoadState reminderLoadState;
+  final CocoonReminderSaveState reminderSaveState;
+  final CocoonReminderSettingsViewData? reminderData;
+  final VoidCallback? onRetryReminders;
+  final Future<void> Function(CocoonReminderPreferences preferences)?
+      onSaveReminders;
+  final VoidCallback? onRequestNotificationPermission;
+  final VoidCallback? onOpenNotificationSettings;
+  final VoidCallback? onOpenAppointmentReminders;
+  final VoidCallback? onOpenMedicationReminders;
+  final CocoonSafetyGuidanceLoadState safetyGuidanceState;
+  final CocoonSafetyGuidanceCopy? safetyGuidanceCopy;
+  final CocoonSafetyGuidanceViewData? safetyGuidanceData;
+  final VoidCallback? onRetrySafetyGuidance;
+  final ValueChanged<CocoonSafetyGuidanceItem>? onSafetyGuidanceAction;
+  final CocoonSettingsLoadState settingsState;
+  final CocoonSettingsViewData? settingsData;
+  final VoidCallback? onRetrySettings;
+  final VoidCallback? onOpenPregnancyDating;
+  final VoidCallback? onOpenPrivacySharing;
+  final VoidCallback? onOpenLanguage;
+  final VoidCallback? onOpenAccessibility;
+  final ValueChanged<bool>? onReducedMotionChanged;
+  final VoidCallback? onOpenDataAndSync;
 }
 
 class CocoonMateModule extends StatelessWidget {

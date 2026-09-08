@@ -186,9 +186,18 @@ class _CocoonShellState extends State<CocoonShell> {
         title: Text(_index == 0 ? 'CocoonMate' : labels[_index]),
         actions: [
           IconButton(
-            tooltip: t('Profile', 'پروفایل'),
-            onPressed: host.openGlobalProfile,
-            icon: const Icon(Icons.person_outline),
+            tooltip: widget.config.settingsData != null ||
+                    widget.config.onRetrySettings != null
+                ? t('Cocoon settings', 'تنظیمات کوکون')
+                : t('Profile', 'پروفایل'),
+            onPressed: widget.config.settingsData != null ||
+                    widget.config.onRetrySettings != null
+                ? () => _openSettings(host)
+                : host.openGlobalProfile,
+            icon: Icon(widget.config.settingsData != null ||
+                    widget.config.onRetrySettings != null
+                ? Icons.tune_rounded
+                : Icons.person_outline),
           ),
         ],
       ),
@@ -239,6 +248,13 @@ class _CocoonShellState extends State<CocoonShell> {
                 ),
               ),
             ),
+            onOpenNotifications: widget.config.onSaveReminders == null
+                ? null
+                : () => _openReminders(host),
+            onOpenSafety: widget.config.safetyGuidanceCopy == null ||
+                    widget.config.onSafetyGuidanceAction == null
+                ? null
+                : () => _openSafetyGuidance(host),
           ),
         1 => CocoonPregnancyCalendar(host: host, fa: _fa),
         2 => CocoonQuickAddScreen(
@@ -357,6 +373,80 @@ class _CocoonShellState extends State<CocoonShell> {
       return;
     }
     widget.config.onOpenQuickAdd?.call(kind);
+  }
+
+  void _openReminders(CocoonHostContract host) {
+    final save = widget.config.onSaveReminders;
+    if (save == null) return;
+    Navigator.of(context).push(
+      MaterialPageRoute<void>(
+        builder: (_) => CocoonReminderSettingsScreen(
+          fa: _fa,
+          loadState: widget.config.reminderLoadState,
+          saveState: widget.config.reminderSaveState,
+          data: widget.config.reminderData,
+          onRetry: widget.config.onRetryReminders ?? host.refresh,
+          onSave: save,
+          onRequestPermission:
+              widget.config.onRequestNotificationPermission,
+          onOpenSystemSettings: widget.config.onOpenNotificationSettings,
+          onOpenAppointments: widget.config.onOpenAppointmentReminders ??
+              () => setState(() => _index = 1),
+          onOpenMedications: widget.config.onOpenMedicationReminders ??
+              () => setState(() => _index = 2),
+        ),
+      ),
+    );
+  }
+
+  void _openSafetyGuidance(CocoonHostContract host) {
+    final copy = widget.config.safetyGuidanceCopy;
+    final action = widget.config.onSafetyGuidanceAction;
+    if (copy == null || action == null) return;
+    Navigator.of(context).push(
+      MaterialPageRoute<void>(
+        builder: (_) => Scaffold(
+          appBar: AppBar(title: Text(copy.pageTitle)),
+          body: SafeArea(
+            child: CocoonSafetyGuidanceScreen(
+              state: widget.config.safetyGuidanceState,
+              copy: copy,
+              data: widget.config.safetyGuidanceData,
+              onRetry: widget.config.onRetrySafetyGuidance ?? host.refresh,
+              onGuidanceAction: action,
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+
+  void _openSettings(CocoonHostContract host) {
+    Navigator.of(context).push(
+      MaterialPageRoute<void>(
+        builder: (_) => Scaffold(
+          appBar: AppBar(title: Text(t('Cocoon settings', 'تنظیمات کوکون'))),
+          body: SafeArea(
+            child: CocoonSettingsScreen(
+              fa: _fa,
+              state: widget.config.settingsState,
+              data: widget.config.settingsData,
+              onRetry: widget.config.onRetrySettings ?? host.refresh,
+              onOpenPregnancyDating: widget.config.onOpenPregnancyDating,
+              onOpenReminders: widget.config.onSaveReminders == null
+                  ? null
+                  : () => _openReminders(host),
+              onOpenPrivacySharing: widget.config.onOpenPrivacySharing,
+              onOpenLanguage: widget.config.onOpenLanguage,
+              onOpenAccessibility: widget.config.onOpenAccessibility,
+              onReducedMotionChanged: widget.config.onReducedMotionChanged,
+              onOpenDataAndSync: widget.config.onOpenDataAndSync,
+              onOpenGlobalProfile: host.openGlobalProfile,
+            ),
+          ),
+        ),
+      ),
+    );
   }
 }
 
