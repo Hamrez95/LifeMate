@@ -434,6 +434,67 @@ void main() {
     expect(find.textContaining('به‌روزرسانی انجام نشد'), findsOneWidget);
     expect(tester.takeException(), isNull);
   });
+
+  testWidgets('quick add opens the owned check-in flow', (tester) async {
+    final host = FakeHost(
+      CocoonEntryState.activePregnancy,
+      const Locale('fa'),
+      pregnancySnapshot: _pregnancyAtWeek(4, 2),
+    );
+    await tester.pumpWidget(
+      MaterialApp(
+        theme: CocoonTheme.light(),
+        home: CocoonMateModule(
+          config: CocoonModuleConfig(
+            host: host,
+            initialTab: 2,
+            onSubmitCheckIn: (_) async {},
+          ),
+        ),
+      ),
+    );
+
+    expect(find.text('یک ثبت ساده و آرام'), findsOneWidget);
+    await tester.tap(find.text('حال امروز'));
+    await tester.pumpAndSettle();
+    expect(find.text('یک مکث کوتاه برای خودت'), findsOneWidget);
+    expect(tester.takeException(), isNull);
+  });
+
+  testWidgets('quick add exposes only an injected approved symptom catalog', (
+    tester,
+  ) async {
+    final host = FakeHost(
+      CocoonEntryState.activePregnancy,
+      const Locale('fa'),
+      pregnancySnapshot: _pregnancyAtWeek(4, 2),
+    );
+    await tester.pumpWidget(
+      MaterialApp(
+        theme: CocoonTheme.light(),
+        home: CocoonMateModule(
+          config: CocoonModuleConfig(
+            host: host,
+            initialTab: 2,
+            symptomOptions: const [
+              CocoonSymptomOption(
+                id: 'approved-nausea',
+                label: 'تهوع',
+                icon: Icons.healing_outlined,
+              ),
+            ],
+            onSubmitSymptom: (_) async {},
+          ),
+        ),
+      ),
+    );
+
+    await tester.tap(find.text('نشانه یا علامت'));
+    await tester.pumpAndSettle();
+    expect(find.text('ثبت نشانه'), findsOneWidget);
+    expect(find.text('تهوع'), findsOneWidget);
+    expect(tester.takeException(), isNull);
+  });
 }
 
 void _noop() {}

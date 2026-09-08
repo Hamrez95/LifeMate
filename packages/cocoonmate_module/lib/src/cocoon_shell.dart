@@ -241,6 +241,18 @@ class _CocoonShellState extends State<CocoonShell> {
             ),
           ),
         1 => CocoonPregnancyCalendar(host: host, fa: _fa),
+        2 => CocoonQuickAddScreen(
+            fa: _fa,
+            enabled: {
+              ...widget.config.quickAddEnabled,
+              if (widget.config.onSubmitCheckIn != null)
+                CocoonQuickAddKind.checkIn,
+              if (widget.config.onSubmitSymptom != null &&
+                  widget.config.symptomOptions.isNotEmpty)
+                CocoonQuickAddKind.symptom,
+            },
+            onOpen: _openQuickAdd,
+          ),
         3 => CocoonRecordsScreen(
             fa: _fa,
             state: widget.config.recordsState,
@@ -271,6 +283,41 @@ class _CocoonShellState extends State<CocoonShell> {
             },
           ),
       };
+
+  void _openQuickAdd(CocoonQuickAddKind kind) {
+    final submitCheckIn = widget.config.onSubmitCheckIn;
+    if (kind == CocoonQuickAddKind.checkIn && submitCheckIn != null) {
+      Navigator.of(context).push(
+        MaterialPageRoute<void>(
+          builder: (_) => Scaffold(
+            appBar: AppBar(title: Text(t('Today’s check-in', 'حال امروز'))),
+            body: CocoonQuickCheckInScreen(
+              fa: _fa,
+              syncState: widget.config.checkInSyncState,
+              onSubmit: submitCheckIn,
+            ),
+          ),
+        ),
+      );
+      return;
+    }
+    final submitSymptom = widget.config.onSubmitSymptom;
+    if (kind == CocoonQuickAddKind.symptom && submitSymptom != null) {
+      Navigator.of(context).push(
+        MaterialPageRoute<void>(
+          builder: (_) => CocoonSymptomLogScreen(
+            fa: _fa,
+            options: widget.config.symptomOptions,
+            submitState: widget.config.symptomSubmitState,
+            onSubmit: submitSymptom,
+            onOpenMedicalAttention: widget.config.onOpenMedicalAttention,
+          ),
+        ),
+      );
+      return;
+    }
+    widget.config.onOpenQuickAdd?.call(kind);
+  }
 }
 
 class _DestinationState extends StatelessWidget {
