@@ -16,6 +16,9 @@ class CocoonSettingsViewData {
     required this.reducedMotionEnabled,
     required this.syncState,
     required this.syncSummary,
+    required this.subscriptionSummary,
+    required this.supportSummary,
+    required this.privacyLegalSummary,
     required this.globalProfileLabel,
     this.cached = false,
     this.offline = false,
@@ -35,6 +38,9 @@ class CocoonSettingsViewData {
   final bool reducedMotionEnabled;
   final CocoonSettingsSyncState syncState;
   final String syncSummary;
+  final String subscriptionSummary;
+  final String supportSummary;
+  final String privacyLegalSummary;
 
   /// Label for the canonical LifeMate profile; no account truth is duplicated.
   final String globalProfileLabel;
@@ -55,6 +61,9 @@ class CocoonSettingsScreen extends StatelessWidget {
     required this.onOpenAccessibility,
     required this.onReducedMotionChanged,
     required this.onOpenDataAndSync,
+    required this.onOpenSubscription,
+    required this.onOpenSupport,
+    required this.onOpenPrivacyLegal,
     required this.onOpenGlobalProfile,
     this.data,
     super.key,
@@ -71,6 +80,9 @@ class CocoonSettingsScreen extends StatelessWidget {
   final VoidCallback? onOpenAccessibility;
   final ValueChanged<bool>? onReducedMotionChanged;
   final VoidCallback? onOpenDataAndSync;
+  final VoidCallback? onOpenSubscription;
+  final VoidCallback? onOpenSupport;
+  final VoidCallback? onOpenPrivacyLegal;
   final VoidCallback onOpenGlobalProfile;
 
   String t(String en, String faText) => fa ? faText : en;
@@ -205,6 +217,38 @@ class CocoonSettingsScreen extends StatelessWidget {
                       title: t('Offline & sync', 'آفلاین و همگام‌سازی'),
                       value: data!.syncSummary,
                       onTap: onOpenDataAndSync,
+                      isLast: true,
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 30),
+                _SettingsSection(
+                  title: t('Membership & support', 'عضویت و پشتیبانی'),
+                  supporting: t(
+                    'Account and purchase details remain in shared LifeMate services.',
+                    'اطلاعات حساب و خرید در سرویس‌های مشترک LifeMate مدیریت می‌شود.',
+                  ),
+                  children: [
+                    _SettingsRow(
+                      fa: fa,
+                      icon: Icons.workspace_premium_outlined,
+                      title: t('Cocoon membership', 'عضویت کوکون'),
+                      value: data!.subscriptionSummary,
+                      onTap: onOpenSubscription,
+                    ),
+                    _SettingsRow(
+                      fa: fa,
+                      icon: Icons.support_agent_outlined,
+                      title: t('Help & report a problem', 'راهنما و گزارش مشکل'),
+                      value: data!.supportSummary,
+                      onTap: onOpenSupport,
+                    ),
+                    _SettingsRow(
+                      fa: fa,
+                      icon: Icons.policy_outlined,
+                      title: t('Privacy & legal', 'حریم خصوصی و قوانین'),
+                      value: data!.privacyLegalSummary,
+                      onTap: onOpenPrivacyLegal,
                       isLast: true,
                     ),
                   ],

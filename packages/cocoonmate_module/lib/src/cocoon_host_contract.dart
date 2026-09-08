@@ -85,6 +85,9 @@ class CocoonModuleConfig {
     this.onOpenAccessibility,
     this.onReducedMotionChanged,
     this.onOpenDataAndSync,
+    this.onOpenSubscription,
+    this.onOpenSupport,
+    this.onOpenPrivacyLegal,
   });
 
   final CocoonHostContract host;
@@ -142,6 +145,9 @@ class CocoonModuleConfig {
   final VoidCallback? onOpenAccessibility;
   final ValueChanged<bool>? onReducedMotionChanged;
   final VoidCallback? onOpenDataAndSync;
+  final VoidCallback? onOpenSubscription;
+  final VoidCallback? onOpenSupport;
+  final VoidCallback? onOpenPrivacyLegal;
 }
 
 class CocoonMateModule extends StatelessWidget {
