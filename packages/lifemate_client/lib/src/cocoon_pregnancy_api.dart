@@ -65,10 +65,12 @@ class CocoonPregnancyApiClient {
     String? estimatedDueDate,
     String? referenceDate,
     int? gestationalAgeAtReferenceDays,
+    DateTime? asOfDate,
   }) async => _episodeFromEnvelope(
     await _object(
       'POST',
       '/api/v1/cocoon/pregnancy/episodes',
+      query: asOfDate == null ? null : {'asOfDate': _date(asOfDate)},
       idempotencyKey: idempotencyKey,
       body: {
         'status': status,
@@ -85,10 +87,12 @@ class CocoonPregnancyApiClient {
     required String episodeId,
     required int expectedVersion,
     required String idempotencyKey,
+    DateTime? asOfDate,
   }) async => _episodeFromEnvelope(
     await _object(
       'POST',
       '/api/v1/cocoon/pregnancy/episodes/$episodeId/activate',
+      query: asOfDate == null ? null : {'asOfDate': _date(asOfDate)},
       idempotencyKey: idempotencyKey,
       body: {'expectedVersion': expectedVersion},
     ),
@@ -105,10 +109,12 @@ class CocoonPregnancyApiClient {
     String? referenceDate,
     int? gestationalAgeAtReferenceDays,
     String? reasonCode,
+    DateTime? asOfDate,
   }) async => _episodeFromEnvelope(
     await _object(
       'PATCH',
       '/api/v1/cocoon/pregnancy/episodes/$episodeId/dating',
+      query: asOfDate == null ? null : {'asOfDate': _date(asOfDate)},
       idempotencyKey: idempotencyKey,
       body: {
         'expectedVersion': expectedVersion,
@@ -128,10 +134,12 @@ class CocoonPregnancyApiClient {
     required int expectedVersion,
     required String outcome,
     required String idempotencyKey,
+    DateTime? asOfDate,
   }) async => _episodeFromEnvelope(
     await _object(
       'POST',
       '/api/v1/cocoon/pregnancy/episodes/$episodeId/end',
+      query: asOfDate == null ? null : {'asOfDate': _date(asOfDate)},
       idempotencyKey: idempotencyKey,
       body: {'expectedVersion': expectedVersion, 'outcome': outcome},
     ),
