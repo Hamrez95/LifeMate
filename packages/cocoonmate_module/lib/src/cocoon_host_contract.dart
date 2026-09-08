@@ -46,6 +46,14 @@ class CocoonModuleConfig {
     this.onOpenRecord,
     this.onRetryRecords,
     this.onAddRecord,
+    this.quickAddEnabled = const {},
+    this.onOpenQuickAdd,
+    this.checkInSyncState = CocoonCheckInSyncState.idle,
+    this.onSubmitCheckIn,
+    this.symptomOptions = const [],
+    this.symptomSubmitState = CocoonSymptomSubmitState.idle,
+    this.onSubmitSymptom,
+    this.onOpenMedicalAttention,
   });
 
   final CocoonHostContract host;
@@ -61,6 +69,14 @@ class CocoonModuleConfig {
   final ValueChanged<CocoonRecordViewData>? onOpenRecord;
   final VoidCallback? onRetryRecords;
   final VoidCallback? onAddRecord;
+  final Set<CocoonQuickAddKind> quickAddEnabled;
+  final ValueChanged<CocoonQuickAddKind>? onOpenQuickAdd;
+  final CocoonCheckInSyncState checkInSyncState;
+  final Future<void> Function(CocoonCheckInDraft draft)? onSubmitCheckIn;
+  final List<CocoonSymptomOption> symptomOptions;
+  final CocoonSymptomSubmitState symptomSubmitState;
+  final Future<void> Function(CocoonSymptomDraft draft)? onSubmitSymptom;
+  final VoidCallback? onOpenMedicalAttention;
 }
 
 class CocoonMateModule extends StatelessWidget {
