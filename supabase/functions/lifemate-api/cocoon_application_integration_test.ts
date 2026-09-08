@@ -107,27 +107,43 @@ Deno.test({
       assertEquals(Number(after[0].entitlements), 0);
       assertEquals(Number(after[0].subscriptions), 0);
     } finally {
+      // `lifemate.app_users` still has compatibility triggers that create the
+      // same-id Account/Person/free entitlements. Remove both the compatibility
+      // projection and the remapped fixture so this integration test is hermetic.
+      await adminSql`
+        delete from commerce.entitlements
+        where grantee_account_id in (${accountId}::uuid,${appUserId}::uuid)
+           or beneficiary_person_id in (${personId}::uuid,${appUserId}::uuid)
+      `.catch(() => undefined);
       await adminSql`
         delete from ecosystem.app_enrollments
         where account_id in (${accountId}::uuid,${appUserId}::uuid)
       `.catch(() => undefined);
       await adminSql`
+        delete from identity.external_identities
+        where account_id in (${accountId}::uuid,${appUserId}::uuid)
+      `.catch(() => undefined);
+      await adminSql`
         delete from core.account_person_links
-        where account_id=${accountId}::uuid or person_id=${personId}::uuid
+        where account_id in (${accountId}::uuid,${appUserId}::uuid)
+           or person_id in (${personId}::uuid,${appUserId}::uuid)
       `.catch(() => undefined);
       await adminSql`
-        delete from core.person_profiles where person_id=${personId}::uuid
+        delete from core.person_profiles
+        where person_id in (${personId}::uuid,${appUserId}::uuid)
       `.catch(() => undefined);
       await adminSql`
-        delete from core.persons where id=${personId}::uuid
+        delete from core.persons
+        where id in (${personId}::uuid,${appUserId}::uuid)
       `.catch(() => undefined);
       await adminSql`
         update identity.accounts
         set legacy_app_user_id=null,updated_at_utc=now()
-        where id=${accountId}::uuid
+        where id in (${accountId}::uuid,${appUserId}::uuid)
       `.catch(() => undefined);
       await adminSql`
-        delete from identity.accounts where id=${accountId}::uuid
+        delete from identity.accounts
+        where id in (${accountId}::uuid,${appUserId}::uuid)
       `.catch(() => undefined);
       await adminSql`
         delete from lifemate.app_users where id=${appUserId}::uuid
