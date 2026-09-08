@@ -75,7 +75,9 @@ export function createCocoonRouteHandler(databaseUrl: string) {
     }
 
     let commerceEligibility: CocoonCommerceEligibilitySnapshot | null = null;
-    if (requiresCocoonPregnancyActivationEntitlement(request.method, path)) {
+    if (
+      requiresCocoonPregnancyActivationEntitlement(request.method, path)
+    ) {
       commerceEligibility = await application.commerceEligibility(appUserId);
       requireCocoonPregnancyActivationEntitlement(commerceEligibility);
     }
