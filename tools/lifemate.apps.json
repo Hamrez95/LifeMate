@@ -1,0 +1,43 @@
+{
+  "toolVersion": "1.0.0",
+  "artifactRoot": "artifacts",
+  "apps": {
+    "wellmate": {
+      "path": "wellmate",
+      "technology": "Flutter",
+      "versionFile": "pubspec.yaml",
+      "android": true,
+      "formats": ["APK", "AAB"],
+      "tagPrefix": "wellmate-v",
+      "buildNumberStrategy": "GitCommitCount",
+      "workflow": "release-wellmate.yml",
+      "workflowInputs": { "release_type": "patch", "channel": "beta" }
+    },
+    "caremate": {
+      "path": "caremate",
+      "technology": "Flutter",
+      "versionFile": "pubspec.yaml",
+      "android": true,
+      "formats": ["APK", "AAB"],
+      "tagPrefix": "caremate-v",
+      "buildNumberStrategy": "GitCommitCount",
+      "workflow": "release-caremate.yml",
+      "workflowInputs": { "release_type": "patch", "channel": "beta" }
+    },
+    "cocoonmate": {
+      "path": "cocoonmate",
+      "technology": "Flutter",
+      "versionFile": "pubspec.yaml",
+      "android": true,
+      "formats": ["APK", "AAB"],
+      "tagPrefix": "cocoonmate-v",
+      "buildNumberStrategy": "GitCommitCount",
+      "workflow": "release-cocoonmate.yml",
+      "candidateWorkflow": "cocoon-android-candidate.yml",
+      "workflowInputs": { "release_type": "patch", "channel": "beta" },
+      "requiresGeneratedAndroid": true,
+      "prepareScript": "tools/release/prepare-cocoon-android.sh"
+    }
+  }
+}
+
