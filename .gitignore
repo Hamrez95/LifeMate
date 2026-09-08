@@ -25,6 +25,10 @@
 # Local capacity-test output
 load-summary.json
 
+# Local Lifemate Dev Console build copies and reports
+/artifacts/
+
 # Operating system files
 .DS_Store
 Thumbs.db
+
