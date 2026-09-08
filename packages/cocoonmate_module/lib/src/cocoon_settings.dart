@@ -239,7 +239,8 @@ class CocoonSettingsScreen extends StatelessWidget {
                     _SettingsRow(
                       fa: fa,
                       icon: Icons.support_agent_outlined,
-                      title: t('Help & report a problem', 'راهنما و گزارش مشکل'),
+                      title:
+                          t('Help & report a problem', 'راهنما و گزارش مشکل'),
                       value: data!.supportSummary,
                       onTap: onOpenSupport,
                     ),

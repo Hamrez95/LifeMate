@@ -84,8 +84,7 @@ class CocoonSafetyGuidanceViewData {
         ),
         assert(attention.level == CocoonSafetyGuidanceLevel.attention),
         assert(
-          contactClinician.level ==
-              CocoonSafetyGuidanceLevel.contactClinician,
+          contactClinician.level == CocoonSafetyGuidanceLevel.contactClinician,
         ),
         assert(urgent.level == CocoonSafetyGuidanceLevel.urgent);
 
@@ -328,8 +327,7 @@ class _SafetyGuidanceSection extends StatelessWidget {
               Container(width: 5, color: _accent),
               Expanded(
                 child: Padding(
-                  padding:
-                      const EdgeInsetsDirectional.fromSTEB(18, 20, 18, 18),
+                  padding: const EdgeInsetsDirectional.fromSTEB(18, 20, 18, 18),
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
@@ -457,7 +455,8 @@ class _SafetyCachedNotice extends StatelessWidget {
         decoration: BoxDecoration(
           color: CocoonTheme.sky,
           borderRadius: BorderRadius.circular(16),
-          border: Border.all(color: CocoonTheme.skyStrong.withValues(alpha: .2)),
+          border:
+              Border.all(color: CocoonTheme.skyStrong.withValues(alpha: .2)),
         ),
         child: Row(
           crossAxisAlignment: CrossAxisAlignment.start,
@@ -467,7 +466,9 @@ class _SafetyCachedNotice extends StatelessWidget {
             const SizedBox(width: 9),
             Expanded(
               child: Text(
-                details == null || details.isEmpty ? label : '$label · $details',
+                details == null || details.isEmpty
+                    ? label
+                    : '$label · $details',
                 style: Theme.of(context).textTheme.labelMedium?.copyWith(
                       color: CocoonTheme.ink,
                     ),

@@ -111,12 +111,12 @@ class _CocoonReminderSettingsScreenState
 
   @override
   Widget build(BuildContext context) => Scaffold(
-        appBar: AppBar(title: Text(t('Reminders & privacy', 'یادآورها و حریم خصوصی'))),
+        appBar: AppBar(
+            title: Text(t('Reminders & privacy', 'یادآورها و حریم خصوصی'))),
         body: SafeArea(
           bottom: false,
           child: switch (widget.loadState) {
-            CocoonReminderLoadState.loading =>
-              _ReminderLoading(fa: widget.fa),
+            CocoonReminderLoadState.loading => _ReminderLoading(fa: widget.fa),
             CocoonReminderLoadState.error => CocoonStatePage(
                 icon: Icons.notifications_off_outlined,
                 eyebrow: t('Reminders', 'یادآورها'),
@@ -146,10 +146,11 @@ class _CocoonReminderSettingsScreenState
               ),
           },
         ),
-        bottomNavigationBar: widget.loadState == CocoonReminderLoadState.ready &&
-                widget.data != null
-            ? _bottomAction
-            : null,
+        bottomNavigationBar:
+            widget.loadState == CocoonReminderLoadState.ready &&
+                    widget.data != null
+                ? _bottomAction
+                : null,
       );
 
   Widget _ready(CocoonReminderSettingsViewData data) {
@@ -338,7 +339,9 @@ class _ReminderHero extends StatelessWidget {
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   Text(
-                    fa ? 'به‌موقع، آرام و تحت کنترل تو' : 'Timely, gentle, in your control',
+                    fa
+                        ? 'به‌موقع، آرام و تحت کنترل تو'
+                        : 'Timely, gentle, in your control',
                     style: Theme.of(context).textTheme.titleLarge,
                   ),
                   const SizedBox(height: 5),
@@ -413,7 +416,9 @@ class _PermissionPanel extends StatelessWidget {
           Icons.settings_outlined,
           CocoonTheme.gold,
           const Color(0xFFFFF2D9),
-          fa ? 'اعلان‌ها در تنظیمات دستگاه مسدودند' : 'Notifications are blocked in device settings',
+          fa
+              ? 'اعلان‌ها در تنظیمات دستگاه مسدودند'
+              : 'Notifications are blocked in device settings',
           fa
               ? 'برای دریافت یادآورها، اعلان‌ها را از تنظیمات دستگاه فعال کن.'
               : 'Enable notifications in device settings to receive reminders.',
@@ -424,7 +429,9 @@ class _PermissionPanel extends StatelessWidget {
           Icons.info_outline_rounded,
           CocoonTheme.muted,
           const Color(0xFFF2F4F7),
-          fa ? 'اعلان روی این دستگاه در دسترس نیست' : 'Notifications are unavailable on this device',
+          fa
+              ? 'اعلان روی این دستگاه در دسترس نیست'
+              : 'Notifications are unavailable on this device',
           fa
               ? 'هنوز می‌توانی ترجیحاتت را برای بعد ذخیره کنی.'
               : 'You can still save your preferences for later.',
@@ -543,7 +550,8 @@ class _CanonicalReminderLink extends StatelessWidget {
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      Text(title, style: Theme.of(context).textTheme.titleMedium),
+                      Text(title,
+                          style: Theme.of(context).textTheme.titleMedium),
                       const SizedBox(height: 2),
                       Text(
                         summary,
@@ -557,7 +565,9 @@ class _CanonicalReminderLink extends StatelessWidget {
                 ),
                 ExcludeSemantics(
                   child: Icon(
-                    fa ? Icons.chevron_left_rounded : Icons.chevron_right_rounded,
+                    fa
+                        ? Icons.chevron_left_rounded
+                        : Icons.chevron_right_rounded,
                     color: CocoonTheme.muted,
                   ),
                 ),
@@ -645,13 +655,15 @@ class _PrivacyOption extends StatelessWidget {
             ),
             child: Row(
               children: [
-                Icon(icon, color: selected ? CocoonTheme.coral : CocoonTheme.muted),
+                Icon(icon,
+                    color: selected ? CocoonTheme.coral : CocoonTheme.muted),
                 const SizedBox(width: 11),
                 Expanded(
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      Text(title, style: Theme.of(context).textTheme.titleMedium),
+                      Text(title,
+                          style: Theme.of(context).textTheme.titleMedium),
                       const SizedBox(height: 2),
                       Text(supporting),
                     ],
@@ -661,9 +673,7 @@ class _PrivacyOption extends StatelessWidget {
                   value: selected
                       ? CocoonLockScreenPrivacy.private
                       : CocoonLockScreenPrivacy.descriptive,
-                  groupValue: selected
-                      ? CocoonLockScreenPrivacy.private
-                      : null,
+                  groupValue: selected ? CocoonLockScreenPrivacy.private : null,
                   onChanged: enabled ? (_) => onTap() : null,
                 ),
               ],
@@ -683,7 +693,8 @@ class _NotificationPreview extends StatelessWidget {
     final private = privacy == CocoonLockScreenPrivacy.private;
     return Semantics(
       container: true,
-      label: fa ? 'پیش‌نمایش اعلان صفحه قفل' : 'Lock-screen notification preview',
+      label:
+          fa ? 'پیش‌نمایش اعلان صفحه قفل' : 'Lock-screen notification preview',
       child: Container(
         padding: const EdgeInsetsDirectional.all(18),
         decoration: BoxDecoration(
@@ -702,19 +713,25 @@ class _NotificationPreview extends StatelessWidget {
               const CircleAvatar(
                 radius: 19,
                 backgroundColor: CocoonTheme.coralSoft,
-                child: Icon(Icons.spa_outlined, color: CocoonTheme.coral, size: 20),
+                child: Icon(Icons.spa_outlined,
+                    color: CocoonTheme.coral, size: 20),
               ),
               const SizedBox(width: 11),
               Expanded(
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    Text('CocoonMate', style: Theme.of(context).textTheme.labelLarge),
+                    Text('CocoonMate',
+                        style: Theme.of(context).textTheme.labelLarge),
                     const SizedBox(height: 2),
                     Text(
                       private
-                          ? (fa ? 'یک یادآور برای تو آماده است' : 'A reminder is ready for you')
-                          : (fa ? 'یادآوری قرار فردا، ساعت ۱۰' : 'Appointment reminder tomorrow at 10:00'),
+                          ? (fa
+                              ? 'یک یادآور برای تو آماده است'
+                              : 'A reminder is ready for you')
+                          : (fa
+                              ? 'یادآوری قرار فردا، ساعت ۱۰'
+                              : 'Appointment reminder tomorrow at 10:00'),
                       style: Theme.of(context).textTheme.bodyMedium,
                     ),
                   ],
@@ -749,7 +766,8 @@ class _PartnerPrivacyNote extends StatelessWidget {
         child: Row(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            const Icon(Icons.people_outline_rounded, color: CocoonTheme.skyStrong),
+            const Icon(Icons.people_outline_rounded,
+                color: CocoonTheme.skyStrong),
             const SizedBox(width: 10),
             Expanded(
               child: Text(
@@ -773,20 +791,26 @@ class _ReminderCachedStatus extends StatelessWidget {
   Widget build(BuildContext context) => Semantics(
         liveRegion: true,
         child: Container(
-          padding: const EdgeInsetsDirectional.symmetric(horizontal: 14, vertical: 10),
+          padding: const EdgeInsetsDirectional.symmetric(
+              horizontal: 14, vertical: 10),
           decoration: BoxDecoration(
             color: const Color(0xFFFFF2D9),
             borderRadius: BorderRadius.circular(16),
           ),
           child: Row(
             children: [
-              const Icon(Icons.cloud_off_outlined, color: CocoonTheme.gold, size: 20),
+              const Icon(Icons.cloud_off_outlined,
+                  color: CocoonTheme.gold, size: 20),
               const SizedBox(width: 9),
               Expanded(
                 child: Text(
                   savedAtLabel == null
-                      ? (fa ? 'آخرین تنظیمات ذخیره‌شده روی دستگاه' : 'Last settings saved on this device')
-                      : (fa ? 'ذخیره‌شده روی دستگاه • $savedAtLabel' : 'Saved on this device • $savedAtLabel'),
+                      ? (fa
+                          ? 'آخرین تنظیمات ذخیره‌شده روی دستگاه'
+                          : 'Last settings saved on this device')
+                      : (fa
+                          ? 'ذخیره‌شده روی دستگاه • $savedAtLabel'
+                          : 'Saved on this device • $savedAtLabel'),
                 ),
               ),
             ],
@@ -823,7 +847,11 @@ class _ReminderSaveStatus extends StatelessWidget {
           Theme.of(context).colorScheme.error,
           fa ? 'ذخیره انجام نشد؛ دوباره تلاش کن' : 'Could not save; try again',
         ),
-      CocoonReminderSaveState.idle => (Icons.check_rounded, CocoonTheme.muted, ''),
+      CocoonReminderSaveState.idle => (
+          Icons.check_rounded,
+          CocoonTheme.muted,
+          ''
+        ),
     };
     return Semantics(
       liveRegion: true,
@@ -844,7 +872,8 @@ class _ReminderLoading extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) => Semantics(
-        label: fa ? 'در حال بارگذاری تنظیمات یادآور' : 'Loading reminder settings',
+        label:
+            fa ? 'در حال بارگذاری تنظیمات یادآور' : 'Loading reminder settings',
         child: SingleChildScrollView(
           child: CocoonPagePadding(
             child: Column(

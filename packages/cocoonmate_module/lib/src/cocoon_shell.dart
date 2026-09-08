@@ -387,8 +387,7 @@ class _CocoonShellState extends State<CocoonShell> {
           data: widget.config.reminderData,
           onRetry: widget.config.onRetryReminders ?? host.refresh,
           onSave: save,
-          onRequestPermission:
-              widget.config.onRequestNotificationPermission,
+          onRequestPermission: widget.config.onRequestNotificationPermission,
           onOpenSystemSettings: widget.config.onOpenNotificationSettings,
           onOpenAppointments: widget.config.onOpenAppointmentReminders ??
               () => setState(() => _index = 1),

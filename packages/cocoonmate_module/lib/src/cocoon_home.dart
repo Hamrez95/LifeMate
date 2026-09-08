@@ -428,31 +428,34 @@ class _SafetyEntry extends StatelessWidget {
               borderRadius: BorderRadius.circular(22),
             ),
             child: Row(
-          children: [
-            const Icon(Icons.health_and_safety_outlined,
-                color: CocoonTheme.coral),
-            const SizedBox(width: 12),
-            Expanded(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(
-                    fa ? 'نگرانی پزشکی داری؟' : 'Have a medical concern?',
-                    style: Theme.of(context).textTheme.titleMedium,
+              children: [
+                const Icon(Icons.health_and_safety_outlined,
+                    color: CocoonTheme.coral),
+                const SizedBox(width: 12),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        fa ? 'نگرانی پزشکی داری؟' : 'Have a medical concern?',
+                        style: Theme.of(context).textTheme.titleMedium,
+                      ),
+                      const SizedBox(height: 3),
+                      Text(
+                        fa
+                            ? 'سطح توجه و قدم بعدی را روشن ببین.'
+                            : 'See the level of attention and your next step.',
+                        style: Theme.of(
+                          context,
+                        )
+                            .textTheme
+                            .bodyMedium
+                            ?.copyWith(color: CocoonTheme.muted),
+                      ),
+                    ],
                   ),
-                  const SizedBox(height: 3),
-                  Text(
-                    fa
-                        ? 'سطح توجه و قدم بعدی را روشن ببین.'
-                        : 'See the level of attention and your next step.',
-                    style: Theme.of(
-                      context,
-                    ).textTheme.bodyMedium?.copyWith(color: CocoonTheme.muted),
-                  ),
-                ],
-              ),
-            ),
-            const Icon(Icons.chevron_right_rounded),
+                ),
+                const Icon(Icons.chevron_right_rounded),
               ],
             ),
           ),
