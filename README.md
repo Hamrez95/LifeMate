@@ -127,6 +127,8 @@ dotnet test backend-dotnet/LifeMate.sln --configuration Release --no-build
 
 Run dependency resolution, analysis and tests from each application directory. Exact SDK versions and commands live in `.github/workflows/flutter.yml`.
 
+For the unified PowerShell console, Android artifacts, Git-tag release policy, and the checklist for adding future mobile apps, see [Release Flow](docs/release-flow.md).
+
 ## Safety rules
 
 - Never commit secrets, tokens, production connection strings, signing keystores, PII or health data.
@@ -137,3 +139,4 @@ Run dependency resolution, analysis and tests from each application directory. E
 - Apply live migrations only after review/CI and use forward corrective migrations rather than destructive down migrations for health data.
 
 See [AGENTS.md](AGENTS.md), [ecosystem data model](docs/architecture/ecosystem-data-model.md), [Command Center architecture](docs/architecture/admin-command-center.md), [Admin threat model](docs/security/admin-threat-model.md), [migration plan](docs/migrations/ecosystem-refactor.md) and [Google Play health compliance map](docs/compliance/google-play-health.md).
+
