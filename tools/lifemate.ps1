@@ -106,6 +106,11 @@ function Show-Apps {
   Write-Title 'Apps'
   $apps=Get-Apps; $apps | ForEach-Object { [pscustomobject]@{ Name=$_.Name; Path=$_.path; Technology=$_.technology; Version=$_.Version; Android=$(if($_.android){'Yes'}else{'No'}); Prerequisite=$(if(Test-Tool flutter){'Flutter ready'}else{'Flutter missing'}); LastTag=(Get-LastTag $_) } } | Format-Table -AutoSize
 }
+function Get-OptionalBoolean([object]$Object, [string]$PropertyName) {
+  $property = $Object.PSObject.Properties[$PropertyName]
+  if ($null -eq $property) { return $false }
+  [bool]$property.Value
+}
 function Show-Health {
   Write-Title 'Project Health'
   $state=Get-GitState
@@ -118,9 +123,9 @@ function Show-Health {
 }
 function Assert-Flutter([object]$Item, [switch]$RequireAndroid) { if (-not (Test-Tool flutter)) { throw 'Flutter is not available. Install the version pinned by CI (3.44.0) and add it to PATH.' }; if ($RequireAndroid -and -not $Item.android) { throw "Android is not configured for $($Item.Name)." } }
 function Get-BuildNumber([object]$Item) { if ($Item.buildNumberStrategy -eq 'GitCommitCount') { return [int](Get-Git @('rev-list','--count','HEAD')).Trim() }; throw "This app uses $($Item.buildNumberStrategy) in CI. The local tool will not invent a release build number; use -DispatchWorkflow." }
-function Prepare-App([object]$Item) {
-  Assert-Flutter $Item -RequireAndroid:($Target -eq 'Android')
-  if ($Item.requiresGeneratedAndroid -and $Target -eq 'Android') {
+function Prepare-App([object]$Item, [string]$OperationTarget = $Target) {
+  Assert-Flutter $Item -RequireAndroid:($OperationTarget -eq 'Android')
+  if ((Get-OptionalBoolean $Item 'requiresGeneratedAndroid') -and $OperationTarget -eq 'Android') {
     if (-not (Test-Tool bash)) { throw "CocoonMate Android preparation requires Git Bash (bash). Install Git for Windows with Git Bash, then retry." }
     foreach ($name in @('SUPABASE_URL','SUPABASE_PUBLISHABLE_KEY','LIFEMATE_API_BASE_URL')) { if ([string]::IsNullOrWhiteSpace([Environment]::GetEnvironmentVariable($name))) { throw "CocoonMate Android preparation requires public runtime variable $name. Set it in your current session; the console will not guess service endpoints." } }
     Write-Ui "Preparing CocoonMate's generated Android host using $($Item.prepareScript)." Step
@@ -135,16 +140,16 @@ function Copy-Artifact([object]$Item,[string]$BuildType,[string]$ArtifactFormat,
   $report=[pscustomobject]@{app=$Item.Name; version=$Item.Version; buildNumber=$BuildNumber; buildType=$BuildType; format=$ArtifactFormat; environment=$Environment; builtAt=(Get-Date).ToString('o'); artifact=$target}; New-Item -ItemType Directory -Path $Script:ReportRoot -Force | Out-Null; $report | ConvertTo-Json | Add-Content (Join-Path $Script:ReportRoot 'build-history.jsonl'); return $report
 }
 function Build-App([object]$Item,[string]$BuildType,[string]$ArtifactFormat) {
-  Prepare-App $Item; $number=Get-BuildNumber $Item; $mode=$BuildType.ToLowerInvariant(); $args=@('build',$(if($ArtifactFormat -eq 'AAB'){'appbundle'}else{'apk'}),"--$mode","--build-name=$($Item.Version.Split('+')[0])","--build-number=$number")
+  Prepare-App $Item 'Android'; $number=Get-BuildNumber $Item; $mode=$BuildType.ToLowerInvariant(); $args=@('build',$(if($ArtifactFormat -eq 'AAB'){'appbundle'}else{'apk'}),"--$mode","--build-name=$($Item.Version.Split('+')[0])","--build-number=$number")
   Write-Ui "Building $($Item.Name) ($BuildType / $ArtifactFormat). This repository has no app-local dev/staging/production mapping, so no runtime environment variables are injected." Step
   $started=Get-Date; Invoke-External 'flutter' $args (Join-Path $Script:Root $Item.path)
   $source=if($ArtifactFormat -eq 'AAB'){Join-Path $Script:Root "$($Item.path)\build\app\outputs\bundle\release\app-release.aab"}else{Join-Path $Script:Root "$($Item.path)\build\app\outputs\flutter-apk\app-$mode.apk"}; $report=Copy-Artifact $Item $BuildType $ArtifactFormat $source $number
   Write-Ui "Success: $($report.artifact) ($( [math]::Round(((Get-Date)-$started).TotalSeconds,1) )s)" Success; if(-not $NoOpen){Start-Process explorer.exe "/select,`"$($report.artifact)`""}; $report
 }
 function Select-Device { $devices=@(Get-Devices|Where-Object Status -eq 'device'); if(!$devices){throw 'No authorized Android device found. Connect one, enable USB debugging, then run adb devices.'}; if($devices.Count -eq 1 -or $NonInteractive){return $devices[0]}; $devices|Format-Table -AutoSize; $n=Read-Host 'Device number'; if($n -notmatch '^\d+$' -or [int]$n -lt 1 -or [int]$n -gt $devices.Count){throw 'Invalid device selection.'}; $devices[[int]$n-1] }
-function Run-App([object]$Item) {
-  Prepare-App $Item
-  if ($Target -eq 'Chrome') { Write-Ui "Launching $($Item.Name) in Chrome." Step; Invoke-External 'flutter' @('run','-d','chrome') (Join-Path $Script:Root $Item.path); return }
+function Run-App([object]$Item, [string]$RunTarget = $Target) {
+  Prepare-App $Item $RunTarget
+  if ($RunTarget -eq 'Chrome') { Write-Ui "Launching $($Item.Name) in Chrome." Step; Invoke-External 'flutter' @('run','-d','chrome') (Join-Path $Script:Root $Item.path); return }
   $device=Select-Device; Write-Ui "Launching $($Item.Name) on $($device.Id)." Step; Invoke-External 'flutter' @('run','-d',$device.Id) (Join-Path $Script:Root $Item.path)
 }
 function Install-App([object]$Item) { $device=Select-Device; $candidate=Get-ChildItem (Join-Path $Script:Root "artifacts\$($Item.Name)") -Recurse -Filter '*.apk' -ErrorAction SilentlyContinue | Sort-Object LastWriteTime -Descending | Select-Object -First 1; if(!$candidate){throw "No managed APK found for $($Item.Name). Build one first."}; Invoke-External 'adb' @('-s',$device.Id,'install','-r',$candidate.FullName); Write-Ui "Installed $($candidate.Name) on $($device.Id)." Success }
@@ -160,8 +165,32 @@ function Dispatch-App([object]$Item) { if(-not(Test-Tool gh)){throw 'GitHub CLI 
 function Show-Artifacts { $root=Join-Path $Script:Root 'artifacts'; if(Test-Path $root){Get-ChildItem $root -Recurse -File | Select-Object Name,DirectoryName,Length,LastWriteTime | Format-Table -AutoSize}else{Write-Ui 'No local artifacts have been created.' Warn} }
 function Safe-Clean([object[]]$Items) { $targets=@(); foreach($item in $Items){$path=Join-Path $Script:Root "$($item.path)\build";if(Test-Path $path){$targets+=$path}}; if(!$targets){Write-Ui 'No generated build directories found.' Info;return}; Write-Host "Only these generated directories will be removed:`n$($targets -join "`n")"; if($NonInteractive -or (Read-Host 'Type CLEAN to continue') -ne 'CLEAN'){Write-Ui 'Clean cancelled.' Warn;return}; foreach($target in $targets){Remove-Item -LiteralPath $target -Recurse -Force}; Write-Ui 'Generated build directories removed. Artifacts and source files were preserved.' Success }
 function Select-AppsInteractive([object[]]$Apps) { $Apps | ForEach-Object -Begin {$i=0} -Process {$i++;Write-Host "$i) $($_.Name) — $($_.technology) $($_.Version)"}; Write-Host 'A) All'; $choice=Read-Host 'Select app number(s), comma-separated, or A'; if($choice -eq 'A'){return @($Apps|Where-Object technology -eq 'Flutter')}; $selected=@(); foreach($n in $choice.Split(',')){if($n.Trim() -notmatch '^\d+$' -or [int]$n.Trim() -lt 1 -or [int]$n.Trim() -gt $Apps.Count){throw 'Invalid app selection.'};$selected+=$Apps[[int]$n.Trim()-1]};$selected }
+function Open-AppCenter {
+  $apps = @(Get-Apps); $selected = @(Select-AppsInteractive $apps)
+  if ($selected.Count -ne 1) { Write-Ui 'App Center needs one app. Use the main actions for multiple apps.' Warn; return }
+  $item = $selected[0]
+  while ($true) {
+    Clear-Host; Write-Title "App Center — $($item.Name)"
+    [pscustomobject]@{ Path=$item.path; Technology=$item.technology; Version=$item.Version; LastRemoteTag=(Get-LastTag $item); ReleaseWorkflow=$item.workflow; AndroidHost=$(if((Get-OptionalBoolean $item 'requiresGeneratedAndroid')){'Generated'}else{'Ready'}) } | Format-List
+    Write-Host '1) Run on Android'; Write-Host '2) Run in Chrome'; Write-Host '3) Build Debug APK'; Write-Host '4) Build Release APK'; Write-Host '5) Build Release AAB'; Write-Host '6) Install latest APK'; Write-Host '7) Dispatch release workflow'; Write-Host '8) Show artifacts'; Write-Host '0) Back'
+    $choice = Read-Host 'Choose'
+    switch ($choice) {
+      '1' { Run-App $item 'Android'; pause }
+      '2' { Run-App $item 'Chrome'; pause }
+      '3' { Build-App $item 'Debug' 'APK'; pause }
+      '4' { Build-App $item 'Release' 'APK'; pause }
+      '5' { Build-App $item 'Release' 'AAB'; pause }
+      '6' { Install-App $item; pause }
+      '7' { Dispatch-App $item; pause }
+      '8' { Show-Artifacts; pause }
+      '0' { return }
+      default { Write-Ui 'Unknown option.' Warn; Start-Sleep -Seconds 1 }
+    }
+  }
+}
 function Show-Console { Clear-Host; $state=Get-GitState; Write-Host 'Lifemate Dev Console' -ForegroundColor Cyan; Write-Host "Tool 1.0.0  |  Branch: $($state.Branch)  |  Apps: $((Get-Apps).Count)  |  Tree: $(if($state.Dirty){'dirty'}else{'clean'})"; Write-Host ''; @('1) Apps','2) Project Health','3) Run app','4) Build Debug','5) Build Release','6) Build APK/AAB','7) Install APK','8) Artifacts & build reports','9) Version & tag','10) GitHub Actions','11) Safe clean','0) Exit') | ForEach-Object {Write-Host $_}; }
-function Start-Menu { while($true){Show-Console; $choice=Read-Host 'Choose'; switch($choice){'1'{Show-Apps;pause}'2'{Show-Health;pause}'3'{Get-SelectedApps|ForEach-Object{Run-App $_};pause}'4'{Get-SelectedApps|ForEach-Object{Build-App $_ 'Debug' 'APK'};pause}'5'{Get-SelectedApps|ForEach-Object{Build-App $_ 'Release' 'APK'};pause}'6'{$f=Read-Host 'APK or AAB';Get-SelectedApps|ForEach-Object{Build-App $_ 'Release' $f.ToUpperInvariant()};pause}'7'{Get-SelectedApps|ForEach-Object{Install-App $_};pause}'8'{Show-Artifacts;pause}'9'{Get-SelectedApps|ForEach-Object{Start-Release $_};pause}'10'{Get-SelectedApps|ForEach-Object{Dispatch-App $_};pause}'11'{Safe-Clean (Get-SelectedApps);pause}'0'{return}default{Write-Ui 'Unknown menu option.' Warn;Start-Sleep -Seconds 1}}} }
+function Start-Menu { while($true){Show-Console; $choice=Read-Host 'Choose'; switch($choice){'1'{Open-AppCenter}'2'{Show-Health;pause}'3'{Get-SelectedApps|ForEach-Object{Run-App $_};pause}'4'{Get-SelectedApps|ForEach-Object{Build-App $_ 'Debug' 'APK'};pause}'5'{Get-SelectedApps|ForEach-Object{Build-App $_ 'Release' 'APK'};pause}'6'{$f=Read-Host 'APK or AAB';Get-SelectedApps|ForEach-Object{Build-App $_ 'Release' $f.ToUpperInvariant()};pause}'7'{Get-SelectedApps|ForEach-Object{Install-App $_};pause}'8'{Show-Artifacts;pause}'9'{Get-SelectedApps|ForEach-Object{Start-Release $_};pause}'10'{Get-SelectedApps|ForEach-Object{Dispatch-App $_};pause}'11'{Safe-Clean (Get-SelectedApps);pause}'0'{return}default{Write-Ui 'Unknown menu option.' Warn;Start-Sleep -Seconds 1}}} }
 
 try { if($Script:Interactive){Start-Menu}elseif($List){Show-Apps}elseif($Health){Show-Health}elseif($OpenArtifacts){$p=Join-Path $Script:Root 'artifacts';if(Test-Path $p){Start-Process explorer.exe $p}else{Write-Ui 'No artifact folder exists yet.' Warn}}elseif($Logs){if(Test-Path $Script:ReportRoot){Get-Content (Join-Path $Script:ReportRoot 'build-history.jsonl')}else{Write-Ui 'No build reports found.' Warn}}else{$targets=Get-SelectedApps;if($Run){$targets|ForEach-Object{Run-App $_}}elseif($Build){$targets|ForEach-Object{Build-App $_ $Build $Format}}elseif($Install){$targets|ForEach-Object{Install-App $_}}elseif($Release){$targets|ForEach-Object{Start-Release $_}}elseif($DispatchWorkflow){$targets|ForEach-Object{Dispatch-App $_}}elseif($Clean){Safe-Clean $targets}else{Show-Apps}} } catch { Write-Ui $_.Exception.Message Error; if($VerbosePreference -eq 'Continue') { Write-Error $_.ScriptStackTrace }; exit 1 }
+
 
