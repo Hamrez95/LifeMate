@@ -1,0 +1,130 @@
+name: one-shot-branch-cleanup-pass2
+
+on:
+  push:
+    branches:
+      - maintenance/branch-cleanup-pass2
+
+permissions:
+  contents: write
+
+jobs:
+  mark-more-branches:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    env:
+      GH_TOKEN: ${{ github.token }}
+      REPO: ${{ github.repository }}
+      SELF_BRANCH: maintenance/branch-cleanup-pass2
+    steps:
+      - name: Mark additional high-confidence stale branches
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          encode() { jq -rn --arg value "$1" '$value | @uri'; }
+
+          mapfile -t PROTECTED_REFS < <(
+            gh api --paginate "repos/${REPO}/pulls?state=open&per_page=100" \
+              --jq '.[] | .head.ref, .base.ref' | sort -u
+          )
+
+          is_protected() {
+            local candidate="$1"
+            [[ "$candidate" == "main" || "$candidate" == "$SELF_BRANCH" || "$candidate" == *-delete ]] && return 0
+            printf '%s\n' "${PROTECTED_REFS[@]:-}" | grep -Fxq -- "$candidate"
+          }
+
+          branch_exists() {
+            gh api "repos/${REPO}/branches/$(encode "$1")" --silent >/dev/null 2>&1
+          }
+
+          rename_branch() {
+            local old="$1"
+            local reason="$2"
+            local new="${old}-delete"
+            if is_protected "$old"; then
+              echo "SKIP protected/open: $old"
+              return 0
+            fi
+            if ! branch_exists "$old"; then
+              echo "SKIP missing: $old"
+              return 0
+            fi
+            if branch_exists "$new"; then
+              echo "SKIP target exists: $new"
+              return 0
+            fi
+            gh api -X POST "repos/${REPO}/branches/$(encode "$old")/rename" -f new_name="$new" --silent
+            echo "RENAMED ($reason): $old -> $new"
+            printf '%s\t%s\n' "$new" "$reason" >> "$RUNNER_TEMP/renamed.tsv"
+          }
+
+          # Explicit scratch/diagnostic branches whose purpose is already superseded.
+          EXPLICIT=(
+            "tmp-noop"
+            "diag/main-client-analyze-20260906"
+            "diag/offline-833-runtime-bridge-ci-20260906"
+            "diag/edge-integration-split-20260905"
+            "fix/worker-scheduler-production-rollout"
+            "stabilization/offline-queue-accidental"
+            "stabilization/offline-queue-final"
+            "stabilization/offline-queue-no-more"
+            "stabilization/offline-queue-pr"
+            "stabilization/offline-queue-review"
+            "stabilization/offline-queue-sentinel"
+            "stabilization/offline-queue-stop"
+            "stabilization/offline-queue-unwanted"
+          )
+          for branch in "${EXPLICIT[@]}"; do
+            rename_branch "$branch" "ephemeral/superseded"
+          done
+
+          # Keep only the newest build branch; older numbered build branches are release scratch refs.
+          mapfile -t BUILD_BRANCHES < <(
+            gh api --paginate "repos/${REPO}/branches?per_page=100" --jq '.[].name' \
+              | grep '^release/build-v' | sort -V || true
+          )
+          if (( ${#BUILD_BRANCHES[@]} > 1 )); then
+            latest_build="${BUILD_BRANCHES[-1]}"
+            echo "KEEP latest build: $latest_build"
+            for branch in "${BUILD_BRANCHES[@]}"; do
+              [[ "$branch" == "$latest_build" ]] || rename_branch "$branch" "older build ref"
+            done
+          fi
+
+          # Keep only the most recently committed device-QA branch.
+          device_rows=()
+          while IFS= read -r branch; do
+            [[ -z "$branch" ]] && continue
+            sha="$(gh api "repos/${REPO}/branches/$(encode "$branch")" --jq '.commit.sha')"
+            date="$(gh api "repos/${REPO}/commits/${sha}" --jq '.commit.committer.date')"
+            device_rows+=("${date}\t${branch}")
+          done < <(
+            gh api --paginate "repos/${REPO}/branches?per_page=100" --jq '.[].name' \
+              | grep '^release/device-qa-' || true
+          )
+          if (( ${#device_rows[@]} > 1 )); then
+            latest_device="$(printf '%b\n' "${device_rows[@]}" | sort | tail -1 | cut -f2-)"
+            echo "KEEP newest device QA: $latest_device"
+            while IFS= read -r branch; do
+              [[ -z "$branch" || "$branch" == "$latest_device" ]] || rename_branch "$branch" "older device-QA ref"
+            done < <(printf '%b\n' "${device_rows[@]}" | cut -f2-)
+          fi
+
+          # A release branch is redundant when an immutable tag with the same release name exists.
+          while IFS= read -r branch; do
+            [[ -z "$branch" ]] && continue
+            tag="${branch#release/}"
+            if gh api "repos/${REPO}/git/ref/tags/$(encode "$tag")" --silent >/dev/null 2>&1; then
+              rename_branch "$branch" "release preserved by tag ${tag}"
+            fi
+          done < <(
+            gh api --paginate "repos/${REPO}/branches?per_page=100" --jq '.[].name' \
+              | grep '^release/' || true
+          )
+
+          count=0
+          [[ -f "$RUNNER_TEMP/renamed.tsv" ]] && count="$(wc -l < "$RUNNER_TEMP/renamed.tsv" | tr -d ' ')"
+          echo "Renamed ${count} additional branches."
+          [[ -f "$RUNNER_TEMP/renamed.tsv" ]] && cat "$RUNNER_TEMP/renamed.tsv"
