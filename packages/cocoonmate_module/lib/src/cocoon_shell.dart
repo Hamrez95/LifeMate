@@ -250,6 +250,13 @@ class _CocoonShellState extends State<CocoonShell> {
               if (widget.config.onSubmitSymptom != null &&
                   widget.config.symptomOptions.isNotEmpty)
                 CocoonQuickAddKind.symptom,
+              if (widget.config.onSubmitMeasurement != null &&
+                  widget.config.measurementOptions.isNotEmpty)
+                CocoonQuickAddKind.measurement,
+              if (widget.config.onSubmitMedication != null &&
+                  widget.config.onPickMedicationTime != null &&
+                  widget.config.medicationOptions.isNotEmpty)
+                CocoonQuickAddKind.medication,
             },
             onOpen: _openQuickAdd,
           ),
@@ -311,6 +318,39 @@ class _CocoonShellState extends State<CocoonShell> {
             submitState: widget.config.symptomSubmitState,
             onSubmit: submitSymptom,
             onOpenMedicalAttention: widget.config.onOpenMedicalAttention,
+          ),
+        ),
+      );
+      return;
+    }
+    final submitMeasurement = widget.config.onSubmitMeasurement;
+    if (kind == CocoonQuickAddKind.measurement && submitMeasurement != null) {
+      Navigator.of(context).push(
+        MaterialPageRoute<void>(
+          builder: (_) => CocoonMeasurementLogScreen(
+            fa: _fa,
+            options: widget.config.measurementOptions,
+            submitState: widget.config.measurementSubmitState,
+            onSubmit: submitMeasurement,
+          ),
+        ),
+      );
+      return;
+    }
+    final submitMedication = widget.config.onSubmitMedication;
+    final pickMedicationTime = widget.config.onPickMedicationTime;
+    if (kind == CocoonQuickAddKind.medication &&
+        submitMedication != null &&
+        pickMedicationTime != null) {
+      Navigator.of(context).push(
+        MaterialPageRoute<void>(
+          builder: (_) => CocoonMedicationLogScreen(
+            fa: _fa,
+            options: widget.config.medicationOptions,
+            initialTimeLabel: widget.config.medicationInitialTimeLabel,
+            submitState: widget.config.medicationSubmitState,
+            onPickTime: pickMedicationTime,
+            onSubmit: submitMedication,
           ),
         ),
       );

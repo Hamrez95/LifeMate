@@ -495,6 +495,77 @@ void main() {
     expect(find.text('تهوع'), findsOneWidget);
     expect(tester.takeException(), isNull);
   });
+
+  testWidgets('measurement form is driven by injected field and unit schema', (
+    tester,
+  ) async {
+    final host = FakeHost(
+      CocoonEntryState.activePregnancy,
+      const Locale('fa'),
+      pregnancySnapshot: _pregnancyAtWeek(4, 2),
+    );
+    await tester.pumpWidget(
+      MaterialApp(
+        theme: CocoonTheme.light(),
+        home: CocoonMateModule(
+          config: CocoonModuleConfig(
+            host: host,
+            initialTab: 2,
+            measurementOptions: const [
+              CocoonMeasurementOption(
+                id: 'weight',
+                label: 'وزن',
+                icon: Icons.monitor_weight_outlined,
+                fields: [
+                  CocoonMeasurementFieldSpec(
+                    id: 'value',
+                    label: 'وزن امروز',
+                    unit: 'kg',
+                  ),
+                ],
+              ),
+            ],
+            onSubmitMeasurement: (_) async {},
+          ),
+        ),
+      ),
+    );
+
+    await tester.tap(find.text('اندازه‌گیری'));
+    await tester.pumpAndSettle();
+    expect(find.text('ثبت اندازه‌گیری'), findsWidgets);
+    expect(find.text('وزن'), findsOneWidget);
+    expect(tester.takeException(), isNull);
+  });
+
+  testWidgets('medication log only presents injected care-plan items', (
+    tester,
+  ) async {
+    await tester.pumpWidget(
+      MaterialApp(
+        theme: CocoonTheme.light(),
+        home: CocoonMedicationLogScreen(
+          fa: true,
+          options: const [
+            CocoonMedicationOption(
+              id: 'care-plan-item',
+              name: 'مکمل برنامه مراقبتی',
+              doseLabel: 'طبق دستور ثبت‌شده',
+            ),
+          ],
+          initialTimeLabel: '۰۹:۳۰',
+          submitState: CocoonMedicationSubmitState.idle,
+          onPickTime: () async => '۱۰:۰۰',
+          onSubmit: (_) async {},
+        ),
+      ),
+    );
+
+    expect(find.text('ثبت دارو و مکمل'), findsOneWidget);
+    expect(find.text('مکمل برنامه مراقبتی'), findsOneWidget);
+    expect(find.text('طبق دستور ثبت‌شده'), findsOneWidget);
+    expect(tester.takeException(), isNull);
+  });
 }
 
 void _noop() {}

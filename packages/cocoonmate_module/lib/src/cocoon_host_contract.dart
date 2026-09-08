@@ -54,6 +54,14 @@ class CocoonModuleConfig {
     this.symptomSubmitState = CocoonSymptomSubmitState.idle,
     this.onSubmitSymptom,
     this.onOpenMedicalAttention,
+    this.measurementOptions = const [],
+    this.measurementSubmitState = CocoonMeasurementSubmitState.idle,
+    this.onSubmitMeasurement,
+    this.medicationOptions = const [],
+    this.medicationInitialTimeLabel = '',
+    this.medicationSubmitState = CocoonMedicationSubmitState.idle,
+    this.onPickMedicationTime,
+    this.onSubmitMedication,
   });
 
   final CocoonHostContract host;
@@ -77,6 +85,16 @@ class CocoonModuleConfig {
   final CocoonSymptomSubmitState symptomSubmitState;
   final Future<void> Function(CocoonSymptomDraft draft)? onSubmitSymptom;
   final VoidCallback? onOpenMedicalAttention;
+  final List<CocoonMeasurementOption> measurementOptions;
+  final CocoonMeasurementSubmitState measurementSubmitState;
+  final Future<void> Function(CocoonMeasurementDraft draft)?
+      onSubmitMeasurement;
+  final List<CocoonMedicationOption> medicationOptions;
+  final String medicationInitialTimeLabel;
+  final CocoonMedicationSubmitState medicationSubmitState;
+  final Future<String?> Function()? onPickMedicationTime;
+  final Future<void> Function(CocoonMedicationLogDraft draft)?
+      onSubmitMedication;
 }
 
 class CocoonMateModule extends StatelessWidget {
