@@ -2,7 +2,14 @@ part of '../cocoonmate_module.dart';
 
 enum CocoonSymptomIntensity { mild, moderate, strong }
 
-enum CocoonSymptomSubmitState { idle, submitting, queued, confirmed, error, offline }
+enum CocoonSymptomSubmitState {
+  idle,
+  submitting,
+  queued,
+  confirmed,
+  error,
+  offline
+}
 
 class CocoonSymptomOption {
   const CocoonSymptomOption({
@@ -78,9 +85,11 @@ class _CocoonSymptomLogScreenState extends State<CocoonSymptomLogScreen> {
                     crossAxisAlignment: CrossAxisAlignment.stretch,
                     children: [
                       _SymptomHero(fa: widget.fa),
-                      if (widget.submitState != CocoonSymptomSubmitState.idle) ...[
+                      if (widget.submitState !=
+                          CocoonSymptomSubmitState.idle) ...[
                         const SizedBox(height: 14),
-                        _SymptomStatus(fa: widget.fa, state: widget.submitState),
+                        _SymptomStatus(
+                            fa: widget.fa, state: widget.submitState),
                       ],
                       const SizedBox(height: 28),
                       CocoonSectionHeading(
@@ -115,10 +124,12 @@ class _CocoonSymptomLogScreenState extends State<CocoonSymptomLogScreen> {
                       if (_showErrors && _symptomId == null) ...[
                         const SizedBox(height: 8),
                         Text(
-                          t('Choose a symptom to continue', 'برای ادامه یک نشانه انتخاب کن'),
-                          style: Theme.of(context).textTheme.labelMedium?.copyWith(
-                                color: Theme.of(context).colorScheme.error,
-                              ),
+                          t('Choose a symptom to continue',
+                              'برای ادامه یک نشانه انتخاب کن'),
+                          style:
+                              Theme.of(context).textTheme.labelMedium?.copyWith(
+                                    color: Theme.of(context).colorScheme.error,
+                                  ),
                         ),
                       ],
                       const SizedBox(height: 30),
@@ -141,9 +152,10 @@ class _CocoonSymptomLogScreenState extends State<CocoonSymptomLogScreen> {
                         const SizedBox(height: 8),
                         Text(
                           t('Choose an intensity', 'شدت را انتخاب کن'),
-                          style: Theme.of(context).textTheme.labelMedium?.copyWith(
-                                color: Theme.of(context).colorScheme.error,
-                              ),
+                          style:
+                              Theme.of(context).textTheme.labelMedium?.copyWith(
+                                    color: Theme.of(context).colorScheme.error,
+                                  ),
                         ),
                       ],
                       const SizedBox(height: 26),
@@ -196,7 +208,9 @@ class _CocoonSymptomLogScreenState extends State<CocoonSymptomLogScreen> {
                     )
                   : const Icon(Icons.check_rounded),
               label: Text(
-                _busy ? t('Saving…', 'در حال ثبت…') : t('Save symptom', 'ثبت نشانه'),
+                _busy
+                    ? t('Saving…', 'در حال ثبت…')
+                    : t('Save symptom', 'ثبت نشانه'),
               ),
             ),
           ),
@@ -244,7 +258,9 @@ class _SymptomHero extends StatelessWidget {
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   Text(
-                    fa ? 'آنچه بدنت امروز می‌گوید' : 'What your body says today',
+                    fa
+                        ? 'آنچه بدنت امروز می‌گوید'
+                        : 'What your body says today',
                     style: Theme.of(context).textTheme.titleLarge,
                   ),
                   const SizedBox(height: 5),
@@ -395,7 +411,9 @@ class _SymptomStatus extends StatelessWidget {
       CocoonSymptomSubmitState.queued => (
           Icons.schedule_send_outlined,
           CocoonTheme.warm,
-          fa ? 'در صف همگام‌سازی؛ هنوز تأیید نشده' : 'Queued; not yet confirmed',
+          fa
+              ? 'در صف همگام‌سازی؛ هنوز تأیید نشده'
+              : 'Queued; not yet confirmed',
         ),
       CocoonSymptomSubmitState.confirmed => (
           Icons.cloud_done_outlined,
@@ -410,10 +428,15 @@ class _SymptomStatus extends StatelessWidget {
       CocoonSymptomSubmitState.offline => (
           Icons.wifi_off_outlined,
           CocoonTheme.sky,
-          fa ? 'آفلاین؛ ثبت جدید در دسترس نیست' : 'Offline; new logging unavailable',
+          fa
+              ? 'آفلاین؛ ثبت جدید در دسترس نیست'
+              : 'Offline; new logging unavailable',
         ),
-      CocoonSymptomSubmitState.idle =>
-        (Icons.info_outline, CocoonTheme.cream, ''),
+      CocoonSymptomSubmitState.idle => (
+          Icons.info_outline,
+          CocoonTheme.cream,
+          ''
+        ),
     };
     return Semantics(
       liveRegion: true,

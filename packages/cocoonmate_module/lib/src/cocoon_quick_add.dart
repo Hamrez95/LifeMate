@@ -1,6 +1,12 @@
 part of '../cocoonmate_module.dart';
 
-enum CocoonQuickAddKind { checkIn, symptom, measurement, medication, appointment }
+enum CocoonQuickAddKind {
+  checkIn,
+  symptom,
+  measurement,
+  medication,
+  appointment
+}
 
 class CocoonQuickAddScreen extends StatelessWidget {
   const CocoonQuickAddScreen({
@@ -34,7 +40,8 @@ class CocoonQuickAddScreen extends StatelessWidget {
                   _QuickAddHero(fa: fa),
                   const SizedBox(height: 30),
                   CocoonSectionHeading(
-                    title: t('What would you like to add?', 'چه چیزی می‌خواهی ثبت کنی؟'),
+                    title: t('What would you like to add?',
+                        'چه چیزی می‌خواهی ثبت کنی؟'),
                     supporting: t(
                       'Choose one short path. You can add more later.',
                       'یک مسیر کوتاه را انتخاب کن؛ بقیه را می‌توانی بعداً اضافه کنی.',
@@ -83,7 +90,9 @@ class CocoonQuickAddScreen extends StatelessWidget {
                       if (!wide) {
                         return Column(
                           children: [
-                            for (var index = 0; index < tiles.length; index++) ...[
+                            for (var index = 0;
+                                index < tiles.length;
+                                index++) ...[
                               tiles[index],
                               if (index < tiles.length - 1)
                                 const SizedBox(height: 10),
@@ -233,7 +242,9 @@ class _QuickAddPrimary extends StatelessWidget {
                       ),
                       const SizedBox(height: 3),
                       Text(
-                        fa ? 'حال و انرژی، در دو قدم' : 'Feeling and energy in two steps',
+                        fa
+                            ? 'حال و انرژی، در دو قدم'
+                            : 'Feeling and energy in two steps',
                         style: Theme.of(context).textTheme.labelMedium,
                       ),
                     ],
@@ -282,7 +293,9 @@ class _QuickAddTile extends StatelessWidget {
       CocoonQuickAddKind.medication => (
           Icons.medication_outlined,
           fa ? 'دارو و مکمل' : 'Medication',
-          fa ? 'ثبت مصرف، بدون توصیه پزشکی' : 'Log intake without medical advice',
+          fa
+              ? 'ثبت مصرف، بدون توصیه پزشکی'
+              : 'Log intake without medical advice',
           CocoonTheme.warm,
           CocoonTheme.gold,
         ),
