@@ -164,10 +164,41 @@ function Start-Release([object]$Item) {
 function Dispatch-App([object]$Item) { if(-not(Test-Tool gh)){throw 'GitHub CLI is required. Install gh and run gh auth login.'}; if(-not $Item.workflow){throw "No configured workflow for $($Item.Name)."}; $args=@('workflow','run',$Item.workflow); foreach($p in $Item.workflowInputs.psobject.Properties){$value=$p.Value; if($p.Name -eq 'release_type'){$value=$Bump}; if($p.Name -eq 'environment' -and $Environment -eq 'dev'){$value='internal'}; $args += @('-f',"$($p.Name)=$value")}; Invoke-External 'gh' $args; Write-Ui "Workflow dispatched: $($Item.workflow). Use -Health to see its latest run." Success }
 function Show-Artifacts { $root=Join-Path $Script:Root 'artifacts'; if(Test-Path $root){Get-ChildItem $root -Recurse -File | Select-Object Name,DirectoryName,Length,LastWriteTime | Format-Table -AutoSize}else{Write-Ui 'No local artifacts have been created.' Warn} }
 function Safe-Clean([object[]]$Items) { $targets=@(); foreach($item in $Items){$path=Join-Path $Script:Root "$($item.path)\build";if(Test-Path $path){$targets+=$path}}; if(!$targets){Write-Ui 'No generated build directories found.' Info;return}; Write-Host "Only these generated directories will be removed:`n$($targets -join "`n")"; if($NonInteractive -or (Read-Host 'Type CLEAN to continue') -ne 'CLEAN'){Write-Ui 'Clean cancelled.' Warn;return}; foreach($target in $targets){Remove-Item -LiteralPath $target -Recurse -Force}; Write-Ui 'Generated build directories removed. Artifacts and source files were preserved.' Success }
-function Select-AppsInteractive([object[]]$Apps) { $Apps | ForEach-Object -Begin {$i=0} -Process {$i++;Write-Host "$i) $($_.Name) — $($_.technology) $($_.Version)"}; Write-Host 'A) All'; $choice=Read-Host 'Select app number(s), comma-separated, or A'; if($choice -eq 'A'){return @($Apps|Where-Object technology -eq 'Flutter')}; $selected=@(); foreach($n in $choice.Split(',')){if($n.Trim() -notmatch '^\d+$' -or [int]$n.Trim() -lt 1 -or [int]$n.Trim() -gt $Apps.Count){throw 'Invalid app selection.'};$selected+=$Apps[[int]$n.Trim()-1]};$selected }
+function Select-AppsInteractive([object[]]$Apps) {
+  $Apps | ForEach-Object -Begin {$i=0} -Process {$i++;Write-Host "$i) $($_.Name) — $($_.technology) $($_.Version)"}
+  Write-Host 'A) All apps'
+  $choice = (Read-Host 'Select app number(s), comma-separated, or A').Trim()
+  if ([string]::IsNullOrWhiteSpace($choice)) { throw 'Select an app number or A for all apps.' }
+  if ($choice.ToUpperInvariant() -eq 'A') { return @($Apps) }
+  $selected = @()
+  foreach ($n in $choice.Split(',')) {
+    $number = $n.Trim()
+    if ($number -notmatch '^\d+$' -or [int]$number -lt 1 -or [int]$number -gt $Apps.Count) { throw 'Invalid app selection. Enter 1, 2, 1,2, or A.' }
+    $selected += $Apps[[int]$number - 1]
+  }
+  $selected
+}
+function Open-BatchCenter([object[]]$Items) {
+  while ($true) {
+    Clear-Host; Write-Title "Batch Center — $($Items.Count) apps"
+    $Items | Select-Object Name, Version, path | Format-Table -AutoSize
+    Write-Host '1) Run all on Android'; Write-Host '2) Run all in Chrome'; Write-Host '3) Build Debug APK for all'; Write-Host '4) Build Release APK for all'; Write-Host '5) Build Release AAB for all'; Write-Host '6) Dispatch release workflows for all'; Write-Host '0) Back'
+    $choice = Read-Host 'Choose'
+    switch ($choice) {
+      '1' { $Items | ForEach-Object { Run-App $_ 'Android' }; pause }
+      '2' { $Items | ForEach-Object { Run-App $_ 'Chrome' }; pause }
+      '3' { $Items | ForEach-Object { Build-App $_ 'Debug' 'APK' }; pause }
+      '4' { $Items | ForEach-Object { Build-App $_ 'Release' 'APK' }; pause }
+      '5' { $Items | ForEach-Object { Build-App $_ 'Release' 'AAB' }; pause }
+      '6' { $Items | ForEach-Object { Dispatch-App $_ }; pause }
+      '0' { return }
+      default { Write-Ui 'Unknown option.' Warn; Start-Sleep -Seconds 1 }
+    }
+  }
+}
 function Open-AppCenter {
   $apps = @(Get-Apps); $selected = @(Select-AppsInteractive $apps)
-  if ($selected.Count -ne 1) { Write-Ui 'App Center needs one app. Use the main actions for multiple apps.' Warn; return }
+  if ($selected.Count -gt 1) { Open-BatchCenter $selected; return }
   $item = $selected[0]
   while ($true) {
     Clear-Host; Write-Title "App Center — $($item.Name)"
@@ -192,5 +223,6 @@ function Show-Console { Clear-Host; $state=Get-GitState; Write-Host 'Lifemate De
 function Start-Menu { while($true){Show-Console; $choice=Read-Host 'Choose'; switch($choice){'1'{Open-AppCenter}'2'{Show-Health;pause}'3'{Get-SelectedApps|ForEach-Object{Run-App $_};pause}'4'{Get-SelectedApps|ForEach-Object{Build-App $_ 'Debug' 'APK'};pause}'5'{Get-SelectedApps|ForEach-Object{Build-App $_ 'Release' 'APK'};pause}'6'{$f=Read-Host 'APK or AAB';Get-SelectedApps|ForEach-Object{Build-App $_ 'Release' $f.ToUpperInvariant()};pause}'7'{Get-SelectedApps|ForEach-Object{Install-App $_};pause}'8'{Show-Artifacts;pause}'9'{Get-SelectedApps|ForEach-Object{Start-Release $_};pause}'10'{Get-SelectedApps|ForEach-Object{Dispatch-App $_};pause}'11'{Safe-Clean (Get-SelectedApps);pause}'0'{return}default{Write-Ui 'Unknown menu option.' Warn;Start-Sleep -Seconds 1}}} }
 
 try { if($Script:Interactive){Start-Menu}elseif($List){Show-Apps}elseif($Health){Show-Health}elseif($OpenArtifacts){$p=Join-Path $Script:Root 'artifacts';if(Test-Path $p){Start-Process explorer.exe $p}else{Write-Ui 'No artifact folder exists yet.' Warn}}elseif($Logs){if(Test-Path $Script:ReportRoot){Get-Content (Join-Path $Script:ReportRoot 'build-history.jsonl')}else{Write-Ui 'No build reports found.' Warn}}else{$targets=Get-SelectedApps;if($Run){$targets|ForEach-Object{Run-App $_}}elseif($Build){$targets|ForEach-Object{Build-App $_ $Build $Format}}elseif($Install){$targets|ForEach-Object{Install-App $_}}elseif($Release){$targets|ForEach-Object{Start-Release $_}}elseif($DispatchWorkflow){$targets|ForEach-Object{Dispatch-App $_}}elseif($Clean){Safe-Clean $targets}else{Show-Apps}} } catch { Write-Ui $_.Exception.Message Error; if($VerbosePreference -eq 'Continue') { Write-Error $_.ScriptStackTrace }; exit 1 }
+
 
 
