@@ -73,7 +73,7 @@ class CocoonSafetyGuidanceCopy {
 }
 
 class CocoonSafetyGuidanceViewData {
-  const CocoonSafetyGuidanceViewData({
+  CocoonSafetyGuidanceViewData({
     required this.informational,
     required this.attention,
     required this.contactClinician,

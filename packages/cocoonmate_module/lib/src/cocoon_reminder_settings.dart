@@ -669,12 +669,11 @@ class _PrivacyOption extends StatelessWidget {
                     ],
                   ),
                 ),
-                Radio<CocoonLockScreenPrivacy>(
-                  value: selected
-                      ? CocoonLockScreenPrivacy.private
-                      : CocoonLockScreenPrivacy.descriptive,
-                  groupValue: selected ? CocoonLockScreenPrivacy.private : null,
-                  onChanged: enabled ? (_) => onTap() : null,
+                Icon(
+                  selected
+                      ? Icons.radio_button_checked_rounded
+                      : Icons.radio_button_unchecked_rounded,
+                  color: selected ? CocoonTheme.coral : CocoonTheme.muted,
                 ),
               ],
             ),
