@@ -566,6 +566,119 @@ void main() {
     expect(find.text('طبق دستور ثبت‌شده'), findsOneWidget);
     expect(tester.takeException(), isNull);
   });
+
+  testWidgets('reminder settings renders host-owned privacy preferences', (
+    tester,
+  ) async {
+    await tester.pumpWidget(
+      MaterialApp(
+        theme: CocoonTheme.light(),
+        home: CocoonReminderSettingsScreen(
+          fa: true,
+          loadState: CocoonReminderLoadState.ready,
+          saveState: CocoonReminderSaveState.idle,
+          data: const CocoonReminderSettingsViewData(
+            preferences: CocoonReminderPreferences(
+              weeklyUpdate: true,
+              dailyCheckIn: true,
+              lockScreenPrivacy: CocoonLockScreenPrivacy.private,
+            ),
+            permission: CocoonReminderPermissionState.granted,
+            appointmentSummary: 'از تقویم مراقبتی',
+            medicationSummary: 'از برنامه درمانی',
+          ),
+          onRetry: _noop,
+          onSave: (_) async {},
+          onOpenAppointments: _noop,
+          onOpenMedications: _noop,
+        ),
+      ),
+    );
+
+    expect(find.text('یادآورها و حریم خصوصی'), findsOneWidget);
+    expect(find.text('مرور هفتگی بارداری'), findsOneWidget);
+    expect(tester.takeException(), isNull);
+  });
+
+  testWidgets('safety renderer never needs client-side clinical rules', (
+    tester,
+  ) async {
+    const copy = CocoonSafetyGuidanceCopy(
+      eyebrow: 'ایمنی',
+      pageTitle: 'راهنمای ایمنی',
+      pageIntroduction: 'محتوای بازبینی‌شده',
+      loadingLabel: 'در حال بارگذاری',
+      unavailableTitle: 'راهنما در دسترس نیست',
+      unavailableBody: 'از مسیر مراقبتی تأییدشده استفاده کن',
+      unavailableActionLabel: 'تلاش دوباره',
+      errorTitle: 'به‌روزرسانی انجام نشد',
+      errorBody: 'اطلاعات جدید دریافت نشد',
+      errorActionLabel: 'تلاش دوباره',
+      offlineCachedLabel: 'نسخه ذخیره‌شده',
+      reviewedLabel: 'بازبینی‌شده',
+      ruleVersionLabel: 'نسخه قانون',
+    );
+    await tester.pumpWidget(
+      MaterialApp(
+        theme: CocoonTheme.light(),
+        home: CocoonSafetyGuidanceScreen(
+          state: CocoonSafetyGuidanceLoadState.unavailable,
+          copy: copy,
+          onRetry: _noop,
+          onGuidanceAction: (_) {},
+        ),
+      ),
+    );
+
+    expect(find.text('راهنما در دسترس نیست'), findsOneWidget);
+    expect(tester.takeException(), isNull);
+  });
+
+  testWidgets('settings renders canonical host summaries', (tester) async {
+    await tester.pumpWidget(
+      MaterialApp(
+        theme: CocoonTheme.light(),
+        home: Scaffold(
+          body: CocoonSettingsScreen(
+            fa: true,
+            state: CocoonSettingsLoadState.ready,
+            data: const CocoonSettingsViewData(
+              pregnancyLabel: 'هفته ۲۴ و ۳ روز',
+              dueDateLabel: 'موعد ثبت‌شده در پرونده',
+              datingSourceLabel: 'سونوگرافی',
+              remindersSummary: 'خصوصی',
+              sharingSummary: 'بدون دسترسی فعال',
+              languageLabel: 'فارسی',
+              largeTextEnabled: false,
+              reducedMotionEnabled: false,
+              syncState: CocoonSettingsSyncState.synced,
+              syncSummary: 'به‌روز',
+              subscriptionSummary: 'مدیریت در LifeMate',
+              supportSummary: 'بدون پیوست اطلاعات سلامت',
+              privacyLegalSummary: 'تنظیمات مشترک LifeMate',
+              globalProfileLabel: 'پروفایل اصلی',
+            ),
+            onRetry: _noop,
+            onOpenPregnancyDating: _noop,
+            onOpenReminders: _noop,
+            onOpenPrivacySharing: _noop,
+            onOpenLanguage: _noop,
+            onOpenAccessibility: _noop,
+            onReducedMotionChanged: (_) {},
+            onOpenDataAndSync: _noop,
+            onOpenSubscription: _noop,
+            onOpenSupport: _noop,
+            onOpenPrivacyLegal: _noop,
+            onOpenGlobalProfile: _noop,
+          ),
+        ),
+      ),
+    );
+
+    expect(find.text('هفته ۲۴ و ۳ روز'), findsOneWidget);
+    expect(find.text('بارداری'), findsOneWidget);
+    expect(tester.takeException(), isNull);
+  });
 }
 
 void _noop() {}
