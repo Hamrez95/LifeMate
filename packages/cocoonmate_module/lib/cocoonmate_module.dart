@@ -10,6 +10,7 @@ export 'clinical/clinical_content.dart';
 part 'src/cocoon_host_contract.dart';
 part 'src/cocoon_components.dart';
 part 'src/cocoon_onboarding.dart';
+part 'src/cocoon_education.dart';
 part 'src/cocoon_calendar.dart';
 part 'src/cocoon_home.dart';
 part 'src/cocoon_appointments.dart';
