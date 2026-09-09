@@ -15,6 +15,10 @@ import {
 
 type Row = Record<string, any>;
 
+export type TreatmentCreateTestHooks = {
+  afterMedicationPersisted?: () => void | Promise<void>;
+};
+
 function iso(value: unknown): string {
   return value instanceof Date
     ? value.toISOString()
@@ -156,7 +160,10 @@ async function insertAudit(
  * single database transaction. The HTTP idempotency coordinator wraps this
  * whole operation, so a retry cannot leave an orphan medication behind.
  */
-export function createPersonTreatmentCreateStore(databaseUrl: string) {
+export function createPersonTreatmentCreateStore(
+  databaseUrl: string,
+  testHooks: TreatmentCreateTestHooks = {},
+) {
   const sql = getLifeMateSql(databaseUrl);
 
   async function createTreatment(
@@ -304,6 +311,7 @@ export function createPersonTreatmentCreateStore(databaseUrl: string) {
           "medication",
           medicationId,
         );
+        await testHooks.afterMedicationPersisted?.();
       }
 
       const planId = crypto.randomUUID();
