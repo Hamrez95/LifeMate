@@ -271,7 +271,18 @@ class _CocoonShellState extends State<CocoonShell> {
                 ? null
                 : () => _openSafetyGuidance(host),
           ),
-        1 => CocoonPregnancyCalendar(host: host, fa: _fa),
+        1 => CocoonPregnancyCalendar(
+            host: host,
+            fa: _fa,
+            state: offline && widget.config.calendarItems.isNotEmpty
+                ? CocoonCalendarLoadState.offlineCached
+                : widget.config.calendarState,
+            items: widget.config.calendarItems,
+            asOfLocalDate: widget.config.calendarAsOfLocalDate,
+            onOpenItem: widget.config.onOpenCalendarItem,
+            onOpenWeek: widget.config.onOpenCalendarWeek,
+            onRetry: widget.config.onRetryCalendar ?? host.refresh,
+          ),
         2 => CocoonQuickAddScreen(
             fa: _fa,
             enabled: {

@@ -4,21 +4,34 @@ class CocoonPregnancyCalendar extends StatelessWidget {
   const CocoonPregnancyCalendar({
     required this.host,
     required this.fa,
+    this.state = CocoonCalendarLoadState.empty,
+    this.items = const [],
+    this.asOfLocalDate,
+    this.onOpenItem,
+    this.onOpenWeek,
+    this.onRetry,
     super.key,
   });
 
   final CocoonHostContract host;
   final bool fa;
+  final CocoonCalendarLoadState state;
+  final List<CocoonCalendarItem> items;
+  final DateTime? asOfLocalDate;
+  final ValueChanged<CocoonCalendarItem>? onOpenItem;
+  final ValueChanged<int>? onOpenWeek;
+  final VoidCallback? onRetry;
 
   String t(String en, String faText) => fa ? faText : en;
 
   CocoonGestationalAge? get _age {
-    final dating = host.pregnancySnapshot?.episode?.dating;
+    final snapshot = host.pregnancySnapshot ?? host.offlinePregnancySnapshot;
+    final dating = snapshot?.episode?.dating;
     if (dating == null) return null;
     try {
       return deriveCocoonGestationalAgeOffline(
             dating: dating,
-            asOfLocalDate: DateTime.now(),
+            asOfLocalDate: asOfLocalDate ?? DateTime.now(),
           ) ??
           dating.gestationalAge;
     } on CocoonPregnancyDatingError {
@@ -47,7 +60,7 @@ class CocoonPregnancyCalendar extends StatelessWidget {
                   ),
                 ),
                 const SizedBox(height: 16),
-                _GestationalTimeline(fa: fa, age: age),
+                _GestationalTimeline(fa: fa, age: age, onOpenWeek: onOpenWeek),
                 const SizedBox(height: 32),
                 CocoonSectionHeading(
                   title: t('Care plan', 'برنامه‌ی مراقبت'),
@@ -57,7 +70,13 @@ class CocoonPregnancyCalendar extends StatelessWidget {
                   ),
                 ),
                 const SizedBox(height: 14),
-                _CalendarEmptyState(fa: fa),
+                _CarePlanState(
+                  fa: fa,
+                  state: state,
+                  items: items,
+                  onOpenItem: onOpenItem,
+                  onRetry: onRetry,
+                ),
                 const SizedBox(height: 26),
                 _DatingNote(fa: fa),
               ],
@@ -107,9 +126,10 @@ class _TimelineIntroduction extends StatelessWidget {
             children: [
               Text(
                 fa ? 'امروز در مسیر تو' : 'Today on your journey',
-                style: Theme.of(
-                  context,
-                ).textTheme.labelLarge?.copyWith(color: CocoonTheme.sageStrong),
+                style: Theme.of(context)
+                    .textTheme
+                    .labelLarge
+                    ?.copyWith(color: CocoonTheme.sageStrong),
               ),
               const SizedBox(height: 7),
               Text(
@@ -127,9 +147,10 @@ class _TimelineIntroduction extends StatelessWidget {
                 fa
                     ? 'این نما از تاریخ‌گذاری معتبر بارداری محاسبه می‌شود.'
                     : 'This view is calculated from verified pregnancy dating.',
-                style: Theme.of(
-                  context,
-                ).textTheme.bodyMedium?.copyWith(color: CocoonTheme.muted),
+                style: Theme.of(context)
+                    .textTheme
+                    .bodyMedium
+                    ?.copyWith(color: CocoonTheme.muted),
               ),
             ],
           );
@@ -154,10 +175,15 @@ class _TimelineIntroduction extends StatelessWidget {
 }
 
 class _GestationalTimeline extends StatelessWidget {
-  const _GestationalTimeline({required this.fa, required this.age});
+  const _GestationalTimeline({
+    required this.fa,
+    required this.age,
+    this.onOpenWeek,
+  });
 
   final bool fa;
   final CocoonGestationalAge? age;
+  final ValueChanged<int>? onOpenWeek;
 
   @override
   Widget build(BuildContext context) {
@@ -190,36 +216,70 @@ class _GestationalTimeline extends StatelessWidget {
               ),
             ),
             const SizedBox(height: 16),
-            Row(
-              children: [
-                _TrimesterLabel(
-                  title: fa ? 'سه‌ماهه اول' : 'First',
-                  range: fa ? '۰–۱۳' : '0–13',
-                  active: currentWeek != null && currentWeek <= 13,
-                ),
-                const SizedBox(width: 8),
-                _TrimesterLabel(
-                  title: fa ? 'سه‌ماهه دوم' : 'Second',
-                  range: fa ? '۱۴–۲۷' : '14–27',
-                  active: currentWeek != null &&
-                      currentWeek >= 14 &&
-                      currentWeek <= 27,
-                ),
-                const SizedBox(width: 8),
-                _TrimesterLabel(
-                  title: fa ? 'سه‌ماهه سوم' : 'Third',
-                  range: fa ? '۲۸–۴۰+' : '28–40+',
-                  active: currentWeek != null && currentWeek >= 28,
-                ),
-              ],
-            ),
+            _TrimesterGrid(fa: fa, currentWeek: currentWeek),
             const SizedBox(height: 20),
-            _NearbyWeeks(fa: fa, currentWeek: currentWeek),
+            _NearbyWeeks(
+              fa: fa,
+              currentWeek: currentWeek,
+              onOpenWeek: onOpenWeek,
+            ),
           ],
         ),
       ),
     );
   }
+}
+
+class _TrimesterGrid extends StatelessWidget {
+  const _TrimesterGrid({required this.fa, required this.currentWeek});
+
+  final bool fa;
+  final int? currentWeek;
+
+  @override
+  Widget build(BuildContext context) => LayoutBuilder(
+        builder: (context, constraints) {
+          final stack = constraints.maxWidth < 350 ||
+              MediaQuery.textScalerOf(context).scale(14) > 18;
+          final entries = [
+            _TrimesterLabel(
+              title: fa ? 'سه‌ماهه اول' : 'First trimester',
+              range: fa ? '۰–۱۳' : '0–13',
+              active: currentWeek != null && currentWeek! <= 13,
+            ),
+            _TrimesterLabel(
+              title: fa ? 'سه‌ماهه دوم' : 'Second trimester',
+              range: fa ? '۱۴–۲۷' : '14–27',
+              active: currentWeek != null &&
+                  currentWeek! >= 14 &&
+                  currentWeek! <= 27,
+            ),
+            _TrimesterLabel(
+              title: fa ? 'سه‌ماهه سوم' : 'Third trimester',
+              range: fa ? '۲۸–۴۰+' : '28–40+',
+              active: currentWeek != null && currentWeek! >= 28,
+            ),
+          ];
+          if (stack) {
+            return Column(
+              children: [
+                for (final entry in entries) ...[
+                  SizedBox(width: double.infinity, child: entry),
+                  if (entry != entries.last) const SizedBox(height: 8),
+                ],
+              ],
+            );
+          }
+          return Row(
+            children: [
+              for (final entry in entries) ...[
+                Expanded(child: entry),
+                if (entry != entries.last) const SizedBox(width: 8),
+              ],
+            ],
+          );
+        },
+      );
 }
 
 class _TrimesterLabel extends StatelessWidget {
@@ -234,43 +294,40 @@ class _TrimesterLabel extends StatelessWidget {
   final bool active;
 
   @override
-  Widget build(BuildContext context) => Expanded(
-        child: Container(
-          padding: const EdgeInsetsDirectional.symmetric(
-            horizontal: 8,
-            vertical: 10,
-          ),
-          decoration: BoxDecoration(
-            color: active ? CocoonTheme.warm : CocoonTheme.cream,
-            borderRadius: BorderRadius.circular(16),
-            border: Border.all(
-              color: active ? CocoonTheme.coral : CocoonTheme.line,
+  Widget build(BuildContext context) => Container(
+        padding:
+            const EdgeInsetsDirectional.symmetric(horizontal: 8, vertical: 10),
+        decoration: BoxDecoration(
+          color: active ? CocoonTheme.warm : CocoonTheme.cream,
+          borderRadius: BorderRadius.circular(16),
+          border:
+              Border.all(color: active ? CocoonTheme.coral : CocoonTheme.line),
+        ),
+        child: Column(
+          children: [
+            Text(
+              title,
+              textAlign: TextAlign.center,
+              style: Theme.of(context).textTheme.labelMedium?.copyWith(
+                  color: active ? CocoonTheme.coral : CocoonTheme.muted),
             ),
-          ),
-          child: Column(
-            children: [
-              Text(
-                title,
-                maxLines: 2,
-                overflow: TextOverflow.ellipsis,
-                textAlign: TextAlign.center,
-                style: Theme.of(context).textTheme.labelMedium?.copyWith(
-                      color: active ? CocoonTheme.coral : CocoonTheme.muted,
-                    ),
-              ),
-              const SizedBox(height: 2),
-              Text(range, style: Theme.of(context).textTheme.labelMedium),
-            ],
-          ),
+            const SizedBox(height: 2),
+            Text(range, style: Theme.of(context).textTheme.labelMedium),
+          ],
         ),
       );
 }
 
 class _NearbyWeeks extends StatelessWidget {
-  const _NearbyWeeks({required this.fa, required this.currentWeek});
+  const _NearbyWeeks({
+    required this.fa,
+    required this.currentWeek,
+    this.onOpenWeek,
+  });
 
   final bool fa;
   final int? currentWeek;
+  final ValueChanged<int>? onOpenWeek;
 
   @override
   Widget build(BuildContext context) {
@@ -279,51 +336,235 @@ class _NearbyWeeks extends StatelessWidget {
         fa
             ? 'پس از دریافت تاریخ معتبر، هفته‌های نزدیک نمایش داده می‌شوند.'
             : 'Nearby weeks appear after verified dating is available.',
-        style: Theme.of(
-          context,
-        ).textTheme.bodyMedium?.copyWith(color: CocoonTheme.muted),
+        style: Theme.of(context)
+            .textTheme
+            .bodyMedium
+            ?.copyWith(color: CocoonTheme.muted),
       );
     }
     final start = (currentWeek! - 2).clamp(0, 40).toInt();
     final weeks = List<int>.generate(5, (index) => start + index);
-    return SingleChildScrollView(
-      scrollDirection: Axis.horizontal,
-      child: Row(
-        children: weeks.map((week) {
-          final active = week == currentWeek;
-          return Padding(
-            padding: const EdgeInsetsDirectional.only(end: 8),
+    return Row(
+      children: weeks.indexed.map((entry) {
+        final index = entry.$1;
+        final week = entry.$2;
+        final active = week == currentWeek;
+        return Expanded(
+          child: Padding(
+            padding: EdgeInsetsDirectional.only(end: index == 4 ? 0 : 6),
             child: Semantics(
+              button: onOpenWeek != null,
               selected: active,
               label: fa ? 'هفته ${cocoonDigits('$week', true)}' : 'Week $week',
-              child: Container(
-                width: 62,
-                padding: const EdgeInsetsDirectional.symmetric(vertical: 11),
-                decoration: BoxDecoration(
-                  color: active ? CocoonTheme.ink : CocoonTheme.cream,
-                  borderRadius: BorderRadius.circular(18),
-                ),
-                child: Column(
-                  children: [
-                    Text(
-                      fa ? 'هفته' : 'Week',
-                      style: Theme.of(context).textTheme.labelMedium?.copyWith(
-                            color: active ? Colors.white70 : CocoonTheme.muted,
-                          ),
-                    ),
-                    const SizedBox(height: 2),
-                    Text(
-                      cocoonDigits('$week', fa),
-                      style: Theme.of(context).textTheme.titleMedium?.copyWith(
-                            color: active ? Colors.white : CocoonTheme.ink,
-                          ),
-                    ),
-                  ],
+              child: InkWell(
+                onTap: onOpenWeek == null ? null : () => onOpenWeek!(week),
+                borderRadius: BorderRadius.circular(18),
+                child: Container(
+                  padding: const EdgeInsetsDirectional.symmetric(vertical: 11),
+                  decoration: BoxDecoration(
+                    color: active ? CocoonTheme.ink : CocoonTheme.cream,
+                    borderRadius: BorderRadius.circular(18),
+                  ),
+                  child: Column(
+                    children: [
+                      Text(
+                        fa ? 'هفته' : 'Week',
+                        style: Theme.of(context)
+                            .textTheme
+                            .labelMedium
+                            ?.copyWith(
+                              color:
+                                  active ? Colors.white70 : CocoonTheme.muted,
+                            ),
+                      ),
+                      const SizedBox(height: 2),
+                      Text(
+                        cocoonDigits('$week', fa),
+                        style: Theme.of(context)
+                            .textTheme
+                            .titleMedium
+                            ?.copyWith(
+                              color: active ? Colors.white : CocoonTheme.ink,
+                            ),
+                      ),
+                    ],
+                  ),
                 ),
               ),
             ),
-          );
-        }).toList(),
+          ),
+        );
+      }).toList(),
+    );
+  }
+}
+
+class _CarePlanState extends StatelessWidget {
+  const _CarePlanState({
+    required this.fa,
+    required this.state,
+    required this.items,
+    this.onOpenItem,
+    this.onRetry,
+  });
+
+  final bool fa;
+  final CocoonCalendarLoadState state;
+  final List<CocoonCalendarItem> items;
+  final ValueChanged<CocoonCalendarItem>? onOpenItem;
+  final VoidCallback? onRetry;
+
+  @override
+  Widget build(BuildContext context) {
+    if (state == CocoonCalendarLoadState.loading) {
+      return CocoonLoadingState(
+        semanticLabel:
+            fa ? 'در حال بارگذاری برنامه مراقبت' : 'Loading care plan',
+      );
+    }
+    if (state == CocoonCalendarLoadState.error) {
+      return CocoonEmptyState(
+        icon: Icons.cloud_off_rounded,
+        title: fa ? 'برنامه مراقبت در دسترس نیست' : 'Care plan unavailable',
+        body: fa
+            ? 'برای دریافت اطلاعات به‌روز دوباره تلاش کن.'
+            : 'Try again to retrieve your current care plan.',
+        actionLabel:
+            onRetry == null ? null : (fa ? 'تلاش دوباره' : 'Try again'),
+        onAction: onRetry,
+      );
+    }
+    if (state == CocoonCalendarLoadState.empty || items.isEmpty) {
+      return _CalendarEmptyState(fa: fa);
+    }
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        if (state == CocoonCalendarLoadState.offlineCached) ...[
+          CocoonStatusBadge(
+            icon: Icons.cloud_off_outlined,
+            label: fa
+                ? 'نمایش آخرین برنامه ذخیره‌شده روی دستگاه'
+                : 'Showing the last saved device copy',
+          ),
+          const SizedBox(height: 12),
+        ],
+        for (final item in items) ...[
+          _CarePlanItem(
+            item: item,
+            fa: fa,
+            onTap: onOpenItem == null ? null : () => onOpenItem!(item),
+          ),
+          const SizedBox(height: 10),
+        ],
+        if (state == CocoonCalendarLoadState.partial)
+          Padding(
+            padding: const EdgeInsetsDirectional.only(top: 4),
+            child: Text(
+              fa
+                  ? 'بخش دیگری از برنامه پس از همگام‌سازی نمایش داده می‌شود.'
+                  : 'More of this care plan will appear after sync.',
+              style: Theme.of(context)
+                  .textTheme
+                  .labelMedium
+                  ?.copyWith(color: CocoonTheme.muted),
+            ),
+          ),
+      ],
+    );
+  }
+}
+
+class _CarePlanItem extends StatelessWidget {
+  const _CarePlanItem({required this.item, required this.fa, this.onTap});
+
+  final CocoonCalendarItem item;
+  final bool fa;
+  final VoidCallback? onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    final icon = switch (item.kind) {
+      CocoonCalendarItemKind.appointment => Icons.event_outlined,
+      CocoonCalendarItemKind.reminder => Icons.notifications_none_rounded,
+      CocoonCalendarItemKind.milestone => Icons.flag_outlined,
+    };
+    return Semantics(
+      button: onTap != null,
+      label: '${item.title}، ${item.dateLabel}',
+      child: InkWell(
+        onTap: onTap,
+        borderRadius: BorderRadius.circular(CocoonRadii.card),
+        child: Ink(
+          padding: const EdgeInsetsDirectional.all(CocoonSpacing.lg),
+          decoration: BoxDecoration(
+            color: CocoonColors.surfaceRaised,
+            borderRadius: BorderRadius.circular(CocoonRadii.card),
+            border: Border.all(color: CocoonColors.line),
+          ),
+          child: Row(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Container(
+                width: 44,
+                height: 44,
+                decoration: BoxDecoration(
+                  color: CocoonColors.sky,
+                  borderRadius: BorderRadius.circular(CocoonRadii.control),
+                ),
+                child: Icon(icon, color: CocoonColors.skyStrong),
+              ),
+              const SizedBox(width: CocoonSpacing.md),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      item.title,
+                      style: Theme.of(context).textTheme.titleMedium,
+                    ),
+                    const SizedBox(height: 3),
+                    Text(
+                      [
+                        item.dateLabel,
+                        item.timeLabel,
+                      ].whereType<String>().join(' · '),
+                      style: Theme.of(context)
+                          .textTheme
+                          .labelMedium
+                          ?.copyWith(color: CocoonColors.muted),
+                    ),
+                    if (item.supporting != null) ...[
+                      const SizedBox(height: 5),
+                      Text(
+                        item.supporting!,
+                        style: Theme.of(context).textTheme.bodySmall,
+                      ),
+                    ],
+                  ],
+                ),
+              ),
+              if (item.pendingSync)
+                Padding(
+                  padding: const EdgeInsetsDirectional.only(start: 8),
+                  child: Icon(
+                    Icons.sync_rounded,
+                    size: 18,
+                    color: CocoonColors.skyStrong,
+                    semanticLabel: fa ? 'در انتظار همگام‌سازی' : 'Pending sync',
+                  ),
+                )
+              else if (onTap != null)
+                const Padding(
+                  padding: EdgeInsetsDirectional.only(start: 8),
+                  child: Icon(
+                    Icons.chevron_right_rounded,
+                    color: CocoonColors.muted,
+                  ),
+                ),
+            ],
+          ),
+        ),
       ),
     );
   }
@@ -335,46 +576,12 @@ class _CalendarEmptyState extends StatelessWidget {
   final bool fa;
 
   @override
-  Widget build(BuildContext context) => Container(
-        padding: const EdgeInsetsDirectional.all(20),
-        decoration: BoxDecoration(
-          color: CocoonTheme.sky,
-          borderRadius: BorderRadius.circular(24),
-        ),
-        child: Row(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            const CircleAvatar(
-              radius: 24,
-              backgroundColor: Colors.white,
-              child: Icon(
-                Icons.event_available_outlined,
-                color: CocoonTheme.skyStrong,
-              ),
-            ),
-            const SizedBox(width: 14),
-            Expanded(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(
-                    fa ? 'برنامه‌ای ثبت نشده' : 'No saved care plan',
-                    style: Theme.of(context).textTheme.titleMedium,
-                  ),
-                  const SizedBox(height: 5),
-                  Text(
-                    fa
-                        ? 'وقتی قرار یا یادآوری معتبر ثبت شود، اینجا به‌ترتیب زمان دیده می‌شود.'
-                        : 'Saved appointments and reminders will appear here in time order.',
-                    style: Theme.of(
-                      context,
-                    ).textTheme.bodyMedium?.copyWith(color: CocoonTheme.muted),
-                  ),
-                ],
-              ),
-            ),
-          ],
-        ),
+  Widget build(BuildContext context) => CocoonEmptyState(
+        icon: Icons.event_available_outlined,
+        title: fa ? 'برنامه‌ای ثبت نشده' : 'No saved care plan',
+        body: fa
+            ? 'وقتی قرار یا یادآوری معتبر ثبت شود، اینجا به‌ترتیب زمان دیده می‌شود.'
+            : 'Saved appointments and reminders will appear here in time order.',
       );
 }
 
