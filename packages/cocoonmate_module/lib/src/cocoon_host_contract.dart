@@ -34,6 +34,39 @@ abstract interface class CocoonHostContract {
   void recordSafeEvent(String name);
 }
 
+/// UI-only presentation state. The host remains the owner of canonical care
+/// events, durable execution, and any server reconciliation.
+enum CocoonCalendarLoadState {
+  loading,
+  empty,
+  populated,
+  partial,
+  error,
+  offlineCached,
+}
+
+enum CocoonCalendarItemKind { appointment, reminder, milestone }
+
+class CocoonCalendarItem {
+  const CocoonCalendarItem({
+    required this.id,
+    required this.title,
+    required this.dateLabel,
+    required this.kind,
+    this.timeLabel,
+    this.supporting,
+    this.pendingSync = false,
+  });
+
+  final String id;
+  final String title;
+  final String dateLabel;
+  final CocoonCalendarItemKind kind;
+  final String? timeLabel;
+  final String? supporting;
+  final bool pendingSync;
+}
+
 class CocoonModuleConfig {
   const CocoonModuleConfig({
     required this.host,
@@ -41,6 +74,12 @@ class CocoonModuleConfig {
     this.timezone = 'UTC',
     this.pickPregnancyDate,
     this.activatePregnancy,
+    this.calendarState = CocoonCalendarLoadState.empty,
+    this.calendarItems = const [],
+    this.calendarAsOfLocalDate,
+    this.onOpenCalendarItem,
+    this.onOpenCalendarWeek,
+    this.onRetryCalendar,
     this.recordsState = CocoonRecordsState.empty,
     this.records = const [],
     this.onOpenRecord,
@@ -98,6 +137,12 @@ class CocoonModuleConfig {
   )? pickPregnancyDate;
   final Future<bool> Function(CocoonPregnancySetupDraft draft)?
       activatePregnancy;
+  final CocoonCalendarLoadState calendarState;
+  final List<CocoonCalendarItem> calendarItems;
+  final DateTime? calendarAsOfLocalDate;
+  final ValueChanged<CocoonCalendarItem>? onOpenCalendarItem;
+  final ValueChanged<int>? onOpenCalendarWeek;
+  final VoidCallback? onRetryCalendar;
   final CocoonRecordsState recordsState;
   final List<CocoonRecordViewData> records;
   final ValueChanged<CocoonRecordViewData>? onOpenRecord;
