@@ -184,6 +184,16 @@ function mapSymptom(row: Row): Record<string, unknown> {
   const ruleSetVersion = row.safety_rule_set_version == null
     ? null
     : Number(row.safety_rule_set_version);
+  const outcome = row.safety_outcome == null
+    ? null
+    : String(row.safety_outcome);
+  const guidanceKey = row.safety_guidance_key == null
+    ? null
+    : String(row.safety_guidance_key);
+  const safetyHandoff =
+    signal == null || ruleSetVersion == null || outcome == null || guidanceKey == null
+      ? null
+      : { ruleSetVersion, signal, outcome, guidanceKey };
   return {
     id: String(row.id),
     episodeId: String(row.episode_id),
@@ -196,18 +206,7 @@ function mapSymptom(row: Row): Record<string, unknown> {
     clientRequestId: String(row.client_request_id),
     version: Number(row.version),
     createdAtUtc: new Date(row.created_at_utc).toISOString(),
-    safetyHandoff: signal == null || ruleSetVersion == null
-      ? null
-      : {
-        ruleSetVersion,
-        signal,
-        outcome: new Date().getTime() >= safetyReviewDueAtUtc
-          ? "conservative_fallback"
-          : "emergency",
-        guidanceKey: new Date().getTime() >= safetyReviewDueAtUtc
-          ? "pregnancy.safety.conservative_fallback"
-          : "pregnancy.safety.seek_emergency_care",
-      },
+    safetyHandoff,
   };
 }
 
@@ -424,23 +423,27 @@ export function createPregnancyDailyTrackingRouteHandler(databaseUrl: string) {
           insert into pregnancy.symptom_entries(
             episode_id,symptom_code,intensity,note,observed_at_utc,
             observed_local_date,time_zone,safety_signal,safety_rule_set_version,
-            client_request_id,recorded_by_account_id
+            safety_outcome,safety_guidance_key,client_request_id,
+            recorded_by_account_id
           ) values (
             ${episode.id}::uuid,${symptomCode},${intensity},${note},
             ${observedAtUtc}::timestamptz,${observedLocalDate}::date,${timeZone},
             ${safetyHandoff?.signal ?? null},
             ${safetyHandoff?.ruleSetVersion ?? null},
+            ${safetyHandoff?.outcome ?? null},
+            ${safetyHandoff?.guidanceKey ?? null},
             ${clientRequestId}::uuid,${accountId}::uuid
           ) returning *
         `;
         return { row: rows[0], created: true };
       });
 
+      const symptom = mapSymptom(result.row);
       return json(
         {
           contractVersion: 1,
-          symptom: mapSymptom(result.row),
-          safetyHandoff,
+          symptom,
+          safetyHandoff: symptom.safetyHandoff,
         },
         result.created ? 201 : 200,
       );
