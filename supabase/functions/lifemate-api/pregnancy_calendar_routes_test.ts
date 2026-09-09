@@ -1,6 +1,4 @@
-import {
-  assertEquals,
-} from "https://deno.land/std@0.224.0/assert/mod.ts";
+import { assertEquals } from "https://deno.land/std@0.224.0/assert/mod.ts";
 import { filterLinkedPregnancyCareEvents } from "./pregnancy_calendar_routes.ts";
 
 Deno.test("pregnancy calendar keeps only linked canonical series", () => {
