@@ -633,6 +633,92 @@ class CocoonGrowthOrb extends StatelessWidget {
       );
 }
 
+/// A stable visual composition for generated CocoonMate art. The painted
+/// fallback preserves hierarchy while the named asset is pending generation.
+class CocoonFetalHeroFrame extends StatelessWidget {
+  const CocoonFetalHeroFrame({
+    required this.progress,
+    required this.semanticLabel,
+    this.size = 180,
+    super.key,
+  });
+
+  final double progress;
+  final double size;
+  final String semanticLabel;
+
+  @override
+  Widget build(BuildContext context) => Semantics(
+        image: true,
+        label: semanticLabel,
+        child: SizedBox.square(
+          dimension: size,
+          child: DecoratedBox(
+            decoration: BoxDecoration(
+              color: const Color(0xFFFFD9CE),
+              shape: BoxShape.circle,
+              border: Border.all(color: Colors.white, width: 5),
+              boxShadow: CocoonElevation.hero,
+            ),
+            child: Stack(
+              alignment: Alignment.center,
+              children: [
+                Positioned.fill(
+                  child: Padding(
+                    padding: const EdgeInsets.all(9),
+                    child: CircularProgressIndicator(
+                      value: progress.clamp(0, 1).toDouble(),
+                      strokeWidth: 6,
+                      strokeCap: StrokeCap.round,
+                      color: CocoonTheme.coral,
+                      backgroundColor: const Color(0x33FFFFFF),
+                    ),
+                  ),
+                ),
+                Container(
+                  width: size * .55,
+                  height: size * .68,
+                  transform: Matrix4.rotationZ(-.35),
+                  decoration: BoxDecoration(
+                    color: const Color(0xFFFFBCA9),
+                    borderRadius: BorderRadius.circular(size),
+                    boxShadow: const [
+                      BoxShadow(
+                        color: Color(0x26A8434D),
+                        blurRadius: 18,
+                        offset: Offset(0, 8),
+                      ),
+                    ],
+                  ),
+                ),
+                Positioned(
+                  right: size * .18,
+                  top: size * .23,
+                  child: Container(
+                    width: size * .13,
+                    height: size * .13,
+                    decoration: const BoxDecoration(
+                      color: CocoonTheme.sageStrong,
+                      shape: BoxShape.circle,
+                    ),
+                  ),
+                ),
+                Positioned(
+                  left: size * .12,
+                  bottom: size * .19,
+                  child: Icon(
+                    Icons.auto_awesome_rounded,
+                    size: size * .16,
+                    color: Colors.white70,
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ),
+      );
+}
+
 String cocoonDigits(String value, bool fa) {
   if (!fa) return value;
   const western = '0123456789';

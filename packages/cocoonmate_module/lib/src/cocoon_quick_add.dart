@@ -156,10 +156,12 @@ class _QuickAddHero extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) => Container(
-        padding: const EdgeInsetsDirectional.fromSTEB(22, 24, 22, 22),
+        padding: const EdgeInsetsDirectional.fromSTEB(22, 28, 22, 26),
         decoration: BoxDecoration(
-          color: CocoonTheme.warm,
-          borderRadius: BorderRadius.circular(28),
+          color: const Color(0xFFFFECE3),
+          borderRadius: BorderRadius.circular(CocoonRadii.hero),
+          border: Border.all(color: Colors.white),
+          boxShadow: CocoonElevation.hero,
         ),
         child: Row(
           children: [
@@ -170,8 +172,10 @@ class _QuickAddHero extends StatelessWidget {
                 color: Colors.white,
                 shape: BoxShape.circle,
               ),
-              child: const Icon(Icons.add_rounded,
-                  size: 32, color: CocoonTheme.coral),
+              child: CocoonBrandMark(
+                semanticLabel: fa ? 'همراه کوکون‌میت' : 'CocoonMate companion',
+                size: 48,
+              ),
             ),
             const SizedBox(width: 16),
             Expanded(
@@ -179,14 +183,16 @@ class _QuickAddHero extends StatelessWidget {
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   Text(
-                    fa ? 'یک ثبت ساده و آرام' : 'A simple, gentle update',
+                    fa
+                        ? 'چی رو می‌خوای ثبت کنی؟'
+                        : 'What would you like to add?',
                     style: Theme.of(context).textTheme.headlineSmall,
                   ),
                   const SizedBox(height: 5),
                   Text(
                     fa
-                        ? 'فقط چیزی که همین حالا مهم است.'
-                        : 'Only what matters right now.',
+                        ? 'هر چیزی که امروز حس کردی، اینجا امن می‌مونه.'
+                        : 'Whatever you noticed today has a calm place here.',
                     style: Theme.of(context)
                         .textTheme
                         .bodyMedium
@@ -313,13 +319,17 @@ class _QuickAddTile extends StatelessWidget {
       enabled: enabled,
       child: InkWell(
         onTap: enabled ? onTap : null,
-        borderRadius: BorderRadius.circular(21),
+        borderRadius: BorderRadius.circular(CocoonRadii.card),
         child: Ink(
           padding: const EdgeInsetsDirectional.all(16),
           decoration: BoxDecoration(
-            color: enabled ? Colors.white : const Color(0xFFF5F3F1),
-            borderRadius: BorderRadius.circular(21),
-            border: Border.all(color: CocoonTheme.line),
+            color: enabled ? color : const Color(0xFFF5F3F1),
+            borderRadius: BorderRadius.circular(CocoonRadii.card),
+            border: Border.all(
+              color: enabled
+                  ? foreground.withValues(alpha: .24)
+                  : CocoonTheme.line,
+            ),
           ),
           child: Row(
             children: [
@@ -327,7 +337,7 @@ class _QuickAddTile extends StatelessWidget {
                 width: 48,
                 height: 48,
                 decoration: BoxDecoration(
-                  color: color,
+                  color: Colors.white70,
                   borderRadius: BorderRadius.circular(16),
                 ),
                 child: Icon(icon, color: foreground),

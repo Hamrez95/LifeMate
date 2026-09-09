@@ -454,7 +454,7 @@ void main() {
       ),
     );
 
-    expect(find.text('یک ثبت ساده و آرام'), findsOneWidget);
+    expect(find.text('چی رو می‌خوای ثبت کنی؟'), findsOneWidget);
     await tester.tap(find.text('حال امروز'));
     await tester.pumpAndSettle();
     expect(find.text('یک مکث کوتاه برای خودت'), findsOneWidget);
