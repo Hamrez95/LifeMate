@@ -1,0 +1,61 @@
+{
+  "schemaVersion": 1,
+  "product": "CocoonMate",
+  "updatedAt": "2026-09-08",
+  "assets": [
+    {
+      "id": "onboarding-protected-growth-v1",
+      "path": "assets/illustrations/onboarding-protected-growth-v1.png",
+      "purpose": "Non-clinical emotional orientation",
+      "placement": ["pregnancy onboarding welcome hero"],
+      "aspectRatio": "4:5 source; 4:3 safe UI crop",
+      "lightBackgroundCompatible": true,
+      "rtlSafety": "centered composition with bidirectional negative space",
+      "semanticRole": "supportive illustration; not a medical diagram",
+      "sourceStatus": "generated with OpenAI built-in image generation",
+      "generationPromptVersion": "cocoon-onboarding-protected-growth-1",
+      "medicalReviewStatus": "not_required_non_clinical",
+      "sha256": "680ea1b33cfd8b33510ca460b959995169d2daea4e6b0a7d5e51dcc41ddd92be"
+    },
+    {
+      "id": "cocoon-brand-mark-v1",
+      "path": "lib/src/cocoon_components.dart#CocoonBrandMark",
+      "purpose": "In-app CocoonMate identity",
+      "placement": ["launch loading state", "compact product identity"],
+      "aspectRatio": "1:1",
+      "lightBackgroundCompatible": true,
+      "rtlSafety": "direction-neutral nested form",
+      "semanticRole": "brand mark",
+      "sourceStatus": "original code-native vector painter",
+      "medicalReviewStatus": "not_required_non_clinical"
+    },
+    {
+      "id": "fetal-development-series",
+      "path": null,
+      "purpose": "Stage-specific fetal development education",
+      "placement": ["pregnancy home hero", "week detail hero"],
+      "aspectRatio": "pending clinical and art review",
+      "lightBackgroundCompatible": true,
+      "rtlSafety": "required before release",
+      "semanticRole": "medical educational illustration",
+      "sourceStatus": "not_generated; previous pack rejected",
+      "medicalReviewStatus": "blocked_pending_stage_manifest_and_clinical_review",
+      "runtimeFallback": "CocoonGrowthOrb"
+    }
+  ],
+  "fonts": [
+    {
+      "family": "Vazirmatn",
+      "version": "33.003",
+      "source": "https://github.com/rastikerdar/vazirmatn/releases/tag/v33.003",
+      "license": "SIL Open Font License 1.1",
+      "licenseFile": "assets/fonts/OFL.txt",
+      "files": {
+        "Vazirmatn-Regular.ttf": "b69fd4c680b8f3f225feabcc655a2c585d97627b8f5f5c0f9985e894069f3a56",
+        "Vazirmatn-Medium.ttf": "b986623e4ddef10755e04be39f8ea7bcb1dc08bfe8dd0aa6af395736f256ad4a",
+        "Vazirmatn-SemiBold.ttf": "3f239d8364c14ee32c46b6839fa197c28958358b82a9673d2c6acc8506d78bc5",
+        "Vazirmatn-Bold.ttf": "f635fdbea28f265de395ba83b4b1570dcf2f58d13c65469e61903b1c2d2ae723"
+      }
+    }
+  ]
+}

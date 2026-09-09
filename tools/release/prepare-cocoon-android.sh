@@ -41,6 +41,8 @@ verify_environment() {
 
 prepare_android() {
   command -v flutter >/dev/null 2>&1 || fail "flutter is required"
+  local python_bin="${PYTHON:-python3}"
+  command -v "$python_bin" >/dev/null 2>&1 || fail "python3 is required"
   [[ -f "$app_dir/pubspec.yaml" ]] || fail "cocoonmate/pubspec.yaml is missing"
 
   (
@@ -61,7 +63,7 @@ prepare_android() {
   [[ -f "$manifest" ]] || fail "generated AndroidManifest.xml is missing"
   [[ -f "$gradle" ]] || fail "generated Android build.gradle.kts is missing"
 
-  python3 - "$manifest" "$gradle" <<'PY'
+  "$python_bin" - "$manifest" "$gradle" <<'PY'
 from pathlib import Path
 import sys
 
@@ -84,7 +86,7 @@ if 'android:icon="@mipmap/ic_launcher"' not in text:
     raise SystemExit('generated launcher icon contract changed')
 text = text.replace(
     'android:icon="@mipmap/ic_launcher"',
-    'android:icon="@drawable/cocoon_launcher" android:roundIcon="@drawable/cocoon_launcher"',
+    'android:icon="@mipmap/cocoon_launcher" android:roundIcon="@mipmap/cocoon_launcher"',
     1,
 )
 manifest_path.write_text(text)
@@ -109,17 +111,145 @@ if desugaring_dependency not in gradle_text:
 gradle_path.write_text(gradle_text)
 PY
 
-  mkdir -p "$app_dir/android/app/src/main/res/drawable"
-  cat > "$app_dir/android/app/src/main/res/drawable/cocoon_launcher.xml" <<'XML'
+  local res="$app_dir/android/app/src/main/res"
+  mkdir -p \
+    "$res/drawable" \
+    "$res/mipmap-anydpi" \
+    "$res/mipmap-anydpi-v26" \
+    "$res/mipmap-anydpi-v33" \
+    "$res/values" \
+    "$res/values-v31"
+
+  cat > "$res/values/cocoon_colors.xml" <<'XML'
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <color name="cocoon_canvas">#FFF8F2</color>
+    <color name="cocoon_coral">#A8434D</color>
+</resources>
+XML
+
+  # The three separated forms read as a protected inner cocoon at launcher,
+  # splash, monochrome and notification sizes without using fetal or heart
+  # imagery. Keep the artwork inside the adaptive-icon safe zone.
+  cat > "$res/drawable/cocoon_launcher_foreground.xml" <<'XML'
 <vector xmlns:android="http://schemas.android.com/apk/res/android"
     android:width="108dp"
     android:height="108dp"
-    android:viewportWidth="24"
-    android:viewportHeight="24">
+    android:viewportWidth="108"
+    android:viewportHeight="108">
     <path
-        android:fillColor="#B75D88"
-        android:pathData="M12,21.35l-1.45,-1.32C5.4,15.36 2,12.28 2,8.5C2,5.42 4.42,3 7.5,3c1.74,0 3.41,0.81 4.5,2.09C13.09,3.81 14.76,3 16.5,3C19.58,3 22,5.42 22,8.5c0,3.78 -3.4,6.86 -8.55,11.54L12,21.35z" />
+        android:fillColor="#FFFFFAF6"
+        android:pathData="M50,18C31,20 20,34 20,54C20,74 31,88 50,90C40,79 35,67 35,54C35,41 40,29 50,18Z" />
+    <path
+        android:fillColor="#FFFFFAF6"
+        android:pathData="M58,18C77,20 88,34 88,54C88,74 77,88 58,90C68,79 73,67 73,54C73,41 68,29 58,18Z" />
+    <path
+        android:fillColor="#FFF0EAF7"
+        android:pathData="M54,35C45,43 45,65 54,73C63,65 63,43 54,35Z" />
 </vector>
+XML
+
+  cat > "$res/drawable/cocoon_launcher_monochrome.xml" <<'XML'
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="108dp"
+    android:height="108dp"
+    android:viewportWidth="108"
+    android:viewportHeight="108">
+    <path
+        android:fillColor="#FFFFFFFF"
+        android:pathData="M50,18C31,20 20,34 20,54C20,74 31,88 50,90C40,79 35,67 35,54C35,41 40,29 50,18Z" />
+    <path
+        android:fillColor="#FFFFFFFF"
+        android:pathData="M58,18C77,20 88,34 88,54C88,74 77,88 58,90C68,79 73,67 73,54C73,41 68,29 58,18Z" />
+    <path
+        android:fillColor="#FFFFFFFF"
+        android:pathData="M54,35C45,43 45,65 54,73C63,65 63,43 54,35Z" />
+</vector>
+XML
+
+  cat > "$res/mipmap-anydpi/cocoon_launcher.xml" <<'XML'
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="108dp"
+    android:height="108dp"
+    android:viewportWidth="108"
+    android:viewportHeight="108">
+    <path
+        android:fillColor="#FFA8434D"
+        android:pathData="M54,3A51,51 0,1 1,54 105A51,51 0,1 1,54 3Z" />
+    <path
+        android:fillColor="#FFFFFAF6"
+        android:pathData="M50,18C31,20 20,34 20,54C20,74 31,88 50,90C40,79 35,67 35,54C35,41 40,29 50,18Z" />
+    <path
+        android:fillColor="#FFFFFAF6"
+        android:pathData="M58,18C77,20 88,34 88,54C88,74 77,88 58,90C68,79 73,67 73,54C73,41 68,29 58,18Z" />
+    <path
+        android:fillColor="#FFF0EAF7"
+        android:pathData="M54,35C45,43 45,65 54,73C63,65 63,43 54,35Z" />
+</vector>
+XML
+
+  cat > "$res/mipmap-anydpi-v26/cocoon_launcher.xml" <<'XML'
+<adaptive-icon xmlns:android="http://schemas.android.com/apk/res/android">
+    <background android:drawable="@color/cocoon_coral" />
+    <foreground android:drawable="@drawable/cocoon_launcher_foreground" />
+</adaptive-icon>
+XML
+
+  cat > "$res/mipmap-anydpi-v33/cocoon_launcher.xml" <<'XML'
+<adaptive-icon xmlns:android="http://schemas.android.com/apk/res/android">
+    <background android:drawable="@color/cocoon_coral" />
+    <foreground android:drawable="@drawable/cocoon_launcher_foreground" />
+    <monochrome android:drawable="@drawable/cocoon_launcher_monochrome" />
+</adaptive-icon>
+XML
+
+  # White-only small silhouette suitable for Android notification rendering.
+  cat > "$res/drawable/cocoon_notification.xml" <<'XML'
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="24dp"
+    android:height="24dp"
+    android:viewportWidth="108"
+    android:viewportHeight="108">
+    <path
+        android:fillColor="#FFFFFFFF"
+        android:pathData="M50,18C31,20 20,34 20,54C20,74 31,88 50,90C40,79 35,67 35,54C35,41 40,29 50,18ZM58,18C77,20 88,34 88,54C88,74 77,88 58,90C68,79 73,67 73,54C73,41 68,29 58,18ZM54,35C45,43 45,65 54,73C63,65 63,43 54,35Z" />
+</vector>
+XML
+
+  cat > "$res/drawable/cocoon_splash_mark.xml" <<'XML'
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="108dp"
+    android:height="108dp"
+    android:viewportWidth="108"
+    android:viewportHeight="108">
+    <path
+        android:fillColor="#FFA8434D"
+        android:pathData="M50,18C31,20 20,34 20,54C20,74 31,88 50,90C40,79 35,67 35,54C35,41 40,29 50,18ZM58,18C77,20 88,34 88,54C88,74 77,88 58,90C68,79 73,67 73,54C73,41 68,29 58,18Z" />
+    <path
+        android:fillColor="#FF8765B4"
+        android:pathData="M54,35C45,43 45,65 54,73C63,65 63,43 54,35Z" />
+</vector>
+XML
+
+  cat > "$res/drawable/launch_background.xml" <<'XML'
+<?xml version="1.0" encoding="utf-8"?>
+<layer-list xmlns:android="http://schemas.android.com/apk/res/android">
+    <item android:drawable="@color/cocoon_canvas" />
+    <item android:drawable="@drawable/cocoon_splash_mark" android:gravity="center" />
+</layer-list>
+XML
+
+  cat > "$res/values-v31/styles.xml" <<'XML'
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <style name="LaunchTheme" parent="@android:style/Theme.Light.NoTitleBar">
+        <item name="android:forceDarkAllowed">false</item>
+        <item name="android:windowSplashScreenBackground">@color/cocoon_canvas</item>
+        <item name="android:windowSplashScreenAnimatedIcon">@drawable/cocoon_splash_mark</item>
+        <item name="android:postSplashScreenTheme">@style/NormalTheme</item>
+        <item name="android:windowLightStatusBar">true</item>
+    </style>
+</resources>
 XML
 
   grep -Fq 'applicationId = "com.mylifemate.cocoonmate"' "$gradle" || \
@@ -132,8 +262,24 @@ XML
     fail "Cocoon Android display name is missing."
   grep -Fq 'android.permission.INTERNET' "$manifest" || \
     fail "Cocoon Android release network permission is missing."
-  grep -Fq '@drawable/cocoon_launcher' "$manifest" || \
+  grep -Fq '@mipmap/cocoon_launcher' "$manifest" || \
     fail "Cocoon Android launcher identity is missing."
+  grep -Fq '@drawable/cocoon_launcher_foreground' \
+    "$res/mipmap-anydpi-v26/cocoon_launcher.xml" || \
+    fail "Cocoon Android adaptive launcher foreground is missing."
+  grep -Fq '<monochrome android:drawable="@drawable/cocoon_launcher_monochrome"' \
+    "$res/mipmap-anydpi-v33/cocoon_launcher.xml" || \
+    fail "Cocoon Android monochrome launcher identity is missing."
+  [[ -s "$res/drawable/cocoon_notification.xml" ]] || \
+    fail "Cocoon Android notification-safe icon is missing."
+  grep -Fq '@drawable/cocoon_splash_mark' "$res/drawable/launch_background.xml" || \
+    fail "Cocoon Android legacy splash identity is missing."
+  grep -Fq 'android:windowSplashScreenAnimatedIcon' "$res/values-v31/styles.xml" || \
+    fail "Cocoon Android 12 splash identity is missing."
+  if grep -R -Fq '#B75D88' "$res" || \
+      grep -R -Fq 'M12,21.35l-1.45,-1.32' "$res"; then
+    fail "Deprecated heart launcher artwork is still present."
+  fi
 }
 
 case "${1:-prepare}" in

@@ -129,12 +129,25 @@ class _CocoonShellState extends State<CocoonShell> {
             child: Semantics(
               liveRegion: true,
               label: t('Loading CocoonMate', 'در حال آماده‌سازی کوکون‌میت'),
-              child: const SizedBox.square(
-                dimension: 72,
-                child: CircularProgressIndicator(
-                  strokeWidth: 5,
-                  color: CocoonTheme.coral,
-                  backgroundColor: CocoonTheme.coralSoft,
+              child: ExcludeSemantics(
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    CocoonBrandMark(
+                      semanticLabel: t('CocoonMate logo', 'نشان کوکون‌میت'),
+                      size: 88,
+                    ),
+                    const SizedBox(height: CocoonSpacing.lg),
+                    const SizedBox(
+                      width: 96,
+                      child: LinearProgressIndicator(
+                        minHeight: 4,
+                        borderRadius: BorderRadius.all(Radius.circular(4)),
+                        color: CocoonColors.coralAction,
+                        backgroundColor: CocoonColors.coralSoft,
+                      ),
+                    ),
+                  ],
                 ),
               ),
             ),
@@ -194,10 +207,12 @@ class _CocoonShellState extends State<CocoonShell> {
                     widget.config.onRetrySettings != null
                 ? () => _openSettings(host)
                 : host.openGlobalProfile,
-            icon: Icon(widget.config.settingsData != null ||
-                    widget.config.onRetrySettings != null
-                ? Icons.tune_rounded
-                : Icons.person_outline),
+            icon: Icon(
+              widget.config.settingsData != null ||
+                      widget.config.onRetrySettings != null
+                  ? Icons.tune_rounded
+                  : Icons.person_outline,
+            ),
           ),
         ],
       ),
@@ -490,9 +505,10 @@ class _DestinationState extends StatelessWidget {
                 Text(
                   body,
                   textAlign: TextAlign.center,
-                  style: Theme.of(
-                    context,
-                  ).textTheme.bodyLarge?.copyWith(color: CocoonTheme.muted),
+                  style: Theme.of(context)
+                      .textTheme
+                      .bodyLarge
+                      ?.copyWith(color: CocoonTheme.muted),
                 ),
               ],
             ),
