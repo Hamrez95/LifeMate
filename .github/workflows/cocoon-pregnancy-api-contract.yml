@@ -6,11 +6,14 @@ on:
     paths:
       - 'supabase/functions/lifemate-api/pregnancy_routes.ts'
       - 'supabase/functions/lifemate-api/pregnancy_routes_test.ts'
+      - 'supabase/functions/lifemate-api/pregnancy_calendar_routes.ts'
+      - 'supabase/functions/lifemate-api/pregnancy_calendar_routes_test.ts'
       - 'supabase/functions/lifemate-api/pregnancy_store.ts'
       - 'supabase/functions/lifemate-api/pregnancy_dating.ts'
       - 'supabase/functions/lifemate-api/pregnancy_authorization.ts'
       - 'supabase/functions/lifemate-api/cocoon_routes.ts'
       - 'supabase/functions/lifemate-api/subscription_routes.ts'
+      - 'supabase/migrations/*cocoon_pregnancy*.sql'
       - 'packages/lifemate_client/lib/src/cocoon_pregnancy.dart'
       - 'packages/lifemate_client/lib/src/cocoon_pregnancy_api.dart'
       - 'packages/lifemate_client/lib/lifemate_client.dart'
@@ -37,16 +40,27 @@ jobs:
         with:
           deno-version: v2.9.4
       - name: Format pregnancy contract sources
-        run: deno fmt --check pregnancy_routes.ts pregnancy_routes_test.ts cocoon_routes.ts
+        run: >-
+          deno fmt --check
+          pregnancy_routes.ts
+          pregnancy_routes_test.ts
+          pregnancy_calendar_routes.ts
+          pregnancy_calendar_routes_test.ts
+          cocoon_routes.ts
       - name: Type check pregnancy contract sources
         run: >-
           deno check
           pregnancy_routes.ts
           pregnancy_routes_test.ts
+          pregnancy_calendar_routes.ts
+          pregnancy_calendar_routes_test.ts
           cocoon_routes.ts
           subscription_routes.ts
       - name: Unit pregnancy contract tests
-        run: deno test --no-check pregnancy_routes_test.ts
+        run: >-
+          deno test --no-check
+          pregnancy_routes_test.ts
+          pregnancy_calendar_routes_test.ts
       - name: Contract invariants
         shell: bash
         run: |
@@ -54,8 +68,12 @@ jobs:
           grep -Fq 'enrollmentState' pregnancy_routes.ts
           grep -Fq 'entitlementState' pregnancy_routes.ts
           grep -Fq 'pregnancy.owner.manage' pregnancy_routes.ts
+          grep -Fq 'pregnancy.appointments.read' pregnancy_calendar_routes.ts
+          grep -Fq 'pregnancy.care_event_links' pregnancy_calendar_routes.ts
+          grep -Fq 'createPersonCareEventStoreV2' pregnancy_calendar_routes.ts
           grep -Fq 'path.startsWith("/api/v1/cocoon/")' subscription_routes.ts
           grep -Fq 'createCocoonRouteHandler' subscription_routes.ts
+          grep -Fq 'createPregnancyCalendarRouteHandler' cocoon_routes.ts
           grep -Fq 'createPregnancyRouteHandler' cocoon_routes.ts
           ! grep -Fq 'currentWeek' pregnancy_routes.ts
 
