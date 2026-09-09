@@ -33,6 +33,16 @@ function requiredCareEventId(value: string): string {
   return value;
 }
 
+export function filterLinkedPregnancyCareEvents(
+  canonicalEvents: Record<string, unknown>[],
+  linkedCareEventIds: ReadonlySet<string>,
+): Record<string, unknown>[] {
+  return canonicalEvents.filter((event) => {
+    const seriesId = String(event.seriesId ?? event.id ?? "");
+    return linkedCareEventIds.has(seriesId);
+  });
+}
+
 export function createPregnancyCalendarRouteHandler(databaseUrl: string) {
   const sql = getLifeMateSql(databaseUrl);
   const identity = createCocoonIdentityResolver(databaseUrl);
@@ -81,10 +91,7 @@ export function createPregnancyCalendarRouteHandler(databaseUrl: string) {
         where episode_id=${episode.id}::uuid
       `;
       const linked = new Set(rows.map((row: any) => String(row.care_event_id)));
-      const visible = canonical.filter((event) => {
-        const seriesId = String(event.seriesId ?? event.id ?? "");
-        return linked.has(seriesId);
-      });
+      const visible = filterLinkedPregnancyCareEvents(canonical, linked);
 
       return json({
         contractVersion: 1,
