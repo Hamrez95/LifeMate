@@ -213,7 +213,11 @@ function Get-SelectedApps {
 function Get-Git([string[]]$Arguments) { (& git -C $Script:Root @Arguments 2>$null) }
 function Get-GitState {
   if (-not (Test-Tool git)) { return [pscustomobject]@{ Available=$false } }
-  $branch = (Get-Git @('branch','--show-current')).Trim(); $status = @(Get-Git @('status','--porcelain')); $upstream = (Get-Git @('rev-parse','--abbrev-ref','--symbolic-full-name','@{upstream}')).Trim()
+  $branchOutput = Get-Git @('branch','--show-current')
+  $branch = if ($null -eq $branchOutput) { '' } else { ([string]$branchOutput).Trim() }
+  $status = @(Get-Git @('status','--porcelain'))
+  $upstreamOutput = Get-Git @('rev-parse','--abbrev-ref','--symbolic-full-name','@{upstream}')
+  $upstream = if ($null -eq $upstreamOutput) { '' } else { ([string]$upstreamOutput).Trim() }
   $ahead = 0; $behind = 0
   if ($upstream) { $counts = (Get-Git @('rev-list','--left-right','--count',"HEAD...$upstream")).Trim().Split("`t ", [StringSplitOptions]::RemoveEmptyEntries); if ($counts.Count -eq 2) { $ahead=[int]$counts[0]; $behind=[int]$counts[1] } }
   [pscustomobject]@{ Available=$true; Branch=$branch; Dirty=($status.Count -gt 0); Changes=$status.Count; Upstream=$upstream; Ahead=$ahead; Behind=$behind }
