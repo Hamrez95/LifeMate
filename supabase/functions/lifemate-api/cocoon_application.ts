@@ -1,3 +1,4 @@
+import { createCocoonIdentityResolver } from "./cocoon_identity.ts";
 import { getLifeMateSql } from "./database_client.ts";
 
 export type CocoonApplicationAvailability = "available" | "unavailable";
@@ -72,10 +73,12 @@ export function classifyCocoonCommerceEligibility(input: {
 
 export function createCocoonApplicationBoundary(databaseUrl: string) {
   const sql = getLifeMateSql(databaseUrl);
+  const identity = createCocoonIdentityResolver(databaseUrl);
 
   async function resolveAndEnroll(
-    accountId: string,
+    appUserId: string,
   ): Promise<CocoonApplicationSnapshot> {
+    const { accountId } = await identity.resolve(appUserId);
     const applications = await sql`
       select id,status
       from ecosystem.applications
@@ -128,9 +131,10 @@ export function createCocoonApplicationBoundary(databaseUrl: string) {
   }
 
   async function commerceEligibility(
-    accountId: string,
+    appUserId: string,
   ): Promise<CocoonCommerceEligibilitySnapshot> {
     try {
+      const { accountId, personId } = await identity.resolve(appUserId);
       const rows = await sql`
         with cocoon_product as (
           select id,lifecycle_status
@@ -150,6 +154,7 @@ export function createCocoonApplicationBoundary(databaseUrl: string) {
             from commerce.subscriptions s
             join cocoon_product cp on cp.id=s.product_id
             where s.owner_account_id=${accountId}::uuid
+              and (s.beneficiary_person_id is null or s.beneficiary_person_id=${personId}::uuid)
               and s.status in ('Active','Trial')
               and s.starts_at_utc<=now()
               and (s.current_period_end_utc is null or s.current_period_end_utc>now())
@@ -168,6 +173,7 @@ export function createCocoonApplicationBoundary(databaseUrl: string) {
             join commerce.subscription_payment_sources ps on ps.subscription_id=source.id
             join commerce.transaction_effective_state_v1 tx on tx.transaction_id=ps.transaction_id
             where source.owner_account_id=${accountId}::uuid
+              and (source.beneficiary_person_id is null or source.beneficiary_person_id=${personId}::uuid)
               and source.status='Active'
               and source.starts_at_utc<=now()
               and source.current_period_end_utc>now()
@@ -183,6 +189,7 @@ export function createCocoonApplicationBoundary(databaseUrl: string) {
                 from commerce.subscriptions existing
                 join cocoon_product cp2 on cp2.id=existing.product_id
                 where existing.owner_account_id=${accountId}::uuid
+                  and (existing.beneficiary_person_id is null or existing.beneficiary_person_id=${personId}::uuid)
                   and existing.status='Active'
                   and (existing.current_period_end_utc is null or existing.current_period_end_utc>now())
               )
