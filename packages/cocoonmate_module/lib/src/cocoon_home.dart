@@ -46,10 +46,7 @@ class CocoonPregnancyHome extends StatelessWidget {
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.stretch,
               children: [
-                _HomeGreeting(
-                  fa: fa,
-                  onOpenNotifications: onOpenNotifications,
-                ),
+                _HomeGreeting(fa: fa, onOpenNotifications: onOpenNotifications),
                 const SizedBox(height: 22),
                 _PregnancyMoment(
                   fa: fa,
@@ -59,25 +56,33 @@ class CocoonPregnancyHome extends StatelessWidget {
                   onTap: onOpenWeek,
                 ),
                 const SizedBox(height: 30),
-                CocoonSectionHeading(
-                  title: t('For today', 'برای امروز'),
-                  supporting: t(
-                    'Only the next useful steps',
-                    'فقط قدم‌های بعدی و کاربردی',
+                Semantics(
+                  header: true,
+                  child: CocoonSectionHeading(
+                    title: t('A note for this week', 'یادداشت این هفته'),
+                    supporting: t(
+                      'Only reviewed guidance is shown here',
+                      'اینجا فقط راهنمای بازبینی‌شده نمایش داده می‌شود',
+                    ),
+                  ),
+                ),
+                const SizedBox(height: 14),
+                _WeeklyEditorial(fa: fa, week: week),
+                const SizedBox(height: 32),
+                Semantics(
+                  header: true,
+                  child: CocoonSectionHeading(
+                    title: t('For today', 'برای امروز'),
+                    supporting: t(
+                      'Only the next useful steps',
+                      'فقط قدم‌های بعدی و کاربردی',
+                    ),
                   ),
                 ),
                 const SizedBox(height: 14),
                 _TodayTimeline(fa: fa),
                 const SizedBox(height: 32),
-                CocoonSectionHeading(
-                  title: t('This week', 'این هفته'),
-                  supporting: t(
-                    'Reviewed guidance appears when available',
-                    'راهنمای بازبینی‌شده، وقتی آماده باشد',
-                  ),
-                ),
-                const SizedBox(height: 14),
-                _WeeklyEditorial(fa: fa, week: week),
+                _DevelopmentPreview(fa: fa, onOpenWeek: onOpenWeek),
                 const SizedBox(height: 32),
                 _SafetyEntry(fa: fa, onTap: onOpenSafety),
               ],
@@ -110,9 +115,10 @@ class _HomeGreeting extends StatelessWidget {
                   fa
                       ? 'آرام، روشن و قدم‌به‌قدم'
                       : 'Calm, clear, one step at a time',
-                  style: Theme.of(
-                    context,
-                  ).textTheme.bodyMedium?.copyWith(color: CocoonTheme.muted),
+                  style: Theme.of(context)
+                      .textTheme
+                      .bodyMedium
+                      ?.copyWith(color: CocoonTheme.muted),
                 ),
               ],
             ),
@@ -184,9 +190,10 @@ class _PregnancyMoment extends StatelessWidget {
                 children: [
                   Text(
                     fa ? 'لحظه‌ی فعلی بارداری' : 'Your current moment',
-                    style: Theme.of(
-                      context,
-                    ).textTheme.labelLarge?.copyWith(color: CocoonTheme.coral),
+                    style: Theme.of(context)
+                        .textTheme
+                        .labelLarge
+                        ?.copyWith(color: CocoonTheme.coral),
                   ),
                   const SizedBox(height: 8),
                   Wrap(
@@ -209,16 +216,55 @@ class _PregnancyMoment extends StatelessWidget {
                       ),
                     ],
                   ),
-                  const SizedBox(height: 10),
-                  Text(
-                    hasAge
-                        ? (fa ? 'جزئیات این هفته را ببین' : 'Explore this week')
-                        : (fa
-                            ? 'پس از دریافت تاریخ معتبر نمایش داده می‌شود'
-                            : 'Shown after verified dating is available'),
-                    style: Theme.of(
-                      context,
-                    ).textTheme.bodyMedium?.copyWith(color: CocoonTheme.muted),
+                  if (!hasAge) ...[
+                    const SizedBox(height: 10),
+                    Text(
+                      fa
+                          ? 'پس از دریافت تاریخ معتبر نمایش داده می‌شود'
+                          : 'Shown after verified dating is available',
+                      style: Theme.of(context)
+                          .textTheme
+                          .bodyMedium
+                          ?.copyWith(color: CocoonTheme.muted),
+                    ),
+                  ],
+                  if (hasAge) ...[
+                    const SizedBox(height: 16),
+                    ClipRRect(
+                      borderRadius: BorderRadius.circular(99),
+                      child: LinearProgressIndicator(
+                        minHeight: 7,
+                        value: progress,
+                        color: CocoonTheme.coral,
+                        backgroundColor: Colors.white,
+                      ),
+                    ),
+                    const SizedBox(height: 8),
+                    Text(
+                      fa
+                          ? 'پیشرفت بر پایه‌ی تاریخ ثبت‌شده'
+                          : 'Progress based on the recorded dating source',
+                      style: Theme.of(context).textTheme.labelMedium,
+                    ),
+                  ],
+                  const SizedBox(height: 16),
+                  Row(
+                    children: [
+                      Expanded(
+                        child: Text(
+                          fa ? 'جزئیات این هفته را ببین' : 'Explore this week',
+                          style: Theme.of(context)
+                              .textTheme
+                              .labelLarge
+                              ?.copyWith(color: CocoonTheme.coral),
+                        ),
+                      ),
+                      const SizedBox(width: 4),
+                      const Icon(
+                        Icons.chevron_right_rounded,
+                        color: CocoonTheme.coral,
+                      ),
+                    ],
                   ),
                 ],
               );
@@ -326,9 +372,10 @@ class _TimelineRow extends StatelessWidget {
                 const SizedBox(height: 3),
                 Text(
                   body,
-                  style: Theme.of(
-                    context,
-                  ).textTheme.bodyMedium?.copyWith(color: CocoonTheme.muted),
+                  style: Theme.of(context)
+                      .textTheme
+                      .bodyMedium
+                      ?.copyWith(color: CocoonTheme.muted),
                 ),
               ],
             ),
@@ -352,61 +399,181 @@ class _WeeklyEditorial extends StatelessWidget {
         atUtc: DateTime.now().toUtc(),
       );
     }
-    return Container(
-      padding: const EdgeInsetsDirectional.fromSTEB(20, 22, 20, 20),
-      decoration: BoxDecoration(
-        color: CocoonTheme.sky,
-        borderRadius: BorderRadius.circular(24),
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          const Icon(
-            Icons.menu_book_rounded,
-            color: CocoonTheme.skyStrong,
-            size: 28,
-          ),
-          const SizedBox(height: 18),
-          Text(
-            selection?.content.title ??
-                (fa ? 'راهنمای این هفته' : 'This week’s guide'),
-            style: Theme.of(context).textTheme.titleLarge,
-          ),
-          const SizedBox(height: 8),
-          Text(
-            selection?.content.body ??
-                (fa
-                    ? 'پس از دریافت زمان‌بندی معتبر، محتوای بازبینی‌شده نمایش داده می‌شود.'
-                    : 'Reviewed guidance appears after verified dating is available.'),
-            style: Theme.of(context).textTheme.bodyMedium,
-          ),
-          const SizedBox(height: 16),
-          Row(
-            children: [
-              const Icon(
-                Icons.verified_outlined,
-                size: 17,
-                color: CocoonTheme.skyStrong,
-              ),
-              const SizedBox(width: 6),
-              Expanded(
-                child: Text(
-                  fa
-                      ? 'محتوای دارای بازبینی بالینی'
-                      : 'Clinically reviewed content',
-                  style: Theme.of(context).textTheme.labelMedium?.copyWith(
-                        color: CocoonTheme.skyStrong,
-                      ),
+    final unavailable = selection == null || selection.usedSafetyFallback;
+    return Semantics(
+      container: true,
+      label: unavailable
+          ? (fa
+              ? 'محتوای بازبینی‌شده‌ی این هفته در دسترس نیست'
+              : 'Reviewed content for this week is unavailable')
+          : selection.content.title,
+      child: Container(
+        padding: const EdgeInsetsDirectional.fromSTEB(20, 22, 20, 20),
+        decoration: BoxDecoration(
+          color: CocoonTheme.sky,
+          borderRadius: BorderRadius.circular(24),
+        ),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Icon(
+              unavailable
+                  ? Icons.auto_stories_outlined
+                  : Icons.menu_book_rounded,
+              color: CocoonTheme.skyStrong,
+              size: 28,
+            ),
+            const SizedBox(height: 18),
+            Text(
+              selection?.content.title ??
+                  (fa ? 'راهنمای این هفته' : 'This week’s guide'),
+              style: Theme.of(context).textTheme.titleLarge,
+            ),
+            const SizedBox(height: 8),
+            Text(
+              selection?.content.body ??
+                  (fa
+                      ? 'پس از دریافت زمان‌بندی معتبر، محتوای بازبینی‌شده نمایش داده می‌شود.'
+                      : 'Reviewed guidance appears after verified dating is available.'),
+              style: Theme.of(context).textTheme.bodyMedium,
+            ),
+            const SizedBox(height: 16),
+            Row(
+              children: [
+                const Icon(
+                  Icons.verified_outlined,
+                  size: 17,
+                  color: CocoonTheme.skyStrong,
                 ),
-              ),
-            ],
-          ),
-        ],
+                const SizedBox(width: 6),
+                Expanded(
+                  child: Text(
+                    fa
+                        ? 'محتوای دارای بازبینی بالینی'
+                        : 'Clinically reviewed content',
+                    style: Theme.of(context)
+                        .textTheme
+                        .labelMedium
+                        ?.copyWith(color: CocoonTheme.skyStrong),
+                  ),
+                ),
+              ],
+            ),
+          ],
+        ),
       ),
     );
   }
 
   int _safeWeek(int value) => value < 1 ? 1 : (value > 42 ? 42 : value);
+}
+
+class _DevelopmentPreview extends StatelessWidget {
+  const _DevelopmentPreview({required this.fa, required this.onOpenWeek});
+
+  final bool fa;
+  final VoidCallback onOpenWeek;
+
+  @override
+  Widget build(BuildContext context) => Semantics(
+        button: true,
+        label: fa
+            ? 'رشد بارداری و تغییرات تو، باز کردن جزئیات هفته'
+            : 'Pregnancy development and your changes, open week details',
+        child: InkWell(
+          onTap: onOpenWeek,
+          borderRadius: BorderRadius.circular(24),
+          child: Ink(
+            padding: const EdgeInsetsDirectional.all(20),
+            decoration: BoxDecoration(
+              color: Colors.white,
+              borderRadius: BorderRadius.circular(24),
+              border: Border.all(color: CocoonTheme.line),
+            ),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  fa
+                      ? 'رشد و تغییرات این هفته'
+                      : 'Growth and changes this week',
+                  style: Theme.of(context).textTheme.titleLarge,
+                ),
+                const SizedBox(height: 6),
+                Text(
+                  fa
+                      ? 'جزئیات مادر و بارداری در صفحه‌ی هفته، جدا و خوانا نمایش داده می‌شوند.'
+                      : 'Maternal and pregnancy details are separated clearly in the weekly view.',
+                  style: Theme.of(context)
+                      .textTheme
+                      .bodyMedium
+                      ?.copyWith(color: CocoonTheme.muted),
+                ),
+                const SizedBox(height: 18),
+                Wrap(
+                  spacing: 10,
+                  runSpacing: 10,
+                  children: [
+                    _PreviewLabel(
+                      icon: Icons.favorite_border_rounded,
+                      label: fa ? 'رشد بارداری' : 'Pregnancy development',
+                      color: CocoonTheme.coral,
+                      background: CocoonTheme.coralSoft,
+                    ),
+                    _PreviewLabel(
+                      icon: Icons.self_improvement_rounded,
+                      label: fa ? 'تغییرات تو' : 'Your changes',
+                      color: CocoonTheme.sageStrong,
+                      background: CocoonTheme.sage,
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 14),
+                Align(
+                  alignment: AlignmentDirectional.centerEnd,
+                  child: const Icon(
+                    Icons.arrow_forward_rounded,
+                    color: CocoonTheme.coral,
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ),
+      );
+}
+
+class _PreviewLabel extends StatelessWidget {
+  const _PreviewLabel({
+    required this.icon,
+    required this.label,
+    required this.color,
+    required this.background,
+  });
+
+  final IconData icon;
+  final String label;
+  final Color color;
+  final Color background;
+
+  @override
+  Widget build(BuildContext context) => Container(
+        padding: const EdgeInsetsDirectional.fromSTEB(10, 8, 12, 8),
+        decoration: BoxDecoration(
+          color: background,
+          borderRadius: BorderRadius.circular(99),
+        ),
+        child: Row(
+          children: [
+            Icon(icon, color: color, size: 18),
+            const SizedBox(width: 7),
+            Flexible(
+              child:
+                  Text(label, style: Theme.of(context).textTheme.labelMedium),
+            ),
+          ],
+        ),
+      );
 }
 
 class _SafetyEntry extends StatelessWidget {
@@ -429,8 +596,10 @@ class _SafetyEntry extends StatelessWidget {
             ),
             child: Row(
               children: [
-                const Icon(Icons.health_and_safety_outlined,
-                    color: CocoonTheme.coral),
+                const Icon(
+                  Icons.health_and_safety_outlined,
+                  color: CocoonTheme.coral,
+                ),
                 const SizedBox(width: 12),
                 Expanded(
                   child: Column(
@@ -445,9 +614,7 @@ class _SafetyEntry extends StatelessWidget {
                         fa
                             ? 'سطح توجه و قدم بعدی را روشن ببین.'
                             : 'See the level of attention and your next step.',
-                        style: Theme.of(
-                          context,
-                        )
+                        style: Theme.of(context)
                             .textTheme
                             .bodyMedium
                             ?.copyWith(color: CocoonTheme.muted),
