@@ -15,6 +15,7 @@
 *.log
 .env
 .env.*
+/tools/lifemate.local.json
 
 # Android signing material
 **/android/key.properties

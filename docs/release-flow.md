@@ -12,6 +12,8 @@ pwsh .\tools\lifemate.ps1 -App wellmate -Build Debug
 pwsh .\tools\lifemate.ps1 -App caremate -Build Release -Format AAB
 pwsh .\tools\lifemate.ps1 -App cocoonmate -Run -Target Chrome
 pwsh .\tools\lifemate.ps1 -App wellmate -Run -Target Chrome
+pwsh .\tools\lifemate.ps1 -Logs
+pwsh .\tools\lifemate.ps1 -Logs -LogView Errors -LogLines 150
 pwsh .\tools\lifemate.ps1 -All -Build Debug
 pwsh .\tools\lifemate.ps1 -App wellmate -Install
 pwsh .\tools\lifemate.ps1 -App wellmate -DispatchWorkflow -Bump patch
@@ -34,6 +36,12 @@ CocoonMate now uses the same `GitCommitCount` build-number rule, `<app>-v<versio
 Local builds are for fast diagnostics. Their APK/AAB copies are placed under `artifacts/<app>/<version>/`, with a timestamped filename and a JSONL record in `artifacts/_reports/build-history.jsonl`. Local release signing is not configured by this tool; signing secrets remain GitHub Secrets for the CI workflows.
 
 GitHub Actions is the trusted publishing path: it has protected signing material, creates its own immutable artifact/GitHub Release where the existing workflow supports it, and owns any workflow-specific environment validation. The Health screen shows the last configured workflow run when `gh` is installed and authenticated (`gh auth login`).
+
+## Local diagnostic logs
+
+Every command run through the console writes a redacted local operational log to `artifacts/_reports/lifemate-console.log`. Use menu item **Recent logs**, or `-Logs`; add `-LogView Errors` to show only failures. When a Flutter app is running in Chrome through the console, the same view also reads its live Chrome diagnostics and summarizes only safe API status/error-code/correlation metadata. Error lines are red, warnings yellow, and successful operations green in an interactive terminal. Logs never intentionally retain access tokens, API keys, passwords, request bodies, health notes, medication names, attachments, or other health data.
+
+The Flutter API client records only privacy-safe failure metadata in the debug console: HTTP status, stable error code, and server correlation ID when available. The treatment-create screen also writes these three fields in debug mode. Use the correlation ID with the protected server log system when an API response needs deeper investigation; do not copy patient data, Authorization headers, or request payloads into an issue.
 
 If a CI release fails before a tag is created, fix the failure and dispatch it again. If a tag already exists, do not reuse it: inspect the failed run and GitHub Release, then choose the next version. The console stops before creating a duplicate remote tag and suggests the next patch version.
 

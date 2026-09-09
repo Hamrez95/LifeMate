@@ -448,6 +448,11 @@ class _TabbedAddTreatmentScreenState extends State<TabbedAddTreatmentScreen> {
       _reset();
       widget.onCreated();
     } on LifeMateApiException catch (error) {
+      debugPrint(
+        'WellMate treatment creation API failure '
+        'status=${error.statusCode} code=${error.code} '
+        'correlation=${error.correlationId ?? 'none'}',
+      );
       if (mounted) setState(() => _error = _friendlyError(error));
     } catch (error) {
       debugPrint('WellMate treatment creation failed: $error');
@@ -949,6 +954,11 @@ class _TabbedAddTreatmentScreenState extends State<TabbedAddTreatmentScreen> {
         ? LifeMateRuntimeLocale.select(
             fa: 'نشست شما منقضی شده است؛ دوباره وارد شوید.',
             en: 'Your session has expired; sign in again.',
+          )
+        : error.code == 'idempotency_in_progress'
+        ? LifeMateRuntimeLocale.select(
+            fa: 'درخواست قبلی هنوز در حال ثبت است؛ چند ثانیه صبر کنید و دوباره بررسی کنید.',
+            en: 'The previous request is still being processed. Wait a few seconds and check again.',
           )
         : LifeMateRuntimeLocale.select(
             fa: 'ثبت درمان انجام نشد. اطلاعات را بررسی و دوباره تلاش کنید.',

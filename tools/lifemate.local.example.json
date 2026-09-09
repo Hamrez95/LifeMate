@@ -1,0 +1,19 @@
+{
+  "environments": {
+    "dev": {
+      "SUPABASE_URL": "https://your-dev-project.supabase.co",
+      "SUPABASE_PUBLISHABLE_KEY": "sb_publishable_replace_me",
+      "LIFEMATE_API_BASE_URL": "https://your-dev-project.supabase.co/functions/v1/lifemate-api"
+    },
+    "staging": {
+      "SUPABASE_URL": "https://your-staging-project.supabase.co",
+      "SUPABASE_PUBLISHABLE_KEY": "sb_publishable_replace_me",
+      "LIFEMATE_API_BASE_URL": "https://your-staging-project.supabase.co/functions/v1/lifemate-api"
+    },
+    "production": {
+      "SUPABASE_URL": "https://your-production-project.supabase.co",
+      "SUPABASE_PUBLISHABLE_KEY": "sb_publishable_replace_me",
+      "LIFEMATE_API_BASE_URL": "https://your-production-project.supabase.co/functions/v1/lifemate-api"
+    }
+  }
+}

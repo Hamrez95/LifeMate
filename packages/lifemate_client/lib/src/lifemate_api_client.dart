@@ -1,5 +1,6 @@
 import 'dart:async';
 import 'dart:convert';
+import 'dart:developer' as developer;
 import 'dart:math';
 import 'dart:typed_data';
 
@@ -107,16 +108,20 @@ class LifeMateApiException implements Exception {
     required this.statusCode,
     required this.code,
     required this.message,
+    this.correlationId,
   });
 
   final int statusCode;
   final String code;
   final String message;
+  /// Opaque server correlation id for support; request bodies, authorization
+  /// headers and health data are intentionally excluded from diagnostics.
+  final String? correlationId;
 
   bool get isUnauthorized => statusCode == 401;
 
   @override
-  String toString() => 'LifeMateApiException($statusCode, $code): $message';
+  String toString() => 'LifeMateApiException($statusCode, $code${correlationId == null ? '' : ', correlation=$correlationId'})';
 }
 
 class LifeMateApiClient {
@@ -1140,11 +1145,18 @@ class LifeMateApiClient {
     if (response.statusCode >= 200 && response.statusCode < 300) return decoded;
 
     final problem = decoded is Map<String, dynamic> ? decoded : const {};
+    final correlationId = problem['correlationId']?.toString();
+    developer.log(
+      'api_request_failed status=${response.statusCode} code=${(problem['code'] ?? problem['title'] ?? 'request_failed')} correlation=${correlationId ?? 'none'}',
+      name: 'LifeMateApiClient',
+      level: 1000,
+    );
     throw LifeMateApiException(
       statusCode: response.statusCode,
       code: (problem['code'] ?? problem['title'] ?? 'request_failed')
           .toString(),
       message: (problem['detail'] ?? 'LifeMate request failed.').toString(),
+      correlationId: correlationId,
     );
   }
 
