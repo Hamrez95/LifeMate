@@ -107,6 +107,7 @@ Deno.test({
         confirmConsent: true,
       });
       assertEquals(relationship.canViewWomenCalendar, false);
+      const relationshipId = String(relationship.id);
 
       await assertApiError(
         () => women.getCareSummary(caregiver.appUserId, patient.appUserId),
@@ -131,6 +132,32 @@ Deno.test({
         { canViewWomenCalendar: true },
       );
       assertEquals(permitted.canViewWomenCalendar, true);
+
+      // The legacy relationship flag is compatibility metadata only. It must
+      // not mint sensitive Women access now that canonical companion scopes
+      // are authoritative and default-off.
+      await assertApiError(
+        () => women.getCareSummary(caregiver.appUserId, patient.appUserId),
+        403,
+        "women_calendar_access_denied",
+      );
+      await admin`
+        insert into lifemate.women_companion_privacy_scopes (
+          relationship_id,
+          view_period_timing,
+          view_phase_summary,
+          view_shared_wellbeing,
+          view_calendar_detail,
+          updated_by_user_id
+        ) values (
+          ${relationshipId}::uuid,
+          true,
+          true,
+          true,
+          true,
+          ${patient.appUserId}::uuid
+        )
+      `;
 
       const privateDailyLog = await women.upsertOwnerDailyLog(
         patient.appUserId,

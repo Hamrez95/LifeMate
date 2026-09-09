@@ -1,0 +1,73 @@
+name: edge-integration-diagnostic
+
+on:
+  pull_request:
+    paths:
+      - '.github/workflows/edge-integration-diagnostic.yml'
+      - 'supabase/functions/lifemate-api/**'
+      - 'supabase/migrations/**'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  integration:
+    strategy:
+      fail-fast: false
+      matrix:
+        file:
+          - qr_invitation_integration_test.ts
+          - phone_invitation_integration_test.ts
+          - phone_invitation_delivery_integration_test.ts
+          - care_relationship_person_identity_integration_test.ts
+          - person_care_request_invitation_integration_test.ts
+          - phone_care_request_integration_test.ts
+          - person_caremate_care_event_authorization_integration_test.ts
+          - person_care_relationship_management_integration_test.ts
+          - care_completion_notifications_integration_test.ts
+          - women_calendar_integration_test.ts
+          - person_women_calendar_integration_test.ts
+          - person_women_calendar_caregiver_integration_test.ts
+          - data_export_integration_test.ts
+          - growth_integration_test.ts
+    name: ${{ matrix.file }}
+    runs-on: ubuntu-24.04
+    timeout-minutes: 12
+    services:
+      postgres:
+        image: postgres:17.6-alpine
+        env:
+          POSTGRES_DB: lifemate_edge_tests
+          POSTGRES_USER: postgres
+          POSTGRES_PASSWORD: postgres
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U postgres -d lifemate_edge_tests"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 10
+    env:
+      TEST_DATABASE_URL: postgres://postgres:postgres@localhost:5432/lifemate_edge_tests
+    steps:
+      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd
+        with:
+          show-progress: false
+          persist-credentials: false
+      - uses: denoland/setup-deno@22d081ff2d3a40755e97629de92e3bcbfa7cf2ed
+        with:
+          deno-version: v2.9.4
+      - name: Apply canonical portable schema
+        shell: bash
+        run: |
+          set -euo pipefail
+          psql "$TEST_DATABASE_URL" --set=ON_ERROR_STOP=1 --file=supabase/bootstrap/legacy_lifemate_baseline.sql
+          psql "$TEST_DATABASE_URL" --set=ON_ERROR_STOP=1 --file=supabase/bootstrap/test_provider_compatibility_roles.sql
+          while IFS= read -r migration; do
+            psql "$TEST_DATABASE_URL" --set=ON_ERROR_STOP=1 --file="$migration" >/dev/null
+          done < <(find supabase/migrations -maxdepth 1 -type f -name '*.sql' | sort)
+      - name: Run integration file
+        shell: bash
+        working-directory: supabase/functions/lifemate-api
+        run: deno test --no-check --allow-env --allow-net=localhost:5432,127.0.0.1:5432 '${{ matrix.file }}'

@@ -58,6 +58,13 @@ jobs:
           persist-credentials: false
           show-progress: false
 
+      - name: Provision provider compatibility roles in vanilla PostgreSQL clusters
+        shell: bash
+        run: |
+          set -euo pipefail
+          psql "$SOURCE_DATABASE_URL" --set=ON_ERROR_STOP=1 --file=supabase/bootstrap/test_provider_compatibility_roles.sql
+          psql "$RESTORE_ADMIN_URL" --set=ON_ERROR_STOP=1 --file=supabase/bootstrap/test_provider_compatibility_roles.sql
+
       - name: Build canonical source database
         shell: bash
         run: |

@@ -116,16 +116,34 @@ Deno.test("commerce promotion metadata is RLS-protected for restricted Admin rea
       import.meta.url,
     ),
   );
-  assertStringIncludes(migration, "alter table commerce.promotions enable row level security");
-  assertStringIncludes(migration, "alter table commerce.discount_codes enable row level security");
+  assertStringIncludes(
+    migration,
+    "alter table commerce.promotions enable row level security",
+  );
+  assertStringIncludes(
+    migration,
+    "alter table commerce.discount_codes enable row level security",
+  );
   assertStringIncludes(migration, "to lifemate_admin_runtime");
   assertStringIncludes(migration, "for select");
-  assertStringIncludes(migration, "revoke all on table commerce.promotions from public");
-  assertStringIncludes(migration, "revoke all on table commerce.discount_codes from public");
+  assertStringIncludes(
+    migration,
+    "revoke all on table commerce.promotions from public",
+  );
+  assertStringIncludes(
+    migration,
+    "revoke all on table commerce.discount_codes from public",
+  );
   assertStringIncludes(migration, "to_regrole('anon') is not null");
   assertStringIncludes(migration, "to_regrole('authenticated') is not null");
-  assertStringIncludes(migration, "execute 'revoke all on table commerce.promotions from anon'");
-  assertStringIncludes(migration, "execute 'revoke all on table commerce.discount_codes from authenticated'");
+  assertStringIncludes(
+    migration,
+    "execute 'revoke all on table commerce.promotions from anon'",
+  );
+  assertStringIncludes(
+    migration,
+    "execute 'revoke all on table commerce.discount_codes from authenticated'",
+  );
   assert(!migration.includes("to authenticated\nusing (true)"));
   assert(!migration.includes("to anon\nusing (true)"));
 });
