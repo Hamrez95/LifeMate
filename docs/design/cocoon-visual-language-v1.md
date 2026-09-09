@@ -42,10 +42,12 @@ Product references:
 
 ## Foundation tokens
 
-- Canvas: `#FFFAF6`
-- Warm pregnancy surface: `#FFF1E7`
-- Primary coral: `#D96055`
-- Coral support: `#FFDCD4`
+- Canvas: `#FFF8F2`
+- Raised surface: `#FFFCF9`
+- Warm pregnancy surface: `#FFF0E6`
+- Primary coral: `#C75C62`
+- Accessible coral action: `#A8434D`
+- Secondary lilac: `#8765B4`
 - Success/care sage: `#39785F` on `#E7F2EA`
 - Information sky: `#39769C` on `#E8F3FA`
 - Text ink: `#263248`
@@ -69,6 +71,10 @@ Warnings always include text and iconography; color is never the only signal.
 - Important numbers use the display style and locale digits. Week/day is derived
   from canonical dating at presentation time and is never persisted as mutable
   UI state.
+- Persian and mixed-script copy uses the bundled, OFL-licensed Vazirmatn family
+  in regular, medium, semibold, and bold weights. Hosts receive it through the
+  package-qualified `CocoonVazirmatn` family rather than depending on a device
+  font.
 
 ## Motion
 
@@ -85,6 +91,14 @@ Cached information is never presented as current server authority.
 
 ## Implemented components
 
+- `CocoonScaffold`
+- `CocoonAppBar`
+- `CocoonSurface`
+- `CocoonPrimaryCta`
+- `CocoonStatusBadge`
+- `CocoonLoadingState`
+- `CocoonEmptyState`
+- `CocoonBrandMark`
 - `CocoonStatePage`
 - `CocoonOfflineStrip`
 - `CocoonPagePadding`
@@ -95,3 +109,23 @@ Cached information is never presented as current server authority.
 
 The growth orb is explicitly abstract. It communicates progress and protection
 without pretending to be a fetal anatomy illustration.
+
+## Identity and assets
+
+The code-native CocoonMate mark uses nested protective forms and a sage center.
+It is intentionally legible without a literal fetus, heart, or gendered pink
+cue. The Android preparation script generates legacy, adaptive, Android 13
+monochrome, notification-safe, and launch/splash variants from the same mark.
+
+The onboarding protected-growth illustration is non-clinical and approved for
+the welcome surface. Every bundled asset is described in `assets/manifest.json`
+with placement, aspect ratio, RTL safety, source status, and medical review
+status. The fetal development series remains blocked behind the existing
+medical release gate; `CocoonGrowthOrb` remains the honest production fallback.
+
+## Visual regression baseline
+
+Stable goldens cover the brand mark, Persian onboarding at 390×844, Persian Home
+at 390×844, and English Week Detail at 390×844. Responsive widget matrices also
+exercise 320×568 and text scale 1.5. These checks complement, rather than replace,
+physical-device review.

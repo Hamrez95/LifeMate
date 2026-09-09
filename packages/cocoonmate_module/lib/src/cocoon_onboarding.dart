@@ -92,8 +92,10 @@ class _CocoonPregnancyOnboardingScreenState
                 padding: const EdgeInsetsDirectional.only(end: 20),
                 child: Center(
                   child: Text(
-                    t('${_step + 1} of 4',
-                        '${cocoonDigits('${_step + 1}', true)} از ۴'),
+                    t(
+                      '${_step + 1} of 4',
+                      '${cocoonDigits('${_step + 1}', true)} از ۴',
+                    ),
                     style: Theme.of(context).textTheme.labelMedium,
                   ),
                 ),
@@ -180,9 +182,11 @@ class _CocoonPregnancyOnboardingScreenState
                           color: Colors.white,
                         ),
                       )
-                    : Icon(_step == 3
-                        ? Icons.favorite_rounded
-                        : Icons.arrow_forward_rounded),
+                    : Icon(
+                        _step == 3
+                            ? Icons.favorite_rounded
+                            : Icons.arrow_forward_rounded,
+                      ),
                 label: Text(
                   _busy
                       ? t('Activating…', 'در حال فعال‌سازی…')
@@ -215,8 +219,9 @@ class _CocoonPregnancyOnboardingScreenState
       setState(() => _step++);
       return;
     }
-    setState(() =>
-        _localActivationState = CocoonPregnancyActivationState.submitting);
+    setState(
+      () => _localActivationState = CocoonPregnancyActivationState.submitting,
+    );
     try {
       final activated = await widget.onActivate(
         CocoonPregnancySetupDraft(
@@ -231,12 +236,14 @@ class _CocoonPregnancyOnboardingScreenState
         Navigator.of(context).pop();
       } else {
         setState(
-            () => _localActivationState = CocoonPregnancyActivationState.error);
+          () => _localActivationState = CocoonPregnancyActivationState.error,
+        );
       }
     } catch (_) {
       if (mounted) {
         setState(
-            () => _localActivationState = CocoonPregnancyActivationState.error);
+          () => _localActivationState = CocoonPregnancyActivationState.error,
+        );
       }
     }
   }
@@ -250,23 +257,27 @@ class _WelcomeStep extends StatelessWidget {
   Widget build(BuildContext context) => Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
-          Align(
-            alignment: AlignmentDirectional.centerStart,
-            child: Container(
-              width: 104,
-              height: 104,
-              decoration: const BoxDecoration(
-                color: CocoonTheme.warm,
-                shape: BoxShape.circle,
-              ),
-              child: const Icon(
-                Icons.spa_outlined,
-                size: 48,
-                color: CocoonTheme.coral,
+          Semantics(
+            image: true,
+            label: fa
+                ? 'تصویر نمادین رشد در فضایی امن و آرام'
+                : 'Abstract illustration of protected, calm growth',
+            child: ExcludeSemantics(
+              child: ClipRRect(
+                borderRadius: BorderRadius.circular(CocoonRadii.hero),
+                child: AspectRatio(
+                  aspectRatio: 4 / 3,
+                  child: Image.asset(
+                    'assets/illustrations/onboarding-protected-growth-v1.png',
+                    package: 'cocoonmate_module',
+                    fit: BoxFit.cover,
+                    alignment: const Alignment(0, .23),
+                  ),
+                ),
               ),
             ),
           ),
-          const SizedBox(height: 34),
+          const SizedBox(height: CocoonSpacing.xl),
           Text(
             fa
                 ? 'این مسیر برای تو ساخته می‌شود'
@@ -432,8 +443,10 @@ class _DatingSourceTile extends StatelessWidget {
           ),
           child: Row(
             children: [
-              Icon(icon,
-                  color: selected ? CocoonTheme.coral : CocoonTheme.muted),
+              Icon(
+                icon,
+                color: selected ? CocoonTheme.coral : CocoonTheme.muted,
+              ),
               const SizedBox(width: 14),
               Expanded(
                 child: Column(
@@ -483,16 +496,15 @@ class _PregnancyDetailsStep extends StatelessWidget {
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
           Text(
-            switch (source) {
-              CocoonDatingSource.lastPeriod =>
-                fa ? 'تاریخ آخرین قاعدگی' : 'Last period date',
-              CocoonDatingSource.estimatedDueDate =>
-                fa ? 'تاریخ احتمالی زایمان' : 'Estimated due date',
-              CocoonDatingSource.ultrasound =>
-                fa ? 'تاریخ سونوگرافی' : 'Ultrasound date',
-            },
-            style: Theme.of(context).textTheme.headlineSmall,
-          ),
+              switch (source) {
+                CocoonDatingSource.lastPeriod =>
+                  fa ? 'تاریخ آخرین قاعدگی' : 'Last period date',
+                CocoonDatingSource.estimatedDueDate =>
+                  fa ? 'تاریخ احتمالی زایمان' : 'Estimated due date',
+                CocoonDatingSource.ultrasound =>
+                  fa ? 'تاریخ سونوگرافی' : 'Ultrasound date',
+              },
+              style: Theme.of(context).textTheme.headlineSmall),
           const SizedBox(height: 8),
           Text(
             fa
@@ -521,8 +533,10 @@ class _PregnancyDetailsStep extends StatelessWidget {
                 ),
                 child: Row(
                   children: [
-                    const Icon(Icons.calendar_month_outlined,
-                        color: CocoonTheme.coral),
+                    const Icon(
+                      Icons.calendar_month_outlined,
+                      color: CocoonTheme.coral,
+                    ),
                     const SizedBox(width: 14),
                     Expanded(
                       child: Text(
