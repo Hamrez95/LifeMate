@@ -226,7 +226,8 @@ Deno.test({
 });
 
 Deno.test({
-  name: "atomic treatment create rolls medication and audit back on plan failure",
+  name:
+    "atomic treatment create rolls medication and audit back on plan failure",
   sanitizeOps: false,
   sanitizeResources: false,
   fn: async () => {
