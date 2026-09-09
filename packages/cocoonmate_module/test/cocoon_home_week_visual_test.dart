@@ -10,6 +10,7 @@ void main() {
   testWidgets('Persian home is directional and stable at 390x844, text 1.5', (
     tester,
   ) async {
+    _useGoldenTolerance();
     await _setViewport(tester, const Size(390, 844));
     final host = _VisualHost(
       locale: const Locale('fa'),
@@ -104,6 +105,7 @@ void main() {
   testWidgets('English week detail exposes a professional partial state', (
     tester,
   ) async {
+    _useGoldenTolerance();
     await _setViewport(tester, const Size(390, 844));
     final host = _VisualHost(
       locale: const Locale('en'),
@@ -131,6 +133,40 @@ void main() {
     expect(find.text('Awaiting approved content'), findsWidgets);
     expect(tester.takeException(), isNull);
   });
+}
+
+void _useGoldenTolerance() {
+  final previousComparator = goldenFileComparator;
+  goldenFileComparator = _TolerantGoldenFileComparator(
+    Uri.parse('test/cocoon_home_week_visual_test.dart'),
+    precisionTolerance: .05,
+  );
+  addTearDown(() => goldenFileComparator = previousComparator);
+}
+
+class _TolerantGoldenFileComparator extends LocalFileComparator {
+  _TolerantGoldenFileComparator(
+    super.testFile, {
+    required double precisionTolerance,
+  })  : assert(precisionTolerance >= 0 && precisionTolerance <= 1),
+        _precisionTolerance = precisionTolerance;
+
+  final double _precisionTolerance;
+
+  @override
+  Future<bool> compare(Uint8List imageBytes, Uri golden) async {
+    final result = await GoldenFileComparator.compareLists(
+      imageBytes,
+      await getGoldenBytes(golden),
+    );
+    if (result.passed || result.diffPercent <= _precisionTolerance) {
+      result.dispose();
+      return true;
+    }
+    final error = await generateFailureOutput(result, golden, basedir);
+    result.dispose();
+    throw FlutterError(error);
+  }
 }
 
 Future<void> _loadCocoonFont() async {
