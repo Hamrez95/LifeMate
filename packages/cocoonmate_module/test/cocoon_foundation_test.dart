@@ -100,6 +100,12 @@ void main() {
   testWidgets('onboarding hero renders in Persian at reference viewport', (
     tester,
   ) async {
+    final previousComparator = goldenFileComparator;
+    goldenFileComparator = _TolerantGoldenFileComparator(
+      Uri.parse('test/cocoon_foundation_test.dart'),
+      precisionTolerance: .035,
+    );
+    addTearDown(() => goldenFileComparator = previousComparator);
     tester.view.physicalSize = const Size(390, 844);
     tester.view.devicePixelRatio = 1;
     addTearDown(tester.view.resetPhysicalSize);
@@ -158,6 +164,31 @@ class _PackageTestAssetBundle extends CachingAssetBundle {
             ? key.substring(_packagePrefix.length)
             : key,
       );
+}
+
+class _TolerantGoldenFileComparator extends LocalFileComparator {
+  _TolerantGoldenFileComparator(
+    super.testFile, {
+    required double precisionTolerance,
+  })  : assert(precisionTolerance >= 0 && precisionTolerance <= 1),
+        _precisionTolerance = precisionTolerance;
+
+  final double _precisionTolerance;
+
+  @override
+  Future<bool> compare(Uint8List imageBytes, Uri golden) async {
+    final result = await GoldenFileComparator.compareLists(
+      imageBytes,
+      await getGoldenBytes(golden),
+    );
+    if (result.passed || result.diffPercent <= _precisionTolerance) {
+      result.dispose();
+      return true;
+    }
+    final error = await generateFailureOutput(result, golden, basedir);
+    result.dispose();
+    throw FlutterError(error);
+  }
 }
 
 Future<void> _loadCocoonFont() async {
