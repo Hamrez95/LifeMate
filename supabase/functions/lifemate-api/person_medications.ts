@@ -68,6 +68,27 @@ export function createPersonMedicationStore(databaseUrl: string) {
 
     return await sql.begin(async (tx: any) => {
       const personId = await requireSelfPerson(tx, appUserId);
+
+      // Treatment plans reference a canonical medication row. Reusing an
+      // already-recorded medication must not consume another freemium slot.
+      // Notes are intentionally excluded from identity matching because they
+      // are treatment-specific free text in existing mobile clients.
+      const existingRows = await tx`
+        select *
+        from lifemate.medications
+        where owner_person_id=${personId}::uuid
+          and lower(btrim(name))=lower(btrim(${name}::text))
+          and lower(coalesce(btrim(strength_text),''))=
+              lower(coalesce(btrim(${strength}::text),''))
+          and lower(coalesce(btrim(form),''))=
+              lower(coalesce(btrim(${form}::text),''))
+        order by created_at_utc,id
+        limit 1
+      `;
+      if (existingRows.length > 0) {
+        return mapMedication(existingRows[0]);
+      }
+
       const countRows =
         await tx`select count(*)::integer as count from lifemate.medications where owner_person_id=${personId}::uuid`;
       try {
