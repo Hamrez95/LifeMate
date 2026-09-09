@@ -140,6 +140,12 @@ jobs:
       - name: Prove account lifecycle maps AppUser to Account
         working-directory: supabase/functions/lifemate-api
         run: deno task test:account-lifecycle-integration
+      - name: Prove Cocoon canonical application identity journey
+        working-directory: supabase/functions/lifemate-api
+        run: deno test -A cocoon_application_integration_test.ts
+      - name: Prove Cocoon pregnancy activation canonical identity journey
+        working-directory: supabase/functions/lifemate-api
+        run: deno test -A pregnancy_routes_integration_test.ts
       - name: Run patient caregiver privacy and cleanup journeys
         working-directory: supabase/functions/lifemate-api
         run: deno task test:integration

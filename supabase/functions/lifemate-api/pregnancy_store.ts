@@ -54,19 +54,21 @@ export class PregnancyStoreError extends Error {
 
 type Row = Record<string, any>;
 
+function dateString(value: unknown): string | null {
+  if (value == null) return null;
+  if (value instanceof Date) return value.toISOString().slice(0, 10);
+  return String(value).slice(0, 10);
+}
+
 function episodeFromRow(row: Row): PregnancyEpisode {
   return {
     id: String(row.id),
     motherPersonId: String(row.mother_person_id),
     status: row.status as PregnancyEpisodeStatus,
     datingMethod: row.dating_method as PregnancyDatingMethod | null,
-    lmpDate: row.lmp_date == null ? null : String(row.lmp_date),
-    estimatedDueDate: row.estimated_due_date == null
-      ? null
-      : String(row.estimated_due_date),
-    datingReferenceDate: row.dating_reference_date == null
-      ? null
-      : String(row.dating_reference_date),
+    lmpDate: dateString(row.lmp_date),
+    estimatedDueDate: dateString(row.estimated_due_date),
+    datingReferenceDate: dateString(row.dating_reference_date),
     gestationalAgeAtReferenceDays: row.gestational_age_at_reference_days == null
       ? null
       : Number(row.gestational_age_at_reference_days),
