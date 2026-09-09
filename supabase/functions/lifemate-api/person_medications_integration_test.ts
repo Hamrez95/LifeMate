@@ -152,10 +152,12 @@ Deno.test({
       assertEquals(ownerRows.length, 1);
       assertEquals(ownerRows[0].id, medicationId);
 
-      for (const [name, strength] of [
-        ["Second quota fixture", "20 mg"],
-        ["Third quota fixture", "30 mg"],
-      ]) {
+      for (
+        const [name, strength] of [
+          ["Second quota fixture", "20 mg"],
+          ["Third quota fixture", "30 mg"],
+        ]
+      ) {
         const extra = await store.createMedication(ownerAppUserId, {
           name,
           strengthText: strength,
