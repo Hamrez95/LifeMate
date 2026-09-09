@@ -11,6 +11,10 @@ enum CocoonSymptomSubmitState {
   offline
 }
 
+/// Presentation-only state for the host-owned approved symptom catalog.
+/// It does not imply persistence, clinical evaluation, or server authority.
+enum CocoonSymptomCatalogState { loading, ready, empty, error, offline }
+
 class CocoonSymptomOption {
   const CocoonSymptomOption({
     required this.id,
@@ -42,14 +46,18 @@ class CocoonSymptomLogScreen extends StatefulWidget {
     required this.submitState,
     required this.onSubmit,
     required this.onOpenMedicalAttention,
+    this.catalogState = CocoonSymptomCatalogState.ready,
+    this.onRetryCatalog,
     super.key,
   });
 
   final bool fa;
   final List<CocoonSymptomOption> options;
+  final CocoonSymptomCatalogState catalogState;
   final CocoonSymptomSubmitState submitState;
   final Future<void> Function(CocoonSymptomDraft draft) onSubmit;
   final VoidCallback? onOpenMedicalAttention;
+  final VoidCallback? onRetryCatalog;
 
   @override
   State<CocoonSymptomLogScreen> createState() => _CocoonSymptomLogScreenState();
@@ -62,8 +70,21 @@ class _CocoonSymptomLogScreenState extends State<CocoonSymptomLogScreen> {
   bool _showErrors = false;
 
   bool get _busy => widget.submitState == CocoonSymptomSubmitState.submitting;
-  bool get _ready => _symptomId != null && _intensity != null && !_busy;
+  bool get _catalogReady =>
+      widget.catalogState == CocoonSymptomCatalogState.ready &&
+      widget.options.isNotEmpty;
+  bool get _ready =>
+      _catalogReady && _symptomId != null && _intensity != null && !_busy;
   String t(String en, String fa) => widget.fa ? fa : en;
+
+  @override
+  void didUpdateWidget(covariant CocoonSymptomLogScreen oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (!_catalogReady ||
+        !widget.options.any((option) => option.id == _symptomId)) {
+      _symptomId = null;
+    }
+  }
 
   @override
   void dispose() {
@@ -89,7 +110,9 @@ class _CocoonSymptomLogScreenState extends State<CocoonSymptomLogScreen> {
                           CocoonSymptomSubmitState.idle) ...[
                         const SizedBox(height: 14),
                         _SymptomStatus(
-                            fa: widget.fa, state: widget.submitState),
+                          fa: widget.fa,
+                          state: widget.submitState,
+                        ),
                       ],
                       const SizedBox(height: 28),
                       CocoonSectionHeading(
@@ -100,32 +123,16 @@ class _CocoonSymptomLogScreenState extends State<CocoonSymptomLogScreen> {
                         ),
                       ),
                       const SizedBox(height: 14),
-                      if (widget.options.isEmpty)
-                        _SymptomCatalogUnavailable(fa: widget.fa)
-                      else
-                        Wrap(
-                          spacing: 9,
-                          runSpacing: 9,
-                          children: widget.options
-                              .map(
-                                (option) => ChoiceChip(
-                                  avatar: Icon(option.icon, size: 18),
-                                  selected: _symptomId == option.id,
-                                  onSelected: _busy
-                                      ? null
-                                      : (_) => setState(
-                                            () => _symptomId = option.id,
-                                          ),
-                                  label: Text(option.label),
-                                ),
-                              )
-                              .toList(),
-                        ),
-                      if (_showErrors && _symptomId == null) ...[
+                      _buildCatalog(context),
+                      if (_showErrors &&
+                          _catalogReady &&
+                          _symptomId == null) ...[
                         const SizedBox(height: 8),
                         Text(
-                          t('Choose a symptom to continue',
-                              'برای ادامه یک نشانه انتخاب کن'),
+                          t(
+                            'Choose a symptom to continue',
+                            'برای ادامه یک نشانه انتخاب کن',
+                          ),
                           style:
                               Theme.of(context).textTheme.labelMedium?.copyWith(
                                     color: Theme.of(context).colorScheme.error,
@@ -144,11 +151,13 @@ class _CocoonSymptomLogScreenState extends State<CocoonSymptomLogScreen> {
                       _IntensitySelector(
                         fa: widget.fa,
                         selected: _intensity,
-                        enabled: !_busy,
+                        enabled: !_busy && _catalogReady,
                         onChanged: (value) =>
                             setState(() => _intensity = value),
                       ),
-                      if (_showErrors && _intensity == null) ...[
+                      if (_showErrors &&
+                          _catalogReady &&
+                          _intensity == null) ...[
                         const SizedBox(height: 8),
                         Text(
                           t('Choose an intensity', 'شدت را انتخاب کن'),
@@ -161,7 +170,7 @@ class _CocoonSymptomLogScreenState extends State<CocoonSymptomLogScreen> {
                       const SizedBox(height: 26),
                       TextField(
                         controller: _note,
-                        enabled: !_busy,
+                        enabled: !_busy && _catalogReady,
                         minLines: 3,
                         maxLines: 5,
                         maxLength: 400,
@@ -197,7 +206,7 @@ class _CocoonSymptomLogScreenState extends State<CocoonSymptomLogScreen> {
             ),
             padding: const EdgeInsetsDirectional.fromSTEB(20, 11, 20, 14),
             child: FilledButton.icon(
-              onPressed: _busy ? null : _submit,
+              onPressed: _busy || !_catalogReady ? null : _submit,
               icon: _busy
                   ? const SizedBox.square(
                       dimension: 18,
@@ -216,6 +225,41 @@ class _CocoonSymptomLogScreenState extends State<CocoonSymptomLogScreen> {
           ),
         ),
       );
+
+  Widget _buildCatalog(BuildContext context) {
+    final state = widget.catalogState == CocoonSymptomCatalogState.ready &&
+            widget.options.isEmpty
+        ? CocoonSymptomCatalogState.empty
+        : widget.catalogState;
+    if (state != CocoonSymptomCatalogState.ready) {
+      return _SymptomCatalogStateCard(
+        fa: widget.fa,
+        state: state,
+        onRetry: widget.onRetryCatalog,
+      );
+    }
+    return Wrap(
+      spacing: 9,
+      runSpacing: 9,
+      children: widget.options
+          .map(
+            (option) => Semantics(
+              selected: _symptomId == option.id,
+              button: true,
+              label: option.label,
+              child: ChoiceChip(
+                avatar: Icon(option.icon, size: 18),
+                selected: _symptomId == option.id,
+                onSelected: _busy
+                    ? null
+                    : (_) => setState(() => _symptomId = option.id),
+                label: Text(option.label),
+              ),
+            ),
+          )
+          .toList(),
+    );
+  }
 
   Future<void> _submit() async {
     if (!_ready) {
@@ -349,8 +393,10 @@ class _MedicalAttentionEntry extends StatelessWidget {
             Row(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                const Icon(Icons.warning_amber_rounded,
-                    color: Color(0xFF8A4B08)),
+                const Icon(
+                  Icons.warning_amber_rounded,
+                  color: Color(0xFF8A4B08),
+                ),
                 const SizedBox(width: 10),
                 Expanded(
                   child: Text(
@@ -375,24 +421,99 @@ class _MedicalAttentionEntry extends StatelessWidget {
       );
 }
 
-class _SymptomCatalogUnavailable extends StatelessWidget {
-  const _SymptomCatalogUnavailable({required this.fa});
+class _SymptomCatalogStateCard extends StatelessWidget {
+  const _SymptomCatalogStateCard({
+    required this.fa,
+    required this.state,
+    required this.onRetry,
+  });
+
   final bool fa;
+  final CocoonSymptomCatalogState state;
+  final VoidCallback? onRetry;
 
   @override
-  Widget build(BuildContext context) => Container(
+  Widget build(BuildContext context) {
+    final (icon, text, canRetry) = switch (state) {
+      CocoonSymptomCatalogState.loading => (
+          Icons.hourglass_top_rounded,
+          fa
+              ? 'در حال دریافت فهرست تأییدشده…'
+              : 'Loading the approved symptom catalog…',
+          false,
+        ),
+      CocoonSymptomCatalogState.empty => (
+          Icons.inbox_outlined,
+          fa
+              ? 'در حال حاضر مورد تأییدشده‌ای برای ثبت وجود ندارد.'
+              : 'There are currently no approved symptoms available to log.',
+          false,
+        ),
+      CocoonSymptomCatalogState.error => (
+          Icons.error_outline_rounded,
+          fa
+              ? 'فهرست تأییدشده بارگیری نشد.'
+              : 'The approved symptom catalog could not be loaded.',
+          true,
+        ),
+      CocoonSymptomCatalogState.offline => (
+          Icons.cloud_off_outlined,
+          fa
+              ? 'آفلاین هستی و فهرست تأییدشده روی این دستگاه موجود نیست.'
+              : 'You are offline and no approved catalog is available on this device.',
+          true,
+        ),
+      CocoonSymptomCatalogState.ready => (
+          Icons.check_circle_outline,
+          '',
+          false,
+        ),
+    };
+    return Semantics(
+      liveRegion: state == CocoonSymptomCatalogState.loading ||
+          state == CocoonSymptomCatalogState.error,
+      child: Container(
         padding: const EdgeInsetsDirectional.all(16),
         decoration: BoxDecoration(
           color: CocoonTheme.sky,
           borderRadius: BorderRadius.circular(18),
         ),
-        child: Text(
-          fa
-              ? 'فهرست تأییدشده در دسترس نیست؛ ثبت جدید غیرفعال است.'
-              : 'The approved catalog is unavailable; new logging is disabled.',
-          style: Theme.of(context).textTheme.bodyMedium,
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            Row(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Icon(icon, color: CocoonTheme.skyStrong),
+                const SizedBox(width: 10),
+                Expanded(
+                  child: Text(
+                    text,
+                    style: Theme.of(context).textTheme.bodyMedium,
+                  ),
+                ),
+              ],
+            ),
+            if (state == CocoonSymptomCatalogState.loading) ...[
+              const SizedBox(height: 12),
+              const LinearProgressIndicator(minHeight: 3),
+            ],
+            if (canRetry && onRetry != null) ...[
+              const SizedBox(height: 8),
+              Align(
+                alignment: AlignmentDirectional.centerStart,
+                child: TextButton.icon(
+                  onPressed: onRetry,
+                  icon: const Icon(Icons.refresh_rounded),
+                  label: Text(fa ? 'تلاش دوباره' : 'Retry'),
+                ),
+              ),
+            ],
+          ],
         ),
-      );
+      ),
+    );
+  }
 }
 
 class _SymptomStatus extends StatelessWidget {
@@ -435,7 +556,7 @@ class _SymptomStatus extends StatelessWidget {
       CocoonSymptomSubmitState.idle => (
           Icons.info_outline,
           CocoonTheme.cream,
-          ''
+          '',
         ),
     };
     return Semantics(

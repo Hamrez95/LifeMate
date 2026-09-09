@@ -289,8 +289,7 @@ class _CocoonShellState extends State<CocoonShell> {
               ...widget.config.quickAddEnabled,
               if (widget.config.onSubmitCheckIn != null)
                 CocoonQuickAddKind.checkIn,
-              if (widget.config.onSubmitSymptom != null &&
-                  widget.config.symptomOptions.isNotEmpty)
+              if (widget.config.onSubmitSymptom != null)
                 CocoonQuickAddKind.symptom,
               if (widget.config.onSubmitMeasurement != null &&
                   widget.config.measurementOptions.isNotEmpty)
@@ -357,9 +356,11 @@ class _CocoonShellState extends State<CocoonShell> {
           builder: (_) => CocoonSymptomLogScreen(
             fa: _fa,
             options: widget.config.symptomOptions,
+            catalogState: widget.config.symptomCatalogState,
             submitState: widget.config.symptomSubmitState,
             onSubmit: submitSymptom,
             onOpenMedicalAttention: widget.config.onOpenMedicalAttention,
+            onRetryCatalog: widget.config.onRetrySymptomCatalog,
           ),
         ),
       );
