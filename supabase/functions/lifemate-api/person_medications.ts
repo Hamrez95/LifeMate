@@ -69,6 +69,13 @@ export function createPersonMedicationStore(databaseUrl: string) {
     return await sql.begin(async (tx: any) => {
       const personId = await requireSelfPerson(tx, appUserId);
 
+      // Standalone medication creation and the atomic treatment-create path use
+      // the same Person-scoped transaction lock. Without this, concurrent
+      // requests can both observe no canonical row and consume duplicate quota.
+      await tx`
+        select pg_advisory_xact_lock(hashtextextended(${personId}::text, 0))
+      `;
+
       // Treatment plans reference a canonical medication row. Reusing an
       // already-recorded medication must not consume another freemium slot.
       // Notes are intentionally excluded from identity matching because they
