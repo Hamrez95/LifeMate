@@ -124,19 +124,19 @@ class _CocoonSymptomLogScreenState extends State<CocoonSymptomLogScreen> {
                       ),
                       const SizedBox(height: 14),
                       _buildCatalog(context),
-                      if (_showErrors && _catalogReady && _symptomId == null) ...[
+                      if (_showErrors &&
+                          _catalogReady &&
+                          _symptomId == null) ...[
                         const SizedBox(height: 8),
                         Text(
                           t(
                             'Choose a symptom to continue',
                             'برای ادامه یک نشانه انتخاب کن',
                           ),
-                          style: Theme.of(context)
-                              .textTheme
-                              .labelMedium
-                              ?.copyWith(
-                                color: Theme.of(context).colorScheme.error,
-                              ),
+                          style:
+                              Theme.of(context).textTheme.labelMedium?.copyWith(
+                                    color: Theme.of(context).colorScheme.error,
+                                  ),
                         ),
                       ],
                       const SizedBox(height: 30),
@@ -161,12 +161,10 @@ class _CocoonSymptomLogScreenState extends State<CocoonSymptomLogScreen> {
                         const SizedBox(height: 8),
                         Text(
                           t('Choose an intensity', 'شدت را انتخاب کن'),
-                          style: Theme.of(context)
-                              .textTheme
-                              .labelMedium
-                              ?.copyWith(
-                                color: Theme.of(context).colorScheme.error,
-                              ),
+                          style:
+                              Theme.of(context).textTheme.labelMedium?.copyWith(
+                                    color: Theme.of(context).colorScheme.error,
+                                  ),
                         ),
                       ],
                       const SizedBox(height: 26),
