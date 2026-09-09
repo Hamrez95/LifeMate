@@ -196,8 +196,13 @@ export function createLifeMateDatabase(
     currentUser,
     createMedication: personMedications.createMedication,
     listMedications: personMedications.listMedications,
-    createTreatment: personTreatmentCreate.createTreatment,
-    createTreatmentPlan: personTreatmentPlans.createTreatmentPlan,
+    createTreatmentPlan: (
+      appUserId: string,
+      body: Record<string, unknown>,
+    ) =>
+      body.medication != null
+        ? personTreatmentCreate.createTreatment(appUserId, body)
+        : personTreatmentPlans.createTreatmentPlan(appUserId, body),
     listTreatmentPlans: personTreatmentPlans.listTreatmentPlans,
     listDoseOccurrences: personDoseOccurrences.listDoseOccurrences,
     reportDose: personDoseOccurrences.reportDose,
