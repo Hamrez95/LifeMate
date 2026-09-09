@@ -246,7 +246,6 @@ XML
         <item name="android:forceDarkAllowed">false</item>
         <item name="android:windowSplashScreenBackground">@color/cocoon_canvas</item>
         <item name="android:windowSplashScreenAnimatedIcon">@drawable/cocoon_splash_mark</item>
-        <item name="android:postSplashScreenTheme">@style/NormalTheme</item>
         <item name="android:windowLightStatusBar">true</item>
     </style>
 </resources>
