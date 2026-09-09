@@ -234,17 +234,21 @@ class _ChoiceGroup<T> extends StatelessWidget {
         builder: (context, constraints) {
           final vertical = constraints.maxWidth < 330 ||
               MediaQuery.textScalerOf(context).scale(14) > 19;
+          final reduceMotion = MediaQuery.maybeOf(context)?.disableAnimations ?? false;
           final children = values.map((value) {
             final data = item(value);
             final active = value == selected;
             return Semantics(
               button: true,
               selected: active,
+              label: data.label,
               child: InkWell(
                 onTap: onChanged == null ? null : () => onChanged!(value),
                 borderRadius: BorderRadius.circular(20),
                 child: AnimatedContainer(
-                  duration: const Duration(milliseconds: 180),
+                  duration: reduceMotion
+                      ? Duration.zero
+                      : const Duration(milliseconds: 180),
                   constraints: const BoxConstraints(minHeight: 84),
                   padding: const EdgeInsetsDirectional.all(12),
                   decoration: BoxDecoration(
@@ -311,33 +315,72 @@ class _EnergySelector extends StatelessWidget {
   final bool enabled;
   final ValueChanged<CocoonCheckInEnergy> onChanged;
 
+  String _label(CocoonCheckInEnergy value) => switch (value) {
+        CocoonCheckInEnergy.low => fa ? 'کم' : 'Low',
+        CocoonCheckInEnergy.steady => fa ? 'معمولی' : 'Steady',
+        CocoonCheckInEnergy.high => fa ? 'زیاد' : 'High',
+      };
+
+  IconData _icon(CocoonCheckInEnergy value) => switch (value) {
+        CocoonCheckInEnergy.low => Icons.battery_2_bar_rounded,
+        CocoonCheckInEnergy.steady => Icons.battery_4_bar_rounded,
+        CocoonCheckInEnergy.high => Icons.battery_full_rounded,
+      };
+
   @override
-  Widget build(BuildContext context) => SegmentedButton<CocoonCheckInEnergy>(
-        showSelectedIcon: false,
-        emptySelectionAllowed: true,
-        selected: selected == null ? const {} : {selected!},
-        onSelectionChanged: enabled
-            ? (values) {
-                if (values.isNotEmpty) onChanged(values.first);
-              }
-            : null,
-        segments: [
-          ButtonSegment(
-            value: CocoonCheckInEnergy.low,
-            icon: const Icon(Icons.battery_2_bar_rounded),
-            label: Text(fa ? 'کم' : 'Low'),
-          ),
-          ButtonSegment(
-            value: CocoonCheckInEnergy.steady,
-            icon: const Icon(Icons.battery_4_bar_rounded),
-            label: Text(fa ? 'معمولی' : 'Steady'),
-          ),
-          ButtonSegment(
-            value: CocoonCheckInEnergy.high,
-            icon: const Icon(Icons.battery_full_rounded),
-            label: Text(fa ? 'زیاد' : 'High'),
-          ),
-        ],
+  Widget build(BuildContext context) => LayoutBuilder(
+        builder: (context, constraints) {
+          final compact = constraints.maxWidth < 340 ||
+              MediaQuery.textScalerOf(context).scale(14) > 19;
+          if (compact) {
+            return Column(
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: [
+                for (var i = 0; i < CocoonCheckInEnergy.values.length; i++) ...[
+                  Semantics(
+                    button: true,
+                    selected: selected == CocoonCheckInEnergy.values[i],
+                    label: _label(CocoonCheckInEnergy.values[i]),
+                    child: ChoiceChip(
+                      selected: selected == CocoonCheckInEnergy.values[i],
+                      onSelected: enabled
+                          ? (_) => onChanged(CocoonCheckInEnergy.values[i])
+                          : null,
+                      avatar: Icon(_icon(CocoonCheckInEnergy.values[i]), size: 18),
+                      label: SizedBox(
+                        width: double.infinity,
+                        child: Text(
+                          _label(CocoonCheckInEnergy.values[i]),
+                          textAlign: TextAlign.center,
+                        ),
+                      ),
+                    ),
+                  ),
+                  if (i != CocoonCheckInEnergy.values.length - 1)
+                    const SizedBox(height: 8),
+                ],
+              ],
+            );
+          }
+          return SegmentedButton<CocoonCheckInEnergy>(
+            showSelectedIcon: false,
+            emptySelectionAllowed: true,
+            selected: selected == null ? const {} : {selected!},
+            onSelectionChanged: enabled
+                ? (values) {
+                    if (values.isNotEmpty) onChanged(values.first);
+                  }
+                : null,
+            segments: [
+              for (final value in CocoonCheckInEnergy.values)
+                ButtonSegment(
+                  value: value,
+                  icon: Icon(_icon(value)),
+                  label: Text(_label(value)),
+                ),
+            ],
+          );
+        },
       );
 }
 
