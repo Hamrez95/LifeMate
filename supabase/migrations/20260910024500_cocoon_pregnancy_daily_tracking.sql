@@ -40,6 +40,19 @@ create table if not exists pregnancy.symptom_entries (
     ),
   safety_rule_set_version integer
     check (safety_rule_set_version is null or safety_rule_set_version >= 1),
+  safety_outcome varchar(32)
+    check (
+      safety_outcome is null or safety_outcome in (
+        'emergency','conservative_fallback'
+      )
+    ),
+  safety_guidance_key varchar(96)
+    check (
+      safety_guidance_key is null or safety_guidance_key in (
+        'pregnancy.safety.seek_emergency_care',
+        'pregnancy.safety.conservative_fallback'
+      )
+    ),
   client_request_id uuid not null,
   recorded_by_account_id uuid references identity.accounts(id) on delete set null,
   version integer not null default 1 check (version >= 1),
@@ -48,8 +61,12 @@ create table if not exists pregnancy.symptom_entries (
   constraint ck_pregnancy_symptom_note check (
     note is null or length(note) between 1 and 400
   ),
-  constraint ck_pregnancy_symptom_safety_version check (
-    (safety_signal is null) = (safety_rule_set_version is null)
+  constraint ck_pregnancy_symptom_safety_bundle check (
+    (safety_signal is null and safety_rule_set_version is null
+      and safety_outcome is null and safety_guidance_key is null)
+    or
+    (safety_signal is not null and safety_rule_set_version is not null
+      and safety_outcome is not null and safety_guidance_key is not null)
   )
 );
 
@@ -99,4 +116,4 @@ create policy lifemate_edge_runtime_access
 comment on table pregnancy.daily_check_ins is
   'Typed, pregnancy-episode-scoped daily wellbeing capture. Feeling is non-diagnostic mood/wellbeing state; raw values are PHI and must not enter ordinary analytics.';
 comment on table pregnancy.symptom_entries is
-  'Typed pregnancy symptom capture. Safety signal stores only the deterministic reviewed handoff code; it is not a diagnosis.';
+  'Typed pregnancy symptom capture. Safety fields persist only the deterministic reviewed handoff result; they are not a diagnosis.';
