@@ -90,7 +90,9 @@ class CocoonModuleConfig {
     this.checkInSyncState = CocoonCheckInSyncState.idle,
     this.onSubmitCheckIn,
     this.symptomOptions = const [],
+    this.symptomCatalogState = CocoonSymptomCatalogState.ready,
     this.symptomSubmitState = CocoonSymptomSubmitState.idle,
+    this.onRetrySymptomCatalog,
     this.onSubmitSymptom,
     this.onOpenMedicalAttention,
     this.measurementOptions = const [],
@@ -153,7 +155,9 @@ class CocoonModuleConfig {
   final CocoonCheckInSyncState checkInSyncState;
   final Future<void> Function(CocoonCheckInDraft draft)? onSubmitCheckIn;
   final List<CocoonSymptomOption> symptomOptions;
+  final CocoonSymptomCatalogState symptomCatalogState;
   final CocoonSymptomSubmitState symptomSubmitState;
+  final VoidCallback? onRetrySymptomCatalog;
   final Future<void> Function(CocoonSymptomDraft draft)? onSubmitSymptom;
   final VoidCallback? onOpenMedicalAttention;
   final List<CocoonMeasurementOption> measurementOptions;
