@@ -60,7 +60,8 @@ void main() {
     },
   );
 
-  testWidgets('symptom catalog error is distinct and retryable', (tester) async {
+  testWidgets('symptom catalog error is distinct and retryable',
+      (tester) async {
     var retried = false;
     await tester.pumpWidget(
       _app(
