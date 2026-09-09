@@ -7,6 +7,16 @@ import 'cocoon_pregnancy.dart';
 import 'lifemate_api_client.dart'
     show AccessTokenProvider, LifeMateApiException;
 
+class CocoonPregnancyCalendarSnapshot {
+  const CocoonPregnancyCalendarSnapshot({
+    required this.episodeId,
+    required this.careEvents,
+  });
+
+  final String? episodeId;
+  final List<Map<String, dynamic>> careEvents;
+}
+
 class CocoonPregnancyApiClient {
   CocoonPregnancyApiClient({
     required Uri baseUri,
@@ -55,6 +65,39 @@ class CocoonPregnancyApiClient {
         .whereType<Map<String, dynamic>>()
         .map(CocoonPregnancyEpisode.fromJson)
         .toList(growable: false);
+  }
+
+  Future<CocoonPregnancyCalendarSnapshot> getCalendar({
+    required DateTime fromDate,
+    required DateTime toDate,
+  }) async {
+    final value = await _object(
+      'GET',
+      '/api/v1/cocoon/pregnancy/calendar',
+      query: {'fromDate': _date(fromDate), 'toDate': _date(toDate)},
+    );
+    final rawEvents = value['careEvents'];
+    if (rawEvents is! List) {
+      throw const FormatException('Cocoon pregnancy calendar is invalid.');
+    }
+    return CocoonPregnancyCalendarSnapshot(
+      episodeId: value['episodeId']?.toString(),
+      careEvents: rawEvents
+          .whereType<Map>()
+          .map((event) => Map<String, dynamic>.from(event))
+          .toList(growable: false),
+    );
+  }
+
+  Future<void> linkCareEvent({
+    required String careEventId,
+    required String idempotencyKey,
+  }) async {
+    await _object(
+      'POST',
+      '/api/v1/cocoon/pregnancy/care-events/${careEventId.trim()}/link',
+      idempotencyKey: idempotencyKey,
+    );
   }
 
   Future<CocoonPregnancyEpisode> createEpisode({
