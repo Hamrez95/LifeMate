@@ -234,7 +234,8 @@ class _ChoiceGroup<T> extends StatelessWidget {
         builder: (context, constraints) {
           final vertical = constraints.maxWidth < 330 ||
               MediaQuery.textScalerOf(context).scale(14) > 19;
-          final reduceMotion = MediaQuery.maybeOf(context)?.disableAnimations ?? false;
+          final reduceMotion =
+              MediaQuery.maybeOf(context)?.disableAnimations ?? false;
           final children = values.map((value) {
             final data = item(value);
             final active = value == selected;
@@ -346,7 +347,8 @@ class _EnergySelector extends StatelessWidget {
                       onSelected: enabled
                           ? (_) => onChanged(CocoonCheckInEnergy.values[i])
                           : null,
-                      avatar: Icon(_icon(CocoonCheckInEnergy.values[i]), size: 18),
+                      avatar:
+                          Icon(_icon(CocoonCheckInEnergy.values[i]), size: 18),
                       label: SizedBox(
                         width: double.infinity,
                         child: Text(
