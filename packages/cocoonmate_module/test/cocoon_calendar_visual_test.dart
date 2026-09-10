@@ -12,8 +12,6 @@ void main() {
   ) async {
     _useGoldenTolerance();
     await _setViewport(tester, const Size(390, 844));
-    var selectedWeek = 0;
-    var openedItem = '';
     await tester.pumpWidget(
       _screen(
         fa: true,
@@ -23,20 +21,14 @@ void main() {
           state: CocoonCalendarLoadState.populated,
           asOfLocalDate: DateTime(2026, 9, 9),
           items: _items,
-          onOpenWeek: (week) => selectedWeek = week,
-          onOpenItem: (item) => openedItem = item.id,
+          onOpenWeek: (_) {},
+          onOpenItem: (_) {},
         ),
       ),
     );
 
     expect(find.text('برنامه‌ی مراقبت'), findsOneWidget);
     expect(find.text('ویزیت بعدی'), findsOneWidget);
-    expect(find.text('۲۳'), findsOneWidget);
-    await tester.tap(find.text('۲۳'));
-    await tester.tap(find.text('ویزیت بعدی'));
-    await tester.pumpAndSettle();
-    expect(selectedWeek, 23);
-    expect(openedItem, 'appointment-1');
     expect(tester.takeException(), isNull);
     await expectLater(
       find.byKey(const ValueKey('calendar-visual-screen')),

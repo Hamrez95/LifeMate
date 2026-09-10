@@ -51,6 +51,11 @@ class CocoonPregnancyCalendar extends StatelessWidget {
               crossAxisAlignment: CrossAxisAlignment.stretch,
               children: [
                 _TimelineIntroduction(fa: fa, age: age),
+                const SizedBox(height: 16),
+                _CalendarMonthPreview(
+                  fa: fa,
+                  asOfLocalDate: asOfLocalDate ?? DateTime.now(),
+                ),
                 const SizedBox(height: 30),
                 CocoonSectionHeading(
                   title: t('Pregnancy timeline', 'مسیر بارداری'),
@@ -84,6 +89,125 @@ class CocoonPregnancyCalendar extends StatelessWidget {
           ),
         ),
       ],
+    );
+  }
+}
+
+/// A presentational month surface. It deliberately does not infer care events:
+/// those remain in the host-provided plan below, so a visual calendar never
+/// misrepresents unsynchronised medical data as an event.
+class _CalendarMonthPreview extends StatelessWidget {
+  const _CalendarMonthPreview({required this.fa, required this.asOfLocalDate});
+
+  final bool fa;
+  final DateTime asOfLocalDate;
+
+  @override
+  Widget build(BuildContext context) {
+    final firstDay = DateTime(asOfLocalDate.year, asOfLocalDate.month);
+    final leading = fa
+        ? ((firstDay.weekday + 1) % 7) // Saturday-first visual grid.
+        : firstDay.weekday % 7;
+    final days =
+        DateUtils.getDaysInMonth(asOfLocalDate.year, asOfLocalDate.month);
+    final cells = List<int?>.generate(42, (index) {
+      final day = index - leading + 1;
+      return day < 1 || day > days ? null : day;
+    });
+    final weekdayLabels = fa
+        ? const ['ش', 'ی', 'د', 'س', 'چ', 'پ', 'ج']
+        : const ['S', 'M', 'T', 'W', 'T', 'F', 'S'];
+    final title = fa
+        ? '${cocoonDigits('${asOfLocalDate.month}', true)} / ${cocoonDigits('${asOfLocalDate.year}', true)}'
+        : MaterialLocalizations.of(context).formatMonthYear(asOfLocalDate);
+    return Semantics(
+      label: fa ? 'نمای ماه جاری' : 'Current month view',
+      child: Container(
+        padding: const EdgeInsetsDirectional.fromSTEB(16, 16, 16, 14),
+        decoration: BoxDecoration(
+          color: CocoonColors.surfaceRaised,
+          borderRadius: BorderRadius.circular(CocoonRadii.card),
+          border: Border.all(color: CocoonColors.line),
+          boxShadow: CocoonElevation.subtle,
+        ),
+        child: Column(
+          children: [
+            Row(
+              children: [
+                const Icon(Icons.calendar_month_rounded,
+                    color: CocoonColors.coral),
+                const SizedBox(width: 8),
+                Expanded(
+                  child: Text(title,
+                      style: Theme.of(context).textTheme.titleMedium),
+                ),
+                Text(
+                  fa ? 'برنامه زیر' : 'Plan below',
+                  style: Theme.of(context)
+                      .textTheme
+                      .labelMedium
+                      ?.copyWith(color: CocoonColors.muted),
+                ),
+              ],
+            ),
+            const SizedBox(height: 14),
+            Row(
+              children: weekdayLabels
+                  .map((label) => Expanded(
+                        child: Text(label,
+                            textAlign: TextAlign.center,
+                            style: Theme.of(context)
+                                .textTheme
+                                .labelMedium
+                                ?.copyWith(color: CocoonColors.muted)),
+                      ))
+                  .toList(),
+            ),
+            const SizedBox(height: 6),
+            GridView.builder(
+              shrinkWrap: true,
+              physics: const NeverScrollableScrollPhysics(),
+              itemCount: cells.length,
+              gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
+                crossAxisCount: 7,
+                childAspectRatio: 1.16,
+              ),
+              itemBuilder: (context, index) {
+                final day = cells[index];
+                final isToday = day == asOfLocalDate.day;
+                return Center(
+                  child: day == null
+                      ? const SizedBox.shrink()
+                      : Container(
+                          width: 30,
+                          height: 30,
+                          alignment: Alignment.center,
+                          decoration: BoxDecoration(
+                            color: isToday
+                                ? CocoonColors.coral
+                                : Colors.transparent,
+                            shape: BoxShape.circle,
+                          ),
+                          child: Text(
+                            cocoonDigits('$day', fa),
+                            style: Theme.of(context)
+                                .textTheme
+                                .labelMedium
+                                ?.copyWith(
+                                  color:
+                                      isToday ? Colors.white : CocoonColors.ink,
+                                  fontWeight: isToday
+                                      ? FontWeight.w700
+                                      : FontWeight.w500,
+                                ),
+                          ),
+                        ),
+                );
+              },
+            ),
+          ],
+        ),
+      ),
     );
   }
 }
@@ -357,6 +481,7 @@ class _NearbyWeeks extends StatelessWidget {
               selected: active,
               label: fa ? 'هفته ${cocoonDigits('$week', true)}' : 'Week $week',
               child: InkWell(
+                key: ValueKey('calendar-week-$week'),
                 onTap: onOpenWeek == null ? null : () => onOpenWeek!(week),
                 borderRadius: BorderRadius.circular(18),
                 child: Container(
