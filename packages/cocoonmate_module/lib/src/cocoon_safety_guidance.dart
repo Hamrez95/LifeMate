@@ -234,38 +234,50 @@ class _SafetyHero extends StatelessWidget {
       child: Container(
         padding: const EdgeInsetsDirectional.fromSTEB(24, 24, 24, 26),
         decoration: BoxDecoration(
-          color: CocoonTheme.sage,
+          color: CocoonTheme.warm,
           borderRadius: BorderRadius.circular(30),
+          border: Border.all(color: CocoonTheme.coral.withValues(alpha: .24)),
+          boxShadow: CocoonElevation.subtle,
         ),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Container(
-              width: 48,
-              height: 48,
-              decoration: const BoxDecoration(
-                color: Colors.white,
-                shape: BoxShape.circle,
-              ),
-              child: const Icon(
-                Icons.health_and_safety_outlined,
-                color: CocoonTheme.sageStrong,
-              ),
-            ),
-            const SizedBox(height: 26),
-            Text(
-              copy.eyebrow,
-              style: Theme.of(context).textTheme.labelLarge?.copyWith(
-                    color: CocoonTheme.sageStrong,
-                  ),
-            ),
-            const SizedBox(height: 8),
-            Text(copy.pageTitle,
-                style: Theme.of(context).textTheme.headlineSmall),
-            const SizedBox(height: 10),
-            Text(copy.pageIntroduction,
-                style: Theme.of(context).textTheme.bodyLarge),
-          ],
+        child: LayoutBuilder(
+          builder: (context, constraints) {
+            final compact = constraints.maxWidth < 340 ||
+                MediaQuery.textScalerOf(context).scale(16) > 21;
+            final mark = CocoonBrandMark(
+              semanticLabel: copy.eyebrow,
+              size: compact ? 56 : 70,
+            );
+            final copyBlock = Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  copy.eyebrow,
+                  style: Theme.of(context).textTheme.labelLarge?.copyWith(
+                        color: CocoonTheme.coral,
+                      ),
+                ),
+                const SizedBox(height: 8),
+                Text(copy.pageTitle,
+                    style: Theme.of(context).textTheme.headlineSmall),
+                const SizedBox(height: 10),
+                Text(copy.pageIntroduction,
+                    style: Theme.of(context).textTheme.bodyLarge),
+              ],
+            );
+            return compact
+                ? Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [mark, const SizedBox(height: 18), copyBlock],
+                  )
+                : Row(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Expanded(child: copyBlock),
+                      const SizedBox(width: 16),
+                      mark,
+                    ],
+                  );
+          },
         ),
       ),
     );
