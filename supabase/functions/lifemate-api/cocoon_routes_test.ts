@@ -1,4 +1,5 @@
 import { assertEquals, assertThrows } from "jsr:@std/assert@1.0.14";
+import { normalizePregnancyCalendarClassification } from "./pregnancy_calendar.ts";
 import {
   requireCocoonPregnancyActivationEntitlement,
   requiresCocoonPregnancyActivationEntitlement,
@@ -73,3 +74,20 @@ Deno.test(
     assertEquals(unavailable.code, "cocoon_commerce_unavailable");
   },
 );
+
+Deno.test("Cocoon pregnancy calendar accepts only bounded classifications", () => {
+  assertEquals(
+    normalizePregnancyCalendarClassification(" ULTRASOUND "),
+    "ultrasound",
+  );
+  assertEquals(
+    normalizePregnancyCalendarClassification("prenatal"),
+    "prenatal",
+  );
+  const error = assertThrows(
+    () => normalizePregnancyCalendarClassification("educational_milestone"),
+    ApiError,
+  );
+  assertEquals(error.status, 400);
+  assertEquals(error.code, "pregnancy_calendar_classification_invalid");
+});
