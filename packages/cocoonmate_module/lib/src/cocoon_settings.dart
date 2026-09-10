@@ -292,8 +292,10 @@ class _SettingsHero extends StatelessWidget {
   Widget build(BuildContext context) => Container(
         padding: const EdgeInsetsDirectional.fromSTEB(24, 24, 22, 22),
         decoration: BoxDecoration(
-          color: CocoonTheme.lilac,
-          borderRadius: BorderRadius.circular(30),
+          color: const Color(0xFFF2EDF9),
+          borderRadius: BorderRadius.circular(CocoonRadii.hero),
+          border: Border.all(color: Colors.white),
+          boxShadow: CocoonElevation.subtle,
         ),
         child: Row(
           crossAxisAlignment: CrossAxisAlignment.start,
@@ -303,7 +305,7 @@ class _SettingsHero extends StatelessWidget {
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   Text(
-                    fa ? 'تنظیمات همراه تو' : 'Your companion settings',
+                    fa ? 'پروفایل و تنظیمات' : 'Profile & settings',
                     style: Theme.of(context).textTheme.labelLarge?.copyWith(
                           color: CocoonTheme.coral,
                         ),
@@ -324,10 +326,9 @@ class _SettingsHero extends StatelessWidget {
               ),
             ),
             const SizedBox(width: 16),
-            const CircleAvatar(
-              radius: 27,
-              backgroundColor: Colors.white,
-              child: Icon(Icons.spa_outlined, color: CocoonTheme.coral),
+            CocoonBrandMark(
+              semanticLabel: fa ? 'نشان کوکون‌میت' : 'CocoonMate mark',
+              size: 58,
             ),
           ],
         ),
@@ -384,57 +385,64 @@ class _SettingsRow extends StatelessWidget {
           children: [
             InkWell(
               onTap: onTap,
-              borderRadius: BorderRadius.circular(16),
-              child: ConstrainedBox(
-                constraints: const BoxConstraints(minHeight: 68),
-                child: Padding(
-                  padding: const EdgeInsetsDirectional.symmetric(
-                    horizontal: 4,
-                    vertical: 10,
-                  ),
-                  child: Row(
-                    children: [
-                      Container(
-                        width: 42,
-                        height: 42,
-                        decoration: const BoxDecoration(
-                          color: CocoonTheme.warm,
-                          shape: BoxShape.circle,
+              borderRadius: BorderRadius.circular(CocoonRadii.control),
+              child: Ink(
+                decoration: BoxDecoration(
+                  color: Colors.white,
+                  borderRadius: BorderRadius.circular(CocoonRadii.control),
+                  border: Border.all(color: CocoonTheme.line),
+                ),
+                child: ConstrainedBox(
+                  constraints: const BoxConstraints(minHeight: 68),
+                  child: Padding(
+                    padding: const EdgeInsetsDirectional.symmetric(
+                      horizontal: 4,
+                      vertical: 10,
+                    ),
+                    child: Row(
+                      children: [
+                        Container(
+                          width: 42,
+                          height: 42,
+                          decoration: const BoxDecoration(
+                            color: CocoonTheme.warm,
+                            shape: BoxShape.circle,
+                          ),
+                          child: Icon(icon, size: 21, color: iconColor),
                         ),
-                        child: Icon(icon, size: 21, color: iconColor),
-                      ),
-                      const SizedBox(width: 14),
-                      Expanded(
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            Text(
-                              title,
-                              style: Theme.of(context).textTheme.titleMedium,
-                            ),
-                            const SizedBox(height: 2),
-                            Text(
-                              value,
-                              style: Theme.of(context)
-                                  .textTheme
-                                  .bodyMedium
-                                  ?.copyWith(color: CocoonTheme.muted),
-                            ),
-                          ],
-                        ),
-                      ),
-                      if (onTap != null) ...[
-                        const SizedBox(width: 8),
-                        ExcludeSemantics(
-                          child: Icon(
-                            fa
-                                ? Icons.chevron_left_rounded
-                                : Icons.chevron_right_rounded,
-                            color: CocoonTheme.muted,
+                        const SizedBox(width: 14),
+                        Expanded(
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Text(
+                                title,
+                                style: Theme.of(context).textTheme.titleMedium,
+                              ),
+                              const SizedBox(height: 2),
+                              Text(
+                                value,
+                                style: Theme.of(context)
+                                    .textTheme
+                                    .bodyMedium
+                                    ?.copyWith(color: CocoonTheme.muted),
+                              ),
+                            ],
                           ),
                         ),
+                        if (onTap != null) ...[
+                          const SizedBox(width: 8),
+                          ExcludeSemantics(
+                            child: Icon(
+                              fa
+                                  ? Icons.chevron_left_rounded
+                                  : Icons.chevron_right_rounded,
+                              color: CocoonTheme.muted,
+                            ),
+                          ),
+                        ],
                       ],
-                    ],
+                    ),
                   ),
                 ),
               ),

@@ -153,39 +153,39 @@ class _RecordsHero extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) => Container(
-        padding: const EdgeInsetsDirectional.fromSTEB(22, 22, 22, 20),
+        padding: const EdgeInsetsDirectional.fromSTEB(22, 24, 22, 22),
         decoration: BoxDecoration(
-          color: CocoonTheme.sage,
-          borderRadius: BorderRadius.circular(28),
+          color: const Color(0xFFEAF3EC),
+          borderRadius: BorderRadius.circular(CocoonRadii.hero),
+          border: Border.all(color: Colors.white),
+          boxShadow: CocoonElevation.subtle,
         ),
-        child: Row(
-          crossAxisAlignment: CrossAxisAlignment.start,
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
-            Expanded(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(
-                    fa ? 'روایت مراقبت تو' : 'Your care story',
-                    style: Theme.of(context).textTheme.headlineSmall,
-                  ),
-                  const SizedBox(height: 6),
-                  Text(
-                    fa
-                        ? '${cocoonDigits('$count', true)} مورد، به ترتیب زمان'
-                        : '$count items, in time order',
-                    style: Theme.of(context)
-                        .textTheme
-                        .bodyMedium
-                        ?.copyWith(color: CocoonTheme.muted),
-                  ),
-                ],
+            Align(
+              alignment: AlignmentDirectional.centerEnd,
+              child: CocoonBrandMark(
+                semanticLabel: fa
+                    ? 'نشان پرونده سلامت کوکون‌میت'
+                    : 'CocoonMate health record mark',
+                size: 58,
               ),
             ),
-            const CircleAvatar(
-              radius: 26,
-              backgroundColor: Colors.white,
-              child: Icon(Icons.history_rounded, color: CocoonTheme.sageStrong),
+            const SizedBox(height: 8),
+            Text(
+              fa ? 'پروندهٔ سلامت' : 'Health record',
+              style: Theme.of(context).textTheme.headlineSmall,
+            ),
+            const SizedBox(height: 5),
+            Text(
+              fa
+                  ? '${cocoonDigits('$count', true)} مورد، مرتب و یک‌جا'
+                  : '$count items, organised in one place',
+              style: Theme.of(context)
+                  .textTheme
+                  .bodyMedium
+                  ?.copyWith(color: CocoonTheme.muted),
             ),
           ],
         ),
@@ -306,8 +306,13 @@ class _RecordTimelineItem extends StatelessWidget {
               child: InkWell(
                 onTap: onTap,
                 borderRadius: BorderRadius.circular(18),
-                child: Padding(
-                  padding: const EdgeInsetsDirectional.fromSTEB(8, 3, 8, 10),
+                child: Ink(
+                  padding: const EdgeInsetsDirectional.fromSTEB(14, 13, 12, 13),
+                  decoration: BoxDecoration(
+                    color: Colors.white,
+                    borderRadius: BorderRadius.circular(CocoonRadii.control),
+                    border: Border.all(color: CocoonTheme.line),
+                  ),
                   child: Row(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [

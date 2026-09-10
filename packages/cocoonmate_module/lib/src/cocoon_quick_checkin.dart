@@ -164,18 +164,15 @@ class _CheckInHero extends StatelessWidget {
         decoration: BoxDecoration(
           color: CocoonTheme.warm,
           borderRadius: BorderRadius.circular(28),
+          border: Border.all(color: CocoonTheme.coral.withValues(alpha: .2)),
+          boxShadow: CocoonElevation.subtle,
         ),
         child: Row(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            const CircleAvatar(
-              radius: 28,
-              backgroundColor: Colors.white,
-              child: Icon(
-                Icons.favorite_outline_rounded,
-                color: CocoonTheme.coral,
-                size: 27,
-              ),
+            CocoonBrandMark(
+              semanticLabel: fa ? 'کوکون‌میت' : 'CocoonMate',
+              size: 58,
             ),
             const SizedBox(width: 16),
             Expanded(

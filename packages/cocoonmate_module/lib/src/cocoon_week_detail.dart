@@ -116,17 +116,19 @@ class _WeekHero extends StatelessWidget {
       child: Container(
         padding: const EdgeInsetsDirectional.fromSTEB(24, 24, 24, 26),
         decoration: BoxDecoration(
-          color: CocoonTheme.warm,
-          borderRadius: BorderRadius.circular(30),
+          color: const Color(0xFFFFECE3),
+          borderRadius: BorderRadius.circular(CocoonRadii.hero),
+          border: Border.all(color: Colors.white),
+          boxShadow: CocoonElevation.hero,
         ),
         child: Column(
           children: [
-            CocoonGrowthOrb(
+            CocoonFetalHeroFrame(
               progress: progress,
               semanticLabel: fa
-                  ? 'نمایش انتزاعی پیشرفت بارداری'
-                  : 'Abstract pregnancy progress visualization',
-              size: 188,
+                  ? 'قاب تصویری رشد این هفته'
+                  : 'Visual frame for this week’s growth',
+              size: 196,
             ),
             const SizedBox(height: 22),
             Text(
@@ -153,8 +155,60 @@ class _WeekHero extends StatelessWidget {
                   .bodyLarge
                   ?.copyWith(color: CocoonTheme.muted),
             ),
+            const SizedBox(height: 18),
+            _WeekHeroMetrics(fa: fa),
           ],
         ),
+      ),
+    );
+  }
+}
+
+class _WeekHeroMetrics extends StatelessWidget {
+  const _WeekHeroMetrics({required this.fa});
+
+  final bool fa;
+
+  @override
+  Widget build(BuildContext context) {
+    final metrics = [
+      (Icons.straighten_rounded, fa ? 'طول تقریبی' : 'Approx. length'),
+      (Icons.monitor_weight_outlined, fa ? 'وزن تقریبی' : 'Approx. weight'),
+      (Icons.local_florist_outlined, fa ? 'اندازهٔ مقایسه' : 'Size comparison'),
+    ];
+    return Container(
+      padding: const EdgeInsetsDirectional.symmetric(vertical: 12),
+      decoration: BoxDecoration(
+        color: Colors.white70,
+        borderRadius: BorderRadius.circular(CocoonRadii.control),
+      ),
+      child: Row(
+        children: [
+          for (var i = 0; i < metrics.length; i++)
+            Expanded(
+              child: Padding(
+                padding: EdgeInsetsDirectional.only(
+                  start: i == 0 ? 0 : 8,
+                  end: i == metrics.length - 1 ? 0 : 8,
+                ),
+                child: Column(
+                  children: [
+                    Icon(metrics[i].$1, color: CocoonTheme.coral, size: 20),
+                    const SizedBox(height: 4),
+                    Text(
+                      metrics[i].$2,
+                      textAlign: TextAlign.center,
+                      style: Theme.of(context).textTheme.labelMedium,
+                    ),
+                    Text(
+                      '—',
+                      style: Theme.of(context).textTheme.titleMedium,
+                    ),
+                  ],
+                ),
+              ),
+            ),
+        ],
       ),
     );
   }

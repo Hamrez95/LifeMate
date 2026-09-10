@@ -177,8 +177,10 @@ class _PregnancyMoment extends StatelessWidget {
         child: Ink(
           padding: const EdgeInsetsDirectional.fromSTEB(22, 24, 18, 22),
           decoration: BoxDecoration(
-            color: CocoonTheme.warm,
-            borderRadius: BorderRadius.circular(30),
+            color: const Color(0xFFFFECE3),
+            borderRadius: BorderRadius.circular(CocoonRadii.hero),
+            border: Border.all(color: Colors.white),
+            boxShadow: CocoonElevation.hero,
           ),
           child: LayoutBuilder(
             builder: (context, constraints) {
@@ -260,8 +262,10 @@ class _PregnancyMoment extends StatelessWidget {
                         ),
                       ),
                       const SizedBox(width: 4),
-                      const Icon(
-                        Icons.chevron_right_rounded,
+                      Icon(
+                        fa
+                            ? Icons.chevron_left_rounded
+                            : Icons.chevron_right_rounded,
                         color: CocoonTheme.coral,
                       ),
                     ],
@@ -273,11 +277,11 @@ class _PregnancyMoment extends StatelessWidget {
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     Center(
-                      child: CocoonGrowthOrb(
+                      child: CocoonFetalHeroFrame(
                         progress: progress,
                         semanticLabel: fa
-                            ? 'نمایش انتزاعی پیشرفت بارداری'
-                            : 'Abstract pregnancy progress visualization',
+                            ? 'قاب تصویری رشد این هفته'
+                            : 'Visual frame for this week’s growth',
                       ),
                     ),
                     const SizedBox(height: 20),
@@ -286,13 +290,14 @@ class _PregnancyMoment extends StatelessWidget {
                 );
               }
               return Row(
+                textDirection: TextDirection.ltr,
                 children: [
-                  CocoonGrowthOrb(
+                  CocoonFetalHeroFrame(
                     progress: progress,
                     semanticLabel: fa
-                        ? 'نمایش انتزاعی پیشرفت بارداری'
-                        : 'Abstract pregnancy progress visualization',
-                    size: 144,
+                        ? 'قاب تصویری رشد این هفته'
+                        : 'Visual frame for this week’s growth',
+                    size: 158,
                   ),
                   const SizedBox(width: 20),
                   Expanded(child: copy),

@@ -33,8 +33,7 @@ void main() {
     expect(find.text('۲۴'), findsOneWidget);
     expect(find.text('هفته و ۳ روز'), findsOneWidget);
     expect(find.text('یادداشت این هفته'), findsOneWidget);
-    expect(find.byIcon(Icons.chevron_right_rounded), findsWidgets);
-    expect(find.byIcon(Icons.chevron_left_rounded), findsNothing);
+    expect(find.byIcon(Icons.chevron_left_rounded), findsWidgets);
     expect(tester.takeException(), isNull);
     await expectLater(
       find.byKey(const ValueKey('cocoon-visual-screen')),
