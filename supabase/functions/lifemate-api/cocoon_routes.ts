@@ -3,6 +3,7 @@ import {
   createCocoonApplicationBoundary,
 } from "./cocoon_application.ts";
 import { json } from "./http.ts";
+import { createPregnancyCalendarRouteHandler } from "./pregnancy_calendar.ts";
 import { createPregnancyRouteHandler } from "./pregnancy_routes.ts";
 import { ApiError } from "./validation.ts";
 
@@ -46,6 +47,7 @@ export function requireCocoonPregnancyActivationEntitlement(
 export function createCocoonRouteHandler(databaseUrl: string) {
   const application = createCocoonApplicationBoundary(databaseUrl);
   const pregnancy = createPregnancyRouteHandler(databaseUrl);
+  const pregnancyCalendar = createPregnancyCalendarRouteHandler(databaseUrl);
 
   return async ({
     request,
@@ -81,6 +83,13 @@ export function createCocoonRouteHandler(databaseUrl: string) {
       commerceEligibility = await application.commerceEligibility(appUserId);
       requireCocoonPregnancyActivationEntitlement(commerceEligibility);
     }
+
+    const calendarResponse = await pregnancyCalendar({
+      request,
+      path,
+      appUserId,
+    });
+    if (calendarResponse) return calendarResponse;
 
     const response = await pregnancy({ request, path, appUserId });
     if (!response) return null;
