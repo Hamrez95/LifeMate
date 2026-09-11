@@ -35,8 +35,8 @@ void main() {
       final snapshot = await source.load();
       expect(snapshot.selectedPresentationIds, {'a'});
 
-      expect(
-        () => source.setSelectedPresentationIds({'a', 'b'}),
+      await expectLater(
+        source.setSelectedPresentationIds({'a', 'b'}),
         throwsA(isA<StateError>()),
       );
     },
