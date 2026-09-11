@@ -72,12 +72,14 @@ class _LifeMateShellState extends State<LifeMateShell> {
           return;
         }
         await openLifeMateModule(context, module: module, isPersian: _isPersian);
+        return;
       case TodayActionKind.shellRoute:
         if (intent.routeId == '/today') {
           _select(ShellDestination.today);
           return;
         }
         _showActionUnavailable();
+        return;
       case TodayActionKind.refreshOnly:
         return;
     }
