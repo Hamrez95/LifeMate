@@ -235,9 +235,7 @@ class _CandidateTile extends StatelessWidget {
           isThreeLine: true,
           trailing: candidate.isEligible
               ? Icon(
-                  selected
-                      ? Icons.check_circle_rounded
-                      : Icons.circle_outlined,
+                  selected ? Icons.check_circle_rounded : Icons.circle_outlined,
                   semanticLabel: selected
                       ? _t('Selected', 'انتخاب شده')
                       : _t('Not selected', 'انتخاب نشده'),
