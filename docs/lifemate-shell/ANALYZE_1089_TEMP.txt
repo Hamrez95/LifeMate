@@ -1,0 +1,5 @@
+Analyzing lifemate...                                           
+
+  error • Fields can't be initialized in both the parameter list and the initializers. Try removing one of the initializations • lib/today/today_contract.dart:101:8 • field_initialized_in_parameter_and_initializer
+
+1 issue found. (ran in 10.8s)
