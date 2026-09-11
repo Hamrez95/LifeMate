@@ -66,7 +66,11 @@ class _NotificationCenterViewState extends State<NotificationCenterView> {
     } catch (_) {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text(_t('Could not update read state.', 'وضعیت خواندن بروزرسانی نشد.'))),
+          SnackBar(
+            content: Text(
+              _t('Could not update read state.', 'وضعیت خواندن بروزرسانی نشد.'),
+            ),
+          ),
         );
       }
     } finally {
@@ -87,7 +91,9 @@ class _NotificationCenterViewState extends State<NotificationCenterView> {
               padding: const EdgeInsetsDirectional.fromSTEB(20, 4, 20, 12),
               child: Text(
                 _t('Notifications', 'اعلان‌ها'),
-                style: Theme.of(context).textTheme.headlineSmall?.copyWith(fontWeight: FontWeight.w800),
+                style: Theme.of(context).textTheme.headlineSmall?.copyWith(
+                  fontWeight: FontWeight.w800,
+                ),
               ),
             ),
             Expanded(
@@ -98,14 +104,16 @@ class _NotificationCenterViewState extends State<NotificationCenterView> {
                     return const Center(child: CircularProgressIndicator());
                   }
                   if (snapshot.hasError) {
-                    final unavailable = snapshot.error is NotificationCenterUnavailable;
+                    final unavailable =
+                        snapshot.error is NotificationCenterUnavailable;
                     return _FailureState(
                       isPersian: widget.isPersian,
                       unavailable: unavailable,
                       onRetry: _reload,
                     );
                   }
-                  final items = snapshot.data ?? const <NotificationCenterItem>[];
+                  final items =
+                      snapshot.data ?? const <NotificationCenterItem>[];
                   if (items.isEmpty) {
                     return Center(
                       child: Padding(
@@ -118,13 +126,27 @@ class _NotificationCenterViewState extends State<NotificationCenterView> {
                     );
                   }
                   return ListView(
-                    padding: const EdgeInsetsDirectional.fromSTEB(16, 0, 16, 20),
+                    padding: const EdgeInsetsDirectional.fromSTEB(
+                      16,
+                      0,
+                      16,
+                      20,
+                    ),
                     children: [
-                      if (widget.source.mode == NotificationSourceMode.synthetic)
+                      if (widget.source.mode ==
+                          NotificationSourceMode.synthetic)
                         Padding(
-                          padding: const EdgeInsetsDirectional.fromSTEB(4, 0, 4, 8),
+                          padding: const EdgeInsetsDirectional.fromSTEB(
+                            4,
+                            0,
+                            4,
+                            8,
+                          ),
                           child: Text(
-                            _t('Preview data — not live notification state', 'داده نمایشی — وضعیت زنده اعلان‌ها نیست'),
+                            _t(
+                              'Preview data — not live notification state',
+                              'داده نمایشی — وضعیت زنده اعلان‌ها نیست',
+                            ),
                             style: Theme.of(context).textTheme.bodySmall,
                           ),
                         ),
@@ -134,7 +156,9 @@ class _NotificationCenterViewState extends State<NotificationCenterView> {
                           isPersian: widget.isPersian,
                           pending: _pending.contains(item.notificationId),
                           onToggleRead: () => _toggleRead(item),
-                          onAction: item.action == null ? null : () => widget.onAction(item.action!),
+                          onAction: item.action == null
+                              ? null
+                              : () => widget.onAction(item.action!),
                         ),
                     ],
                   );
@@ -183,7 +207,8 @@ class _NotificationCard extends StatelessWidget {
 
     return Semantics(
       container: true,
-      label: '${item.display.title}, $owner, $severity, ${item.isRead ? _t('read', 'خوانده‌شده') : _t('unread', 'خوانده‌نشده')}',
+      label:
+          '${item.display.title}, $owner, $severity, ${item.isRead ? _t('read', 'خوانده‌شده') : _t('unread', 'خوانده‌نشده')}',
       child: Card(
         margin: const EdgeInsets.symmetric(vertical: 6),
         child: Padding(
@@ -202,8 +227,11 @@ class _NotificationCard extends StatelessWidget {
                         Expanded(
                           child: Text(
                             item.display.title,
-                            style: Theme.of(context).textTheme.titleMedium?.copyWith(
-                                  fontWeight: item.isRead ? FontWeight.w500 : FontWeight.w800,
+                            style: Theme.of(context).textTheme.titleMedium
+                                ?.copyWith(
+                                  fontWeight: item.isRead
+                                      ? FontWeight.w500
+                                      : FontWeight.w800,
                                 ),
                           ),
                         ),
@@ -235,8 +263,16 @@ class _NotificationCard extends StatelessWidget {
                       children: [
                         TextButton.icon(
                           onPressed: pending ? null : onToggleRead,
-                          icon: Icon(item.isRead ? Icons.mark_email_unread_outlined : Icons.mark_email_read_outlined),
-                          label: Text(item.isRead ? _t('Mark unread', 'خوانده‌نشده') : _t('Mark read', 'خوانده‌شده')),
+                          icon: Icon(
+                            item.isRead
+                                ? Icons.mark_email_unread_outlined
+                                : Icons.mark_email_read_outlined,
+                          ),
+                          label: Text(
+                            item.isRead
+                                ? _t('Mark unread', 'خوانده‌نشده')
+                                : _t('Mark read', 'خوانده‌شده'),
+                          ),
                         ),
                         if (onAction != null)
                           TextButton.icon(
@@ -265,17 +301,21 @@ class _Meta extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) => Row(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          Icon(icon, size: 14),
-          const SizedBox(width: 4),
-          Text(text, style: Theme.of(context).textTheme.bodySmall),
-        ],
-      );
+    mainAxisSize: MainAxisSize.min,
+    children: [
+      Icon(icon, size: 14),
+      const SizedBox(width: 4),
+      Text(text, style: Theme.of(context).textTheme.bodySmall),
+    ],
+  );
 }
 
 class _FailureState extends StatelessWidget {
-  const _FailureState({required this.isPersian, required this.unavailable, required this.onRetry});
+  const _FailureState({
+    required this.isPersian,
+    required this.unavailable,
+    required this.onRetry,
+  });
 
   final bool isPersian;
   final bool unavailable;
@@ -283,34 +323,38 @@ class _FailureState extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) => Center(
-        child: Padding(
-          padding: const EdgeInsets.all(24),
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              const Icon(Icons.notifications_off_outlined, size: 44),
-              const SizedBox(height: 12),
-              Text(
-                unavailable
-                    ? (isPersian ? 'مرکز اعلان‌ها هنوز متصل نیست' : 'Notification Center is not connected yet')
-                    : (isPersian ? 'اعلان‌ها بروزرسانی نشد' : 'Notifications could not refresh'),
-                textAlign: TextAlign.center,
-              ),
-              const SizedBox(height: 8),
-              Text(
-                isPersian
-                    ? 'هیچ وضعیت ساختگی به‌عنوان اعلان زنده نمایش داده نمی‌شود.'
-                    : 'No synthetic notification is shown as live state.',
-                textAlign: TextAlign.center,
-              ),
-              const SizedBox(height: 16),
-              OutlinedButton.icon(
-                onPressed: onRetry,
-                icon: const Icon(Icons.refresh_rounded),
-                label: Text(isPersian ? 'تلاش دوباره' : 'Retry'),
-              ),
-            ],
+    child: Padding(
+      padding: const EdgeInsets.all(24),
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          const Icon(Icons.notifications_off_outlined, size: 44),
+          const SizedBox(height: 12),
+          Text(
+            unavailable
+                ? (isPersian
+                      ? 'مرکز اعلان‌ها هنوز متصل نیست'
+                      : 'Notification Center is not connected yet')
+                : (isPersian
+                      ? 'اعلان‌ها بروزرسانی نشد'
+                      : 'Notifications could not refresh'),
+            textAlign: TextAlign.center,
           ),
-        ),
-      );
+          const SizedBox(height: 8),
+          Text(
+            isPersian
+                ? 'هیچ وضعیت ساختگی به‌عنوان اعلان زنده نمایش داده نمی‌شود.'
+                : 'No synthetic notification is shown as live state.',
+            textAlign: TextAlign.center,
+          ),
+          const SizedBox(height: 16),
+          OutlinedButton.icon(
+            onPressed: onRetry,
+            icon: const Icon(Icons.refresh_rounded),
+            label: Text(isPersian ? 'تلاش دوباره' : 'Retry'),
+          ),
+        ],
+      ),
+    ),
+  );
 }

@@ -77,7 +77,9 @@ void main() {
     expect(find.text('Mark unread'), findsOneWidget);
   });
 
-  testWidgets('read state mutation is routed through the source', (tester) async {
+  testWidgets('read state mutation is routed through the source', (
+    tester,
+  ) async {
     final source = SyntheticNotificationCenterSource([
       item(
         id: 'unread',

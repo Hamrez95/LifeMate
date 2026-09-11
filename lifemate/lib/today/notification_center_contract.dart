@@ -29,15 +29,15 @@ class NotificationCenterItem {
   final TodayActionIntent? action;
 
   NotificationCenterItem copyWith({bool? isRead}) => NotificationCenterItem(
-        notificationId: notificationId,
-        sourceModuleId: sourceModuleId,
-        owner: owner,
-        display: display,
-        severity: severity,
-        createdAt: createdAt,
-        isRead: isRead ?? this.isRead,
-        action: action,
-      );
+    notificationId: notificationId,
+    sourceModuleId: sourceModuleId,
+    owner: owner,
+    display: display,
+    severity: severity,
+    createdAt: createdAt,
+    isRead: isRead ?? this.isRead,
+    action: action,
+  );
 }
 
 abstract interface class NotificationCenterSource {
@@ -71,9 +71,9 @@ class UnavailableNotificationCenterSource implements NotificationCenterSource {
 /// as canonical read state by a production host.
 class SyntheticNotificationCenterSource implements NotificationCenterSource {
   SyntheticNotificationCenterSource(Iterable<NotificationCenterItem> items)
-      : _items = <String, NotificationCenterItem>{
-          for (final item in items) item.notificationId: item,
-        };
+    : _items = <String, NotificationCenterItem>{
+        for (final item in items) item.notificationId: item,
+      };
 
   final Map<String, NotificationCenterItem> _items;
 
