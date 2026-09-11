@@ -77,6 +77,11 @@ jobs:
           set -euo pipefail
           psql "$TEST_DATABASE_URL" --set=ON_ERROR_STOP=1 \
             --file=supabase/bootstrap/legacy_lifemate_baseline.sql
+          # Supabase-managed databases provide these provider roles. Plain
+          # PostgreSQL replay jobs must create safe NOLOGIN compatibility roles
+          # before applying migrations that revoke/grant against them.
+          psql "$TEST_DATABASE_URL" --set=ON_ERROR_STOP=1 \
+            --file=supabase/bootstrap/test_provider_compatibility_roles.sql
           while IFS= read -r migration; do
             psql "$TEST_DATABASE_URL" --set=ON_ERROR_STOP=1 --file="$migration"
           done < <(find supabase/migrations -maxdepth 1 -type f -name '*.sql' | sort)
