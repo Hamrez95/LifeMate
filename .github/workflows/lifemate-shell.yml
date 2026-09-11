@@ -91,5 +91,9 @@ jobs:
       - name: Verify isolated Android package
         shell: bash
         run: |
-          grep -Fq 'applicationId = "com.mylifemate.lifemate"' lifemate/android/app/build.gradle.kts
+          set -euo pipefail
+          gradle='lifemate/android/app/build.gradle.kts'
+          grep -Fq 'applicationId = "com.mylifemate.lifemate"' "$gradle"
+          grep -Fq 'isCoreLibraryDesugaringEnabled = true' "$gradle"
+          grep -Fq 'coreLibraryDesugaring("com.android.tools:desugar_jdk_libs:2.1.5")' "$gradle"
           test -s lifemate/build/app/outputs/flutter-apk/app-release.apk
