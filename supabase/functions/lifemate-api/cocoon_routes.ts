@@ -5,6 +5,7 @@ import {
 import { json } from "./http.ts";
 import { createPregnancyCalendarRouteHandler } from "./pregnancy_calendar.ts";
 import { createPregnancyCaptureRouteHandler } from "./pregnancy_capture.ts";
+import { createPregnancyMeasurementRouteHandler } from "./pregnancy_measurements.ts";
 import { createPregnancyRouteHandler } from "./pregnancy_routes.ts";
 import { ApiError } from "./validation.ts";
 
@@ -50,6 +51,9 @@ export function createCocoonRouteHandler(databaseUrl: string) {
   const pregnancy = createPregnancyRouteHandler(databaseUrl);
   const pregnancyCalendar = createPregnancyCalendarRouteHandler(databaseUrl);
   const pregnancyCapture = createPregnancyCaptureRouteHandler(databaseUrl);
+  const pregnancyMeasurements = createPregnancyMeasurementRouteHandler(
+    databaseUrl,
+  );
 
   return async ({
     request,
@@ -99,6 +103,13 @@ export function createCocoonRouteHandler(databaseUrl: string) {
       appUserId,
     });
     if (captureResponse) return captureResponse;
+
+    const measurementResponse = await pregnancyMeasurements({
+      request,
+      path,
+      appUserId,
+    });
+    if (measurementResponse) return measurementResponse;
 
     const response = await pregnancy({ request, path, appUserId });
     if (!response) return null;
