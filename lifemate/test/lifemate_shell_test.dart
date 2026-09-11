@@ -62,6 +62,9 @@ void main() {
   testWidgets(
     'WellMate hotspot routes through the module host after response',
     (tester) async {
+      await tester.binding.setSurfaceSize(const Size(412, 915));
+      addTearDown(() => tester.binding.setSurfaceSize(null));
+
       final registry = LifeMateModuleRegistry.foundation().replacing(
         LifeMateModuleDefinition(
           id: LifeMateModuleId.wellMate,
@@ -105,6 +108,9 @@ void main() {
   );
 
   testWidgets('WellMate unavailable fallback is truthful', (tester) async {
+    await tester.binding.setSurfaceSize(const Size(412, 915));
+    addTearDown(() => tester.binding.setSurfaceSize(null));
+
     await tester.pumpWidget(
       const LifeMateApp(home: LifeMateShell(), localeOverride: Locale('en')),
     );
