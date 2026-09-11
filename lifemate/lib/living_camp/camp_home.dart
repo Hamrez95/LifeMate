@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 
+import 'camp_environment.dart';
 import 'camp_scene_renderer.dart';
 
 class CampHome extends StatelessWidget {
@@ -7,10 +8,14 @@ class CampHome extends StatelessWidget {
     super.key,
     required this.isPersian,
     required this.onOpenToday,
+    this.environmentPreferences = const CampEnvironmentPreferences(),
+    this.nowUtc,
   });
 
   final bool isPersian;
   final VoidCallback onOpenToday;
+  final CampEnvironmentPreferences environmentPreferences;
+  final DateTime Function()? nowUtc;
 
   String _t(String en, String fa) => isPersian ? fa : en;
 
@@ -66,65 +71,79 @@ class CampHome extends StatelessWidget {
       ),
     ];
 
-    return SafeArea(
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.stretch,
-        children: [
-          Padding(
-            padding: const EdgeInsetsDirectional.fromSTEB(20, 12, 20, 8),
-            child: Text(
-              _t('Living Camp', 'کمپ زنده'),
-              style: Theme.of(
-                context,
-              ).textTheme.titleLarge?.copyWith(fontWeight: FontWeight.w800),
-            ),
-          ),
-          Expanded(
-            child: CampSceneRenderer(
-              zones: zones,
-              presentations: presentations,
-              layers: [
-                CampSceneLayer(
-                  id: 'background',
-                  zIndex: 0,
-                  builder: (context) =>
-                      ColoredBox(color: Theme.of(context).colorScheme.surface),
+    return CampEnvironmentHost(
+      preferences: environmentPreferences,
+      nowUtc: nowUtc,
+      builder: (context, environment) {
+        final colors = Theme.of(context).colorScheme;
+        final isNight = environment.phase == CampDayPhase.night;
+        final backgroundColor = isNight
+            ? const Color(0xFF111A29)
+            : colors.surface;
+        final groundTop = isNight
+            ? const Color(0xFF1C2933)
+            : colors.surfaceContainerLow;
+        final groundBottom = isNight
+            ? const Color(0xFF13241F)
+            : colors.surfaceContainer;
+
+        return SafeArea(
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              Padding(
+                padding: const EdgeInsetsDirectional.fromSTEB(20, 12, 20, 8),
+                child: Text(
+                  _t('Living Camp', 'کمپ زنده'),
+                  style: Theme.of(
+                    context,
+                  ).textTheme.titleLarge?.copyWith(fontWeight: FontWeight.w800),
                 ),
-                CampSceneLayer(
-                  id: 'ground',
-                  zIndex: 10,
-                  builder: (context) => DecoratedBox(
-                    decoration: BoxDecoration(
-                      gradient: LinearGradient(
-                        begin: Alignment.topCenter,
-                        end: Alignment.bottomCenter,
-                        colors: [
-                          Theme.of(context).colorScheme.surfaceContainerLow,
-                          Theme.of(context).colorScheme.surfaceContainer,
-                        ],
+              ),
+              Expanded(
+                child: CampSceneRenderer(
+                  zones: zones,
+                  presentations: presentations,
+                  layers: [
+                    CampSceneLayer(
+                      id: 'background',
+                      zIndex: 0,
+                      builder: (_) => ColoredBox(color: backgroundColor),
+                    ),
+                    CampSceneLayer(
+                      id: 'ground',
+                      zIndex: 10,
+                      builder: (_) => DecoratedBox(
+                        decoration: BoxDecoration(
+                          gradient: LinearGradient(
+                            begin: Alignment.topCenter,
+                            end: Alignment.bottomCenter,
+                            colors: [groundTop, groundBottom],
+                          ),
+                        ),
                       ),
                     ),
-                  ),
+                  ],
+                  onZoneTap: (zoneId) {
+                    if (zoneId == 'lifemate_home') onOpenToday();
+                  },
                 ),
-              ],
-              onZoneTap: (zoneId) {
-                if (zoneId == 'lifemate_home') onOpenToday();
-              },
-            ),
-          ),
-          Padding(
-            padding: const EdgeInsetsDirectional.fromSTEB(20, 8, 20, 16),
-            child: Text(
-              _t(
-                'Scene topology is live. Final layered artwork and Rive actors arrive through #1073 and #1074 without changing zone identity or hotspots.',
-                'توپولوژی صحنه فعال است. آرت لایه‌ای و بازیگرهای Rive در #1073 و #1074 بدون تغییر هویت zone یا hotspot جایگزین می‌شوند.',
               ),
-              textAlign: TextAlign.center,
-              style: Theme.of(context).textTheme.bodySmall,
-            ),
+              Padding(
+                padding: const EdgeInsetsDirectional.fromSTEB(20, 8, 20, 16),
+                child: Text(
+                  _t(
+                    'Scene topology is live. Final layered artwork and Rive actors arrive through #1073 and #1074 without changing zone identity or hotspots.',
+                    'توپولوژی صحنه فعال است. آرت لایه‌ای و بازیگرهای Rive در #1073 و #1074 بدون تغییر هویت zone یا hotspot جایگزین می‌شوند.',
+                  ),
+                  textAlign: TextAlign.center,
+                  style: Theme.of(context).textTheme.bodySmall,
+                ),
+              ),
+            ],
           ),
-        ],
-      ),
+        );
+      },
     );
   }
 
