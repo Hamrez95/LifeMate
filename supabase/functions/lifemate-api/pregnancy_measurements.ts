@@ -20,7 +20,9 @@ const supportedMeasurementTypes = new Set<MeasurementType>([
   "blood_glucose",
 ]);
 
-export function normalizePregnancyMeasurementType(value: unknown): MeasurementType {
+export function normalizePregnancyMeasurementType(
+  value: unknown,
+): MeasurementType {
   const normalized = String(value ?? "").trim().toLowerCase();
   if (!supportedMeasurementTypes.has(normalized as MeasurementType)) {
     throw new ApiError(
@@ -135,7 +137,10 @@ export function createPregnancyMeasurementRouteHandler(databaseUrl: string) {
     );
     const items = canonical.filter((observation) => {
       if (!linkedIds.has(String(observation.id ?? ""))) return false;
-      const localDate = String(observation.observedLocalDate ?? "").slice(0, 10);
+      const localDate = String(observation.observedLocalDate ?? "").slice(
+        0,
+        10,
+      );
       if (localDate < fromDate || localDate > toDate) return false;
       return supportedMeasurementTypes.has(
         String(observation.observationType ?? "") as MeasurementType,
@@ -162,7 +167,10 @@ export function createPregnancyMeasurementRouteHandler(databaseUrl: string) {
       path === "/api/v1/cocoon/pregnancy/measurements"
     ) {
       const url = new URL(request.url);
-      const fromDate = requiredDate(url.searchParams.get("fromDate"), "fromDate");
+      const fromDate = requiredDate(
+        url.searchParams.get("fromDate"),
+        "fromDate",
+      );
       const toDate = requiredDate(url.searchParams.get("toDate"), "toDate");
       validateRange(fromDate, toDate, 366);
       return json(await listMeasurements(appUserId, fromDate, toDate));
