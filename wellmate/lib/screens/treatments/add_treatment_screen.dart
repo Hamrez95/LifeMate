@@ -6,7 +6,6 @@ import '../../core/theme/app_style.dart';
 import '../../core/utils/persian_date_utils.dart';
 import '../../core/utils/care_time_picker.dart';
 import '../../core/widgets/labeled_form_field.dart';
-import 'offline_treatment_create.dart';
 import 'health_document_attachment_section.dart';
 import 'treatment_recurrence_editor.dart';
 import 'treatment_schedule_payload.dart';
@@ -76,6 +75,8 @@ class _TabbedAddTreatmentScreenState extends State<TabbedAddTreatmentScreen> {
   bool _historyLoading = false;
   List<HealthDocumentAttachmentDraft> _attachments = const [];
   String? _attachmentPlanId;
+  String? _pendingCreateRequestId;
+  String? _pendingCreateFingerprint;
 
   static final _forms = <String, String>{
     'tablet': LifeMateRuntimeLocale.select(fa: 'قرص', en: 'Tablet'),
@@ -343,6 +344,26 @@ class _TabbedAddTreatmentScreenState extends State<TabbedAddTreatmentScreen> {
     return true;
   }
 
+  String _logicalCreateFingerprint(List<Map<String, String>> schedules) {
+    final recurrence = _recurrenceSelection;
+    final scheduleKey = schedules
+        .map((item) => '${item['dayOfWeek']}@${item['localTime']}')
+        .join(',');
+    return <String>[
+      _name.text.trim().toLowerCase(),
+      _strength.text.trim().toLowerCase(),
+      _form,
+      _dose.text.trim(),
+      _instructions.text.trim(),
+      _startDate.toIso8601String(),
+      _endDate?.toIso8601String() ?? '',
+      _timeZone.trim(),
+      scheduleKey,
+      '${recurrence.enabled}:${recurrence.unit.name}:${recurrence.interval}:${recurrence.anchorLocalTime ?? ''}',
+      '$_patientReminderMinutesBefore:$_caregiverReminderMinutesBefore',
+    ].join('\u001e');
+  }
+
   Future<void> _create() async {
     FocusScope.of(context).unfocus();
     if (_busy || !_formKey.currentState!.validate()) return;
@@ -359,12 +380,6 @@ class _TabbedAddTreatmentScreenState extends State<TabbedAddTreatmentScreen> {
     });
     try {
       final api = context.read<LifeMateApiClient>();
-      final medication = await api.createMedication(
-        name: _name.text,
-        strengthText: _strength.text,
-        form: _form,
-        notes: _instructions.text,
-      );
       final selectedDays = _frequency == 'daily'
           ? _backendWeekdays.keys.toSet()
           : _selectedWeekdays;
@@ -375,74 +390,63 @@ class _TabbedAddTreatmentScreenState extends State<TabbedAddTreatmentScreen> {
               times: _times,
               backendWeekdays: _backendWeekdays,
             );
-      final clientRequestId = LifeMateApiClient.createClientRequestId();
-      final offlineRequest = WellMateOfflineTreatmentCreateRequest(
-        clientRequestId: clientRequestId,
-        medicationId: medication['id'].toString(),
-        doseText: _dose.text,
-        instructions: _instructions.text,
-        startDate: _startDate,
-        endDate: _endDate,
-        timeZone: _timeZone,
-        schedules: schedules,
-        patientReminderMinutesBefore: _patientReminderMinutesBefore,
-        caregiverReminderMinutesBefore: _caregiverReminderMinutesBefore,
-      );
-      var pendingSync = false;
+      final recurrence = _recurrenceSelection.rule(endDate: _endDate);
+      final fingerprint = _logicalCreateFingerprint(schedules);
+      if (_pendingCreateFingerprint != fingerprint ||
+          _pendingCreateRequestId == null) {
+        _pendingCreateFingerprint = fingerprint;
+        _pendingCreateRequestId = LifeMateApiClient.createClientRequestId();
+      }
+      final clientRequestId = _pendingCreateRequestId!;
+
+      // Do not fall back to the legacy two-request/offline path here. Keeping
+      // the same idempotency key after an ambiguous network failure lets the
+      // user safely retry the one atomic server mutation without creating a
+      // medication or treatment twice.
+      final atomicApi = LifeMateTreatmentCreateApi.fromEnvironment();
+      late final Map<String, dynamic> plan;
       try {
-        final plan = await api.createTreatmentPlan(
-          medicationId: offlineRequest.medicationId,
-          doseText: offlineRequest.doseText,
-          instructions: offlineRequest.instructions,
-          startDate: offlineRequest.startDate,
-          endDate: offlineRequest.endDate,
-          timeZone: offlineRequest.timeZone,
-          schedules: offlineRequest.schedules,
-          recurrence: _recurrenceSelection.rule(endDate: _endDate),
-          recurrenceStartLocalTime: _recurrenceSelection.anchorLocalTime,
-          patientReminderMinutesBefore:
-              offlineRequest.patientReminderMinutesBefore,
-          caregiverReminderMinutesBefore:
-              offlineRequest.caregiverReminderMinutesBefore,
+        plan = await atomicApi.createTreatment(
           clientRequestId: clientRequestId,
+          medicationName: _name.text,
+          strengthText: _strength.text,
+          form: _form,
+          medicationNotes: _instructions.text,
+          doseText: _dose.text,
+          instructions: _instructions.text,
+          startDate: _startDate,
+          endDate: _endDate,
+          timeZone: _timeZone,
+          schedules: schedules,
+          recurrence: recurrence,
+          recurrenceStartLocalTime: _recurrenceSelection.anchorLocalTime,
+          patientReminderMinutesBefore: _patientReminderMinutesBefore,
+          caregiverReminderMinutesBefore: _caregiverReminderMinutesBefore,
         );
-        if (_attachments.isNotEmpty) {
-          final uploaded = await _uploadAttachments(api, plan['id']?.toString());
-          if (!uploaded) {
-            widget.onCreated();
-            return;
-          }
+      } finally {
+        atomicApi.close();
+      }
+      _pendingCreateRequestId = null;
+      _pendingCreateFingerprint = null;
+
+      if (_attachments.isNotEmpty) {
+        final uploaded = await _uploadAttachments(api, plan['id']?.toString());
+        if (!uploaded) {
+          widget.onCreated();
+          return;
         }
-      } on LifeMateApiException catch (error) {
-        if (_attachments.isNotEmpty ||
-            _recurrenceSelection.enabled ||
-            !canQueueTreatmentCreateOffline(error)) {
-          rethrow;
-        }
-        final queued = await tryQueueTreatmentCreateOffline(
-          context,
-          offlineRequest,
-        );
-        if (!queued) rethrow;
-        pendingSync = true;
       }
       if (!mounted) return;
       LifeMateNotice.show(
         context,
-        type: pendingSync ? LifeMateNoticeType.info : LifeMateNoticeType.success,
+        type: LifeMateNoticeType.success,
         title: LifeMateRuntimeLocale.select(
-          fa: pendingSync ? 'درمان روی این دستگاه ذخیره شد' : 'درمان ثبت شد',
-          en: pendingSync
-              ? 'Treatment saved on this device'
-              : 'Treatment was recorded',
+          fa: 'درمان ثبت شد',
+          en: 'Treatment was recorded',
         ),
         message: LifeMateRuntimeLocale.select(
-          fa: pendingSync
-              ? 'تأیید سرور هنوز انجام نشده است؛ پس از اتصال، برنامه درمان همگام‌سازی می‌شود.'
-              : 'برنامه درمان ذخیره شد و نوبت‌های آینده به‌صورت خودکار ساخته می‌شوند.',
-          en: pendingSync
-              ? 'Server confirmation is pending; the treatment plan will sync after reconnection.'
-              : 'The treatment plan was saved and future occurrences will be generated automatically.',
+          fa: 'برنامه درمان ذخیره شد و نوبت‌های آینده به‌صورت خودکار ساخته می‌شوند.',
+          en: 'The treatment plan was saved and future occurrences will be generated automatically.',
         ),
       );
       _reset();
@@ -555,6 +559,8 @@ class _TabbedAddTreatmentScreenState extends State<TabbedAddTreatmentScreen> {
       _error = null;
       _attachments = const [];
       _attachmentPlanId = null;
+      _pendingCreateRequestId = null;
+      _pendingCreateFingerprint = null;
     });
   }
 

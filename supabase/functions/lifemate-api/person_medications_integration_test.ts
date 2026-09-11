@@ -84,7 +84,7 @@ async function cleanupIdentity(
 
 Deno.test({
   name:
-    "medication runtime writes canonical Person without legacy owner-user linkage",
+    "medication runtime writes canonical Person and reuses an equivalent medication at quota",
   sanitizeOps: false,
   sanitizeResources: false,
   fn: async () => {
@@ -98,6 +98,7 @@ Deno.test({
     const otherAuthSubject = crypto.randomUUID();
     const store = createPersonMedicationStore(databaseUrl);
     let medicationId: string | null = null;
+    const extraMedicationIds: string[] = [];
 
     assertNotEquals(ownerAppUserId, ownerAccountId);
     assertNotEquals(ownerAppUserId, ownerPersonId);
@@ -151,6 +152,41 @@ Deno.test({
       assertEquals(ownerRows.length, 1);
       assertEquals(ownerRows[0].id, medicationId);
 
+      for (
+        const [name, strength] of [
+          ["Second quota fixture", "20 mg"],
+          ["Third quota fixture", "30 mg"],
+        ]
+      ) {
+        const extra = await store.createMedication(ownerAppUserId, {
+          name,
+          strengthText: strength,
+          form: "tablet",
+          notes: "quota fixture",
+        });
+        extraMedicationIds.push(String(extra.id));
+      }
+
+      const atQuota = await store.listMedications(ownerAppUserId);
+      assertEquals(atQuota.length, 3);
+
+      const reused = await store.createMedication(ownerAppUserId, {
+        name: "PERSON-OWNED TEST MEDICATION",
+        strengthText: "10 MG",
+        form: "TABLET",
+        notes: "new treatment instructions must not create a duplicate drug",
+      });
+      assertEquals(reused.id, medicationId);
+
+      const afterReuse = await store.listMedications(ownerAppUserId);
+      assertEquals(afterReuse.length, 3);
+      const reuseAuditRows = await adminSql`
+        select count(*)::integer as count
+        from lifemate.audit_logs
+        where resource_type='medication' and resource_id=${medicationId}::uuid
+      `;
+      assertEquals(reuseAuditRows[0].count, 1);
+
       const unrelatedRows = await store.listMedications(otherAppUserId);
       assertEquals(unrelatedRows.length, 0);
 
@@ -161,13 +197,14 @@ Deno.test({
       );
     } finally {
       await closeLifeMateSqlClientsForTest().catch(() => undefined);
-      if (medicationId) {
+      for (const id of [medicationId, ...extraMedicationIds]) {
+        if (!id) continue;
         await adminSql`
           delete from lifemate.audit_logs
-          where resource_type='medication' and resource_id=${medicationId}::uuid
+          where resource_type='medication' and resource_id=${id}::uuid
         `.catch(() => undefined);
         await adminSql`
-          delete from lifemate.medications where id=${medicationId}::uuid
+          delete from lifemate.medications where id=${id}::uuid
         `.catch(() => undefined);
       }
       await cleanupIdentity(ownerAppUserId, ownerAccountId, ownerPersonId);

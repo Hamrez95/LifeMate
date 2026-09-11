@@ -12,6 +12,7 @@ import { createPersonCareRelationshipManagementStore } from "./person_care_relat
 import { createPersonDoseOccurrenceStore } from "./person_dose_occurrences.ts";
 import { createPersonInvitationAcceptanceStore } from "./person_invitation_acceptance.ts";
 import { createPersonMedicationStore } from "./person_medications.ts";
+import { createPersonTreatmentCreateStore } from "./person_treatment_create.ts";
 import { createPersonTreatmentPlanStore } from "./person_treatment_plans.ts";
 import { createPhoneCareInvitationStore } from "./phone_care_invitation.ts";
 import { createProfileStore } from "./profile.ts";
@@ -46,6 +47,7 @@ export function createLifeMateDatabase(
     contactHashingSecret,
   );
   const personMedications = createPersonMedicationStore(databaseUrl);
+  const personTreatmentCreate = createPersonTreatmentCreateStore(databaseUrl);
   const personTreatmentPlans = createPersonTreatmentPlanStore(databaseUrl);
   const phoneInvitations = createPhoneCareInvitationStore(
     databaseUrl,
@@ -194,7 +196,13 @@ export function createLifeMateDatabase(
     currentUser,
     createMedication: personMedications.createMedication,
     listMedications: personMedications.listMedications,
-    createTreatmentPlan: personTreatmentPlans.createTreatmentPlan,
+    createTreatmentPlan: (
+      appUserId: string,
+      body: Record<string, unknown>,
+    ) =>
+      body.medication != null
+        ? personTreatmentCreate.createTreatment(appUserId, body)
+        : personTreatmentPlans.createTreatmentPlan(appUserId, body),
     listTreatmentPlans: personTreatmentPlans.listTreatmentPlans,
     listDoseOccurrences: personDoseOccurrences.listDoseOccurrences,
     reportDose: personDoseOccurrences.reportDose,
