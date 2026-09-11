@@ -1,0 +1,35 @@
+name: lifemate-shell-format-1090-temp
+
+on:
+  push:
+    branches:
+      - feat/today-notification-center-1090
+
+permissions:
+  contents: write
+
+jobs:
+  format:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: feat/today-notification-center-1090
+      - uses: subosito/flutter-action@4cab68ce0f1c7c924f688bff4792e044f1aeb30c
+        with:
+          flutter-version: '3.44.0'
+          channel: stable
+          cache: true
+      - name: Apply canonical formatter
+        working-directory: lifemate
+        run: dart format lib test
+      - name: Commit formatter output
+        run: |
+          if git diff --quiet -- lifemate/lib lifemate/test; then
+            exit 0
+          fi
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add lifemate/lib lifemate/test
+          git commit -m "style(today): apply Dart 3.44 formatting (#1090)"
+          git push origin HEAD:feat/today-notification-center-1090
