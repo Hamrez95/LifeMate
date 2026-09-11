@@ -163,8 +163,13 @@ void main() {
     );
     expect(tickerMode.enabled, isFalse);
 
-    expect(find.bySemanticsLabel('LifeMate home'), findsOneWidget);
-    await tester.tap(find.bySemanticsLabel('LifeMate home'));
+    final homeHotspot = find.byWidgetPredicate(
+      (widget) =>
+          widget is Semantics && widget.properties.label == 'LifeMate home',
+      description: 'LifeMate home semantic hotspot',
+    );
+    expect(homeHotspot, findsOneWidget);
+    await tester.tap(homeHotspot);
     expect(openedToday, isTrue);
   });
 }
