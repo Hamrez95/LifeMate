@@ -117,26 +117,20 @@ void main() {
             timezoneOffset: Duration.zero,
           ),
           nowUtc: () => nowUtc,
-          builder: (context, state) => Builder(
-            builder: (tickerContext) =>
-                Text('${state.phase.name}:${TickerMode.of(tickerContext)}'),
-          ),
+          builder: (context, state) =>
+              Text('${state.phase.name}:${state.motionEnabled}'),
         ),
       ),
     );
 
     expect(find.text('day:true'), findsOneWidget);
 
-    await tester.binding.handleAppLifecycleStateChanged(
-      AppLifecycleState.paused,
-    );
+    tester.binding.handleAppLifecycleStateChanged(AppLifecycleState.paused);
     await tester.pump();
     expect(find.text('day:false'), findsOneWidget);
 
     nowUtc = DateTime.utc(2026, 1, 1, 22);
-    await tester.binding.handleAppLifecycleStateChanged(
-      AppLifecycleState.resumed,
-    );
+    tester.binding.handleAppLifecycleStateChanged(AppLifecycleState.resumed);
     await tester.pump();
     expect(find.text('night:true'), findsOneWidget);
   });
@@ -164,7 +158,9 @@ void main() {
       ),
     );
 
-    final tickerMode = tester.widget<TickerMode>(find.byType(TickerMode).first);
+    final tickerMode = tester.widget<TickerMode>(
+      find.byKey(const ValueKey<String>('camp-environment-motion')),
+    );
     expect(tickerMode.enabled, isFalse);
 
     expect(find.bySemanticsLabel('LifeMate home'), findsOneWidget);
