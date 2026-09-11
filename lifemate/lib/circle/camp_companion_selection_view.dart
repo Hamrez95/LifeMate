@@ -168,7 +168,12 @@ class _CampCompanionSelectionViewState
                     ),
                     if (capacityReached)
                       Padding(
-                        padding: const EdgeInsetsDirectional.fromSTEB(4, 0, 4, 8),
+                        padding: const EdgeInsetsDirectional.fromSTEB(
+                          4,
+                          0,
+                          4,
+                          8,
+                        ),
                         child: Semantics(
                           liveRegion: true,
                           child: Text(
