@@ -4,6 +4,7 @@ import {
 } from "./cocoon_application.ts";
 import { json } from "./http.ts";
 import { createPregnancyCalendarRouteHandler } from "./pregnancy_calendar.ts";
+import { createPregnancyCaptureRouteHandler } from "./pregnancy_capture.ts";
 import { createPregnancyRouteHandler } from "./pregnancy_routes.ts";
 import { ApiError } from "./validation.ts";
 
@@ -48,6 +49,7 @@ export function createCocoonRouteHandler(databaseUrl: string) {
   const application = createCocoonApplicationBoundary(databaseUrl);
   const pregnancy = createPregnancyRouteHandler(databaseUrl);
   const pregnancyCalendar = createPregnancyCalendarRouteHandler(databaseUrl);
+  const pregnancyCapture = createPregnancyCaptureRouteHandler(databaseUrl);
 
   return async ({
     request,
@@ -90,6 +92,13 @@ export function createCocoonRouteHandler(databaseUrl: string) {
       appUserId,
     });
     if (calendarResponse) return calendarResponse;
+
+    const captureResponse = await pregnancyCapture({
+      request,
+      path,
+      appUserId,
+    });
+    if (captureResponse) return captureResponse;
 
     const response = await pregnancy({ request, path, appUserId });
     if (!response) return null;
