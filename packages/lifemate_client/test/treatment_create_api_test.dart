@@ -1,9 +1,9 @@
 import 'dart:convert';
 
+import 'package:flutter_test/flutter_test.dart';
 import 'package:http/http.dart' as http;
 import 'package:http/testing.dart';
 import 'package:lifemate_client/lifemate_client.dart';
-import 'package:test/test.dart';
 
 void main() {
   test('atomic treatment create sends one nested medication mutation', () async {
@@ -95,8 +95,8 @@ void main() {
     );
     addTearDown(api.close);
 
-    expect(
-      () => api.createTreatment(
+    await expectLater(
+      api.createTreatment(
         clientRequestId: 'atomic-treatment-2',
         medicationName: 'Example',
         form: 'tablet',
@@ -128,8 +128,8 @@ void main() {
     );
     addTearDown(api.close);
 
-    expect(
-      () => api.createTreatment(
+    await expectLater(
+      api.createTreatment(
         clientRequestId: 'atomic-treatment-3',
         medicationName: 'Example',
         doseText: '1 tablet',
