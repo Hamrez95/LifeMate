@@ -21,7 +21,7 @@ void main() {
     await tester.tap(find.text('Today').last);
     await tester.pumpAndSettle();
 
-    expect(find.textContaining('Cross-module priorities'), findsOneWidget);
+    expect(find.text('Today is not connected yet'), findsOneWidget);
   });
 
   testWidgets('back from a peer destination returns to Home', (tester) async {
