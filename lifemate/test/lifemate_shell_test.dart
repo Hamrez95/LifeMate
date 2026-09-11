@@ -81,10 +81,16 @@ void main() {
         ),
       );
 
-      final hotspot = find.byWidgetPredicate(
-        (widget) =>
-            widget is Semantics && widget.properties.label == 'WellMate',
-        description: 'WellMate semantic hotspot',
+      expect(
+        find.byWidgetPredicate(
+          (widget) =>
+              widget is Semantics && widget.properties.label == 'WellMate',
+          description: 'WellMate semantic hotspot',
+        ),
+        findsOneWidget,
+      );
+      final hotspot = find.byKey(
+        const ValueKey<String>('camp-zone-hit-wellmate'),
       );
       expect(hotspot, findsOneWidget);
 
@@ -103,10 +109,10 @@ void main() {
       const LifeMateApp(home: LifeMateShell(), localeOverride: Locale('en')),
     );
 
-    final hotspot = find.byWidgetPredicate(
-      (widget) => widget is Semantics && widget.properties.label == 'WellMate',
-      description: 'WellMate semantic hotspot',
+    final hotspot = find.byKey(
+      const ValueKey<String>('camp-zone-hit-wellmate'),
     );
+    expect(hotspot, findsOneWidget);
     await tester.tap(hotspot);
     await tester.pump(const Duration(milliseconds: 350));
     await tester.pumpAndSettle();
