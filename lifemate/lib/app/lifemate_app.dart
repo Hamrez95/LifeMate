@@ -106,7 +106,8 @@ class LifeMateApp extends StatelessWidget {
       // blocking states render their built-in fallback icon when this asset is
       // absent. Final visual assets remain owned by the approved design lane.
       logoAssetPath: 'assets/lifemate-logo.png',
-      authenticatedBuilder: (context, apiClient) => const LifeMateShell(),
+      authenticatedBuilder: (context, apiClient) =>
+          LifeMateShell(apiClient: apiClient),
     );
   }
 }
