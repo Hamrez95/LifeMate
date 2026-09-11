@@ -1,0 +1,187 @@
+{
+  "contractVersion": 1,
+  "sceneId": "living_camp",
+  "sceneVersion": "poc-v1",
+  "logicalSize": {
+    "width": 1000,
+    "height": 2000
+  },
+  "certifiedAspectRatio": {
+    "minWidthOverHeight": 0.41,
+    "maxWidthOverHeight": 0.60
+  },
+  "safeRect": {
+    "left": 110,
+    "top": 140,
+    "right": 890,
+    "bottom": 1860
+  },
+  "layers": [
+    {
+      "assetId": "camp_background_day",
+      "family": "background",
+      "z": 0,
+      "path": "raster/base/camp_background_day.webp",
+      "logicalBounds": { "left": 0, "top": 0, "right": 1000, "bottom": 2000 },
+      "timeOfDay": ["day"],
+      "required": true
+    },
+    {
+      "assetId": "camp_ground",
+      "family": "ground",
+      "z": 20,
+      "path": "raster/base/camp_ground.webp",
+      "logicalBounds": { "left": 0, "top": 0, "right": 1000, "bottom": 2000 },
+      "timeOfDay": ["day", "night"],
+      "required": true
+    },
+    {
+      "assetId": "near_vegetation",
+      "family": "foreground",
+      "z": 70,
+      "path": "raster/foreground/near_vegetation.webp",
+      "logicalBounds": { "left": 0, "top": 0, "right": 1000, "bottom": 2000 },
+      "timeOfDay": ["day", "night"],
+      "required": false
+    },
+    {
+      "assetId": "night_tint",
+      "family": "lighting",
+      "z": 80,
+      "path": "raster/lighting/night_tint.webp",
+      "logicalBounds": { "left": 0, "top": 0, "right": 1000, "bottom": 2000 },
+      "timeOfDay": ["night"],
+      "required": false
+    }
+  ],
+  "zones": [
+    {
+      "zoneId": "lifemate_home",
+      "anchor": { "x": 500, "y": 1040 },
+      "hotspot": { "left": 410, "top": 930, "right": 590, "bottom": 1130 },
+      "semanticLabelKey": "zone.lifemate_home",
+      "routeResolverKey": "today_peek",
+      "fallbackStage": "stage_1",
+      "alertAnchor": { "x": 500, "y": 900 },
+      "actorAnchors": {
+        "home_rest": { "x": 500, "y": 1180 },
+        "home_approach": { "x": 500, "y": 1240 }
+      },
+      "visualCatalog": {
+        "stage_1": {
+          "default": {
+            "day": "raster/zones/lifemate_home/stage_1/default_day.webp",
+            "night": "raster/zones/lifemate_home/stage_1/default_night.webp"
+          }
+        }
+      }
+    },
+    {
+      "zoneId": "wellmate",
+      "anchor": { "x": 255, "y": 720 },
+      "hotspot": { "left": 165, "top": 620, "right": 345, "bottom": 820 },
+      "semanticLabelKey": "zone.wellmate",
+      "routeResolverKey": "module:wellmate",
+      "fallbackStage": "stage_1",
+      "alertAnchor": { "x": 255, "y": 590 },
+      "actorAnchors": {
+        "approach": { "x": 330, "y": 820 },
+        "action": { "x": 280, "y": 775 }
+      },
+      "visualCatalog": {
+        "stage_1": {
+          "default": {
+            "day": "raster/zones/wellmate/stage_1/default_day.webp",
+            "night": "raster/zones/wellmate/stage_1/default_night.webp"
+          }
+        }
+      }
+    },
+    {
+      "zoneId": "caremate",
+      "anchor": { "x": 745, "y": 730 },
+      "hotspot": { "left": 655, "top": 630, "right": 835, "bottom": 830 },
+      "semanticLabelKey": "zone.caremate",
+      "routeResolverKey": "module:caremate",
+      "fallbackStage": "stage_1",
+      "alertAnchor": { "x": 745, "y": 600 },
+      "actorAnchors": {
+        "approach": { "x": 670, "y": 830 },
+        "action": { "x": 720, "y": 785 },
+        "companion": { "x": 775, "y": 770 }
+      },
+      "visualCatalog": {
+        "stage_1": {
+          "default": {
+            "day": "raster/zones/caremate/stage_1/default_day.webp",
+            "night": "raster/zones/caremate/stage_1/default_night.webp"
+          }
+        }
+      }
+    },
+    {
+      "zoneId": "reproductive_context",
+      "anchor": { "x": 270, "y": 1430 },
+      "hotspot": { "left": 175, "top": 1325, "right": 365, "bottom": 1535 },
+      "semanticLabelKey": "zone.reproductive_context",
+      "routeResolverKey": "context:reproductive",
+      "fallbackStage": "stage_1",
+      "alertAnchor": { "x": 270, "y": 1290 },
+      "actorAnchors": {
+        "approach": { "x": 350, "y": 1540 },
+        "action": { "x": 300, "y": 1490 },
+        "companion": { "x": 245, "y": 1485 }
+      },
+      "visualCatalog": {
+        "stage_1": {
+          "women_health": {
+            "day": "raster/zones/reproductive_context/stage_1/women_health_day.webp",
+            "night": "raster/zones/reproductive_context/stage_1/women_health_night.webp"
+          },
+          "cocoonmate": {
+            "day": "raster/zones/reproductive_context/stage_1/cocoonmate_day.webp",
+            "night": "raster/zones/reproductive_context/stage_1/cocoonmate_night.webp"
+          }
+        }
+      }
+    },
+    {
+      "zoneId": "fitmate",
+      "anchor": { "x": 735, "y": 1435 },
+      "hotspot": { "left": 645, "top": 1330, "right": 825, "bottom": 1540 },
+      "semanticLabelKey": "zone.fitmate",
+      "routeResolverKey": "module:fitmate",
+      "fallbackStage": "stage_1",
+      "alertAnchor": { "x": 735, "y": 1300 },
+      "actorAnchors": {
+        "approach": { "x": 655, "y": 1545 },
+        "action": { "x": 710, "y": 1490 }
+      },
+      "visualCatalog": {
+        "stage_1": {
+          "default": {
+            "day": "raster/zones/fitmate/stage_1/default_day.webp",
+            "night": "raster/zones/fitmate/stage_1/default_night.webp"
+          },
+          "under_construction": {
+            "day": "raster/zones/fitmate/stage_1/under_construction_day.webp",
+            "night": "raster/zones/fitmate/stage_1/under_construction_night.webp"
+          }
+        }
+      }
+    }
+  ],
+  "actors": [
+    {
+      "actorId": "main_avatar",
+      "contractKey": "avatar.v1",
+      "defaultAsset": "rive/avatar_adult_a_v1.riv",
+      "initialAnchor": "lifemate_home.home_rest"
+    },
+    {
+      "actorId": "companion_primary",
+      "contractKey": "companion.v1",
+      "optional": true
+    }
+  ]
+}
