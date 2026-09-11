@@ -21,21 +21,26 @@ function record(id: string, occurredAtUtc: string): PregnancyRecordItem {
 
 Deno.test("pregnancy records cursor round-trips only the stable ordering key", () => {
   const value = record("checkin:1", "2026-09-11T09:30:00.000Z");
-  assertEquals(decodePregnancyRecordsCursor(encodePregnancyRecordsCursor(value)), {
-    occurredAtUtc: value.occurredAtUtc,
-    id: value.id,
-  });
+  assertEquals(
+    decodePregnancyRecordsCursor(encodePregnancyRecordsCursor(value)),
+    {
+      occurredAtUtc: value.occurredAtUtc,
+      id: value.id,
+    },
+  );
 });
 
 Deno.test("pregnancy records rejects malformed cursors without throwing", () => {
-  for (const value of [
-    null,
-    "",
-    "not-base64-json",
-    btoa("{}"),
-    btoa(JSON.stringify({ occurredAtUtc: "2026-09-11T00:00:00.000Z" })),
-    btoa(JSON.stringify({ id: "checkin:1" })),
-  ]) {
+  for (
+    const value of [
+      null,
+      "",
+      "not-base64-json",
+      btoa("{}"),
+      btoa(JSON.stringify({ occurredAtUtc: "2026-09-11T00:00:00.000Z" })),
+      btoa(JSON.stringify({ id: "checkin:1" })),
+    ]
+  ) {
     assertEquals(decodePregnancyRecordsCursor(value), null);
   }
 });
