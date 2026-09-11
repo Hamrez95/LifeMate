@@ -35,13 +35,15 @@ class LifeMateModuleDefinition {
 @immutable
 class LifeMateModuleRegistry {
   LifeMateModuleRegistry(Iterable<LifeMateModuleDefinition> modules)
-      : _modules = Map.unmodifiable({
-          for (final module in modules) module.id: module,
-        }) {
+    : _modules = Map.unmodifiable({
+        for (final module in modules) module.id: module,
+      }) {
     if (_modules.length != modules.length) {
       throw ArgumentError('Module IDs must be unique.');
     }
-    final routeNames = _modules.values.map((module) => module.routeName).toSet();
+    final routeNames = _modules.values
+        .map((module) => module.routeName)
+        .toSet();
     if (routeNames.length != _modules.length) {
       throw ArgumentError('Module route names must be unique.');
     }

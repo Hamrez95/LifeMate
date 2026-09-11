@@ -68,9 +68,7 @@ void main() {
     );
 
     await tester.pumpWidget(
-      MaterialApp(
-        home: ModuleRouteHost(module: module, isPersian: false),
-      ),
+      MaterialApp(home: ModuleRouteHost(module: module, isPersian: false)),
     );
 
     expect(find.text('WellMate mounted'), findsOneWidget);
@@ -112,9 +110,7 @@ void main() {
     );
 
     await tester.pumpWidget(
-      MaterialApp(
-        home: ModuleRouteHost(module: module, isPersian: false),
-      ),
+      MaterialApp(home: ModuleRouteHost(module: module, isPersian: false)),
     );
 
     expect(find.textContaining('shell is still available'), findsOneWidget);
