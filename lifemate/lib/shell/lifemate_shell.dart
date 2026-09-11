@@ -51,11 +51,7 @@ class _LifeMateShellState extends State<LifeMateShell> {
 
     await Future<void>.delayed(const Duration(milliseconds: 350));
     if (!mounted) return;
-    await openLifeMateModule(
-      context,
-      module: module,
-      isPersian: _isPersian,
-    );
+    await openLifeMateModule(context, module: module, isPersian: _isPersian);
   }
 
   @override
