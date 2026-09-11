@@ -77,51 +77,51 @@ class _LifeMateShellState extends State<LifeMateShell> {
   Widget _buildDestination(ShellDestination destination) {
     return switch (destination) {
       ShellDestination.home => _HomeFoundation(
-          isPersian: _isPersian,
-          onOpenToday: () => _select(ShellDestination.today),
-        ),
+        isPersian: _isPersian,
+        onOpenToday: () => _select(ShellDestination.today),
+      ),
       ShellDestination.today => _StagedDestination(
-          icon: Icons.today_outlined,
-          title: _t('Today', 'امروز'),
-          description: _t(
-            'Cross-module priorities and the full Today experience land in #1087–#1090.',
-            'اولویت‌های بین‌ماژولی و تجربه کامل امروز در #1087 تا #1090 پیاده‌سازی می‌شود.',
-          ),
+        icon: Icons.today_outlined,
+        title: _t('Today', 'امروز'),
+        description: _t(
+          'Cross-module priorities and the full Today experience land in #1087–#1090.',
+          'اولویت‌های بین‌ماژولی و تجربه کامل امروز در #1087 تا #1090 پیاده‌سازی می‌شود.',
         ),
+      ),
       ShellDestination.journey => _StagedDestination(
-          icon: Icons.route_outlined,
-          title: _t('Journey', 'مسیر زندگی'),
-          description: _t(
-            'Journey remains intentionally staged until #1095–#1097 define and implement chapters.',
-            'Journey تا زمان طراحی و پیاده‌سازی فصل‌ها در #1095 تا #1097 عمداً در حالت آماده‌سازی می‌ماند.',
-          ),
+        icon: Icons.route_outlined,
+        title: _t('Journey', 'مسیر زندگی'),
+        description: _t(
+          'Journey remains intentionally staged until #1095–#1097 define and implement chapters.',
+          'Journey تا زمان طراحی و پیاده‌سازی فصل‌ها در #1095 تا #1097 عمداً در حالت آماده‌سازی می‌ماند.',
         ),
+      ),
       ShellDestination.circle => _StagedDestination(
-          icon: Icons.people_outline,
-          title: _t('Circle', 'دایره'),
-          description: _t(
-            'Relationships, companion selection and consent-safe presentation land in #1091–#1094.',
-            'روابط، انتخاب همراه و نمایش امن مبتنی بر رضایت در #1091 تا #1094 پیاده‌سازی می‌شود.',
-          ),
+        icon: Icons.people_outline,
+        title: _t('Circle', 'دایره'),
+        description: _t(
+          'Relationships, companion selection and consent-safe presentation land in #1091–#1094.',
+          'روابط، انتخاب همراه و نمایش امن مبتنی بر رضایت در #1091 تا #1094 پیاده‌سازی می‌شود.',
         ),
+      ),
       ShellDestination.you => _StagedDestination(
-          icon: Icons.person_outline,
-          title: _t('You', 'شما'),
-          description: _t(
-            'The canonical global Profile / You contract and UI land in #1068–#1080.',
-            'قرارداد و رابط پروفایل سراسری / شما در #1068 تا #1080 پیاده‌سازی می‌شود.',
-          ),
+        icon: Icons.person_outline,
+        title: _t('You', 'شما'),
+        description: _t(
+          'The canonical global Profile / You contract and UI land in #1068–#1080.',
+          'قرارداد و رابط پروفایل سراسری / شما در #1068 تا #1080 پیاده‌سازی می‌شود.',
         ),
+      ),
     };
   }
 
   String _title(ShellDestination destination) => switch (destination) {
-        ShellDestination.home => _t('Home', 'خانه'),
-        ShellDestination.today => _t('Today', 'امروز'),
-        ShellDestination.journey => _t('Journey', 'مسیر'),
-        ShellDestination.circle => _t('Circle', 'دایره'),
-        ShellDestination.you => _t('You', 'شما'),
-      };
+    ShellDestination.home => _t('Home', 'خانه'),
+    ShellDestination.today => _t('Today', 'امروز'),
+    ShellDestination.journey => _t('Journey', 'مسیر'),
+    ShellDestination.circle => _t('Circle', 'دایره'),
+    ShellDestination.you => _t('You', 'شما'),
+  };
 
   void _showSecondaryPlaceholder({
     required String title,
@@ -154,10 +154,7 @@ class _LifeMateShellState extends State<LifeMateShell> {
 }
 
 class _HomeFoundation extends StatelessWidget {
-  const _HomeFoundation({
-    required this.isPersian,
-    required this.onOpenToday,
-  });
+  const _HomeFoundation({required this.isPersian, required this.onOpenToday});
 
   final bool isPersian;
   final VoidCallback onOpenToday;
@@ -174,9 +171,9 @@ class _HomeFoundation extends StatelessWidget {
             header: true,
             child: Text(
               t('LifeMate Living Shell', 'پوسته زنده LifeMate'),
-              style: Theme.of(context).textTheme.headlineMedium?.copyWith(
-                    fontWeight: FontWeight.w800,
-                  ),
+              style: Theme.of(
+                context,
+              ).textTheme.headlineMedium?.copyWith(fontWeight: FontWeight.w800),
             ),
           ),
           const SizedBox(height: 12),
@@ -254,14 +251,18 @@ class _StagedDestination extends StatelessWidget {
               child: Column(
                 mainAxisSize: MainAxisSize.min,
                 children: [
-                  Icon(icon, size: 56, color: Theme.of(context).colorScheme.primary),
+                  Icon(
+                    icon,
+                    size: 56,
+                    color: Theme.of(context).colorScheme.primary,
+                  ),
                   const SizedBox(height: 18),
                   Text(
                     title,
                     textAlign: TextAlign.center,
                     style: Theme.of(context).textTheme.headlineSmall?.copyWith(
-                          fontWeight: FontWeight.w800,
-                        ),
+                      fontWeight: FontWeight.w800,
+                    ),
                   ),
                   const SizedBox(height: 12),
                   Text(description, textAlign: TextAlign.center),
