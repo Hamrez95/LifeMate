@@ -59,42 +59,44 @@ void main() {
     expect(find.text('شما'), findsOneWidget);
   });
 
-  testWidgets('WellMate hotspot routes through the module host after response', (
-    tester,
-  ) async {
-    final registry = LifeMateModuleRegistry.foundation().replacing(
-      LifeMateModuleDefinition(
-        id: LifeMateModuleId.wellMate,
-        routeName: '/modules/wellmate',
-        labelEn: 'WellMate',
-        labelFa: 'ول‌میت',
-        icon: Icons.health_and_safety_outlined,
-        availability: ModuleAvailability.available,
-        pageBuilder: (_) => const Scaffold(body: Text('WellMate mounted')),
-      ),
-    );
+  testWidgets(
+    'WellMate hotspot routes through the module host after response',
+    (tester) async {
+      final registry = LifeMateModuleRegistry.foundation().replacing(
+        LifeMateModuleDefinition(
+          id: LifeMateModuleId.wellMate,
+          routeName: '/modules/wellmate',
+          labelEn: 'WellMate',
+          labelFa: 'ول‌میت',
+          icon: Icons.health_and_safety_outlined,
+          availability: ModuleAvailability.available,
+          pageBuilder: (_) => const Scaffold(body: Text('WellMate mounted')),
+        ),
+      );
 
-    await tester.pumpWidget(
-      LifeMateApp(
-        home: LifeMateShell(moduleRegistry: registry),
-        localeOverride: const Locale('en'),
-      ),
-    );
+      await tester.pumpWidget(
+        LifeMateApp(
+          home: LifeMateShell(moduleRegistry: registry),
+          localeOverride: const Locale('en'),
+        ),
+      );
 
-    final hotspot = find.byWidgetPredicate(
-      (widget) => widget is Semantics && widget.properties.label == 'WellMate',
-      description: 'WellMate semantic hotspot',
-    );
-    expect(hotspot, findsOneWidget);
+      final hotspot = find.byWidgetPredicate(
+        (widget) =>
+            widget is Semantics && widget.properties.label == 'WellMate',
+        description: 'WellMate semantic hotspot',
+      );
+      expect(hotspot, findsOneWidget);
 
-    await tester.tap(hotspot);
-    await tester.pump(const Duration(milliseconds: 349));
-    expect(find.text('WellMate mounted'), findsNothing);
+      await tester.tap(hotspot);
+      await tester.pump(const Duration(milliseconds: 349));
+      expect(find.text('WellMate mounted'), findsNothing);
 
-    await tester.pump(const Duration(milliseconds: 1));
-    await tester.pumpAndSettle();
-    expect(find.text('WellMate mounted'), findsOneWidget);
-  });
+      await tester.pump(const Duration(milliseconds: 1));
+      await tester.pumpAndSettle();
+      expect(find.text('WellMate mounted'), findsOneWidget);
+    },
+  );
 
   testWidgets('WellMate unavailable fallback is truthful', (tester) async {
     await tester.pumpWidget(
