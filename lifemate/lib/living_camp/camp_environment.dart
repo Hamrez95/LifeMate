@@ -281,6 +281,7 @@ class _CampEnvironmentHostState extends State<CampEnvironmentHost>
     );
 
     return TickerMode(
+      key: const ValueKey<String>('camp-environment-motion'),
       enabled: motionEnabled,
       child: widget.builder(context, state),
     );
