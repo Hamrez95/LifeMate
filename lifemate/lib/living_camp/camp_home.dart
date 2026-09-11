@@ -8,12 +8,14 @@ class CampHome extends StatelessWidget {
     super.key,
     required this.isPersian,
     required this.onOpenToday,
+    required this.onOpenWellMate,
     this.environmentPreferences = const CampEnvironmentPreferences(),
     this.nowUtc,
   });
 
   final bool isPersian;
   final VoidCallback onOpenToday;
+  final VoidCallback onOpenWellMate;
   final CampEnvironmentPreferences environmentPreferences;
   final DateTime Function()? nowUtc;
 
@@ -125,7 +127,12 @@ class CampHome extends StatelessWidget {
                     ),
                   ],
                   onZoneTap: (zoneId) {
-                    if (zoneId == 'lifemate_home') onOpenToday();
+                    switch (zoneId) {
+                      case 'lifemate_home':
+                        onOpenToday();
+                      case 'wellmate':
+                        onOpenWellMate();
+                    }
                   },
                 ),
               ),
