@@ -1,0 +1,247 @@
+{
+  "fixtureVersion": 1,
+  "selectionAlgorithmVersion": 1,
+  "cases": [
+    {
+      "id": "fallback_0559_night",
+      "input": {
+        "localDateTime": "2026-09-11T05:59:00",
+        "timeZone": "Asia/Tehran",
+        "sunriseLocal": null,
+        "sunsetLocal": null,
+        "motionPolicy": "normal",
+        "powerPolicy": "normal",
+        "eligibleZones": ["wellmate"]
+      },
+      "expected": {
+        "sceneMode": "ready_night",
+        "avatarPhase": "home_rest",
+        "ambientRouteRunning": false
+      }
+    },
+    {
+      "id": "fallback_0600_day",
+      "input": {
+        "localDateTime": "2026-09-11T06:00:00",
+        "timeZone": "Asia/Tehran",
+        "sunriseLocal": null,
+        "sunsetLocal": null,
+        "motionPolicy": "normal",
+        "powerPolicy": "normal",
+        "eligibleZones": ["wellmate"]
+      },
+      "expected": {
+        "sceneMode": "ready_day",
+        "ambientRouteRunning": true,
+        "routeCandidates": ["wellmate"]
+      }
+    },
+    {
+      "id": "fallback_2000_night",
+      "input": {
+        "localDateTime": "2026-09-11T20:00:00",
+        "timeZone": "Asia/Tehran",
+        "sunriseLocal": null,
+        "sunsetLocal": null,
+        "motionPolicy": "normal",
+        "powerPolicy": "normal",
+        "eligibleZones": ["wellmate", "caremate"]
+      },
+      "expected": {
+        "sceneMode": "ready_night",
+        "avatarPhase": "home_rest",
+        "ambientRouteRunning": false
+      }
+    },
+    {
+      "id": "astronomical_exact_sunrise",
+      "input": {
+        "localDateTime": "2026-09-11T06:42:00",
+        "timeZone": "Europe/Berlin",
+        "sunriseLocal": "2026-09-11T06:42:00",
+        "sunsetLocal": "2026-09-11T19:31:00",
+        "motionPolicy": "normal",
+        "powerPolicy": "normal",
+        "eligibleZones": ["wellmate"]
+      },
+      "expected": {
+        "sceneMode": "ready_day",
+        "ambientRouteRunning": true
+      }
+    },
+    {
+      "id": "astronomical_exact_sunset",
+      "input": {
+        "localDateTime": "2026-09-11T19:31:00",
+        "timeZone": "Europe/Berlin",
+        "sunriseLocal": "2026-09-11T06:42:00",
+        "sunsetLocal": "2026-09-11T19:31:00",
+        "motionPolicy": "normal",
+        "powerPolicy": "normal",
+        "eligibleZones": ["wellmate"]
+      },
+      "expected": {
+        "sceneMode": "ready_night",
+        "ambientRouteRunning": false
+      }
+    },
+    {
+      "id": "poc_wellmate_only_route",
+      "input": {
+        "localDateTime": "2026-09-11T10:00:00",
+        "timeZone": "Asia/Tehran",
+        "motionPolicy": "normal",
+        "powerPolicy": "normal",
+        "configuredRouteOrder": [
+          "wellmate",
+          "caremate",
+          "fitmate",
+          "reproductive_context"
+        ],
+        "zones": [
+          {
+            "zoneId": "wellmate",
+            "ambientVisitEligible": true,
+            "actionCandidates": ["wellness", "drink"]
+          },
+          {
+            "zoneId": "caremate",
+            "ambientVisitEligible": false,
+            "actionCandidates": ["care"]
+          }
+        ],
+        "routeCycleOrdinal": 0,
+        "actorDefinitionId": "avatar_family_a_age_20"
+      },
+      "expected": {
+        "routeCandidates": ["wellmate"],
+        "phaseSequence": [
+          "home_rest",
+          "walk_to_zone",
+          "zone_action",
+          "zone_dwell",
+          "walk_home",
+          "cycle_rest"
+        ]
+      }
+    },
+    {
+      "id": "no_eligible_zone_idle_home",
+      "input": {
+        "localDateTime": "2026-09-11T11:00:00",
+        "timeZone": "Asia/Tehran",
+        "motionPolicy": "normal",
+        "powerPolicy": "normal",
+        "configuredRouteOrder": ["wellmate", "caremate"],
+        "zones": [
+          {
+            "zoneId": "wellmate",
+            "ambientVisitEligible": false,
+            "actionCandidates": ["wellness"]
+          },
+          {
+            "zoneId": "caremate",
+            "ambientVisitEligible": false,
+            "actionCandidates": ["care"]
+          }
+        ]
+      },
+      "expected": {
+        "routeCandidates": [],
+        "avatarPhase": "home_rest",
+        "busyLoop": false
+      }
+    },
+    {
+      "id": "reduced_motion_no_walk_wait",
+      "input": {
+        "localDateTime": "2026-09-11T12:00:00",
+        "timeZone": "Asia/Tehran",
+        "motionPolicy": "reduced_motion",
+        "powerPolicy": "normal",
+        "eligibleZones": ["wellmate"]
+      },
+      "expected": {
+        "sceneMode": "reduced_motion",
+        "autonomousWalk": false,
+        "waitForActionComplete": false,
+        "hotspotsEnabled": true
+      }
+    },
+    {
+      "id": "background_then_resume_reconstruct",
+      "input": {
+        "initial": {
+          "localDateTime": "2026-09-11T18:55:00",
+          "sceneMode": "ready_day",
+          "phase": "zone_dwell",
+          "zoneId": "wellmate"
+        },
+        "lifecycleEvents": [
+          {
+            "event": "background",
+            "at": "2026-09-11T18:56:00"
+          },
+          {
+            "event": "resume",
+            "at": "2026-09-11T20:05:00"
+          }
+        ],
+        "resumeTimeContext": {
+          "localDateTime": "2026-09-11T20:05:00",
+          "sunriseLocal": null,
+          "sunsetLocal": null
+        }
+      },
+      "expected": {
+        "backgroundTickerRunning": false,
+        "replayMissedVisits": false,
+        "resumeSceneMode": "ready_night",
+        "resumePhase": "home_rest"
+      }
+    },
+    {
+      "id": "missing_future_progression_neutral",
+      "input": {
+        "localDateTime": "2026-09-11T13:00:00",
+        "timeZone": "Asia/Tehran",
+        "motionPolicy": "normal",
+        "powerPolicy": "normal",
+        "zone": {
+          "zoneId": "wellmate",
+          "visualStage": null,
+          "visualVariant": null,
+          "ambientVisitEligible": true,
+          "actionCandidates": ["wellness"]
+        },
+        "wellbeingPresentationSignal": null
+      },
+      "expected": {
+        "resolvedVisualStage": "stage_1",
+        "resolvedWellbeingPresentation": "neutral"
+      }
+    },
+    {
+      "id": "account_person_switch_isolation",
+      "input": {
+        "before": {
+          "accountContextKey": "acct:a",
+          "personContextKey": "person:a",
+          "phase": "zone_action",
+          "zoneId": "caremate",
+          "visibleCompanions": ["companion_primary"]
+        },
+        "after": {
+          "accountContextKey": "acct:a",
+          "personContextKey": "person:b"
+        }
+      },
+      "expected": {
+        "cancelOldCommands": true,
+        "clearEphemeralRouteState": true,
+        "oldCompanionsVisible": false,
+        "phaseAfterResolve": "home_rest"
+      }
+    }
+  ]
+}
