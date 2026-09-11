@@ -89,21 +89,21 @@ void main() {
         find.byWidgetPredicate(
           (widget) =>
               widget is Semantics && widget.properties.label == 'WellMate',
+          description: 'WellMate semantic hotspot',
         ),
         findsOneWidget,
       );
-
-      await tester.tap(
-        find.byWidgetPredicate(
-          (widget) =>
-              widget is Semantics && widget.properties.label == 'WellMate',
-        ),
+      final hotspot = find.byKey(
+        const ValueKey<String>('camp-zone-hit-wellmate'),
       );
+      expect(hotspot, findsOneWidget);
+
+      await tester.tap(hotspot);
       await tester.pump(const Duration(milliseconds: 349));
       expect(find.text('WellMate mounted'), findsNothing);
+
       await tester.pump(const Duration(milliseconds: 1));
       await tester.pumpAndSettle();
-
       expect(find.text('WellMate mounted'), findsOneWidget);
     },
   );
@@ -116,15 +116,18 @@ void main() {
       const LifeMateApp(home: LifeMateShell(), localeOverride: Locale('en')),
     );
 
-    await tester.tap(
-      find.byWidgetPredicate(
-        (widget) =>
-            widget is Semantics && widget.properties.label == 'WellMate',
-      ),
+    final hotspot = find.byKey(
+      const ValueKey<String>('camp-zone-hit-wellmate'),
     );
+    expect(hotspot, findsOneWidget);
+    await tester.tap(hotspot);
     await tester.pump(const Duration(milliseconds: 350));
     await tester.pumpAndSettle();
 
-    expect(find.textContaining('not available'), findsOneWidget);
+    expect(find.text('WellMate'), findsWidgets);
+    expect(
+      find.text('This module is not mounted in the parent app yet.'),
+      findsOneWidget,
+    );
   });
 }
