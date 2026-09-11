@@ -44,6 +44,16 @@ jobs:
       - name: Flutter environment
         run: flutter --version
 
+      - name: Enforce parent-shell data boundary
+        shell: bash
+        run: |
+          set -euo pipefail
+          if grep -R -n -E 'supabase_flutter|Supabase\.instance|service_role|SERVICE_ROLE' \
+            lifemate/lib --include='*.dart'; then
+            echo 'LifeMate parent shell must use reviewed shared clients, not direct Supabase access.' >&2
+            exit 1
+          fi
+
       - name: Prepare generated Android host
         shell: bash
         run: bash tools/release/prepare-lifemate-android.sh
