@@ -111,7 +111,10 @@ class _ProfileYouScreenState extends State<ProfileYouScreen> {
             displayName: displayName.isEmpty
                 ? t('Complete your profile', 'پروفایل خود را کامل کنید')
                 : displayName,
-            subtitle: t('Your global LifeMate profile', 'پروفایل سراسری LifeMate'),
+            subtitle: t(
+              'Your global LifeMate profile',
+              'پروفایل سراسری LifeMate',
+            ),
             avatarKey: avatarKey,
             photoUrl: photoUrl,
             editLabel: t('Edit profile', 'ویرایش پروفایل'),
@@ -145,8 +148,14 @@ class _ProfileYouScreenState extends State<ProfileYouScreen> {
                 icon: Icons.accessibility_new_rounded,
                 title: t('Accessibility', 'دسترسی‌پذیری'),
                 subtitle: MediaQuery.disableAnimationsOf(context)
-                    ? t('Reduced motion from system', 'کاهش حرکت از تنظیمات سیستم')
-                    : t('System motion settings active', 'تنظیمات حرکت سیستم فعال است'),
+                    ? t(
+                        'Reduced motion from system',
+                        'کاهش حرکت از تنظیمات سیستم',
+                      )
+                    : t(
+                        'System motion settings active',
+                        'تنظیمات حرکت سیستم فعال است',
+                      ),
                 onTap: _showAccessibility,
               ),
               _ActionTile(
@@ -422,7 +431,11 @@ class _ProfileYouScreenState extends State<ProfileYouScreen> {
             mainAxisSize: MainAxisSize.min,
             crossAxisAlignment: CrossAxisAlignment.stretch,
             children: [
-              Icon(icon, size: 40, color: Theme.of(context).colorScheme.primary),
+              Icon(
+                icon,
+                size: 40,
+                color: Theme.of(context).colorScheme.primary,
+              ),
               const SizedBox(height: 12),
               Text(title, style: Theme.of(context).textTheme.titleLarge),
               const SizedBox(height: 8),
@@ -444,10 +457,7 @@ class _ProfileYouScreenState extends State<ProfileYouScreen> {
     return text.isEmpty ? fallback : text;
   }
 
-  static String? _firstNonEmpty(
-    Map<String, dynamic> value,
-    List<String> keys,
-  ) {
+  static String? _firstNonEmpty(Map<String, dynamic> value, List<String> keys) {
     for (final key in keys) {
       final candidate = value[key]?.toString().trim();
       if (candidate != null && candidate.isNotEmpty) return candidate;
@@ -537,7 +547,8 @@ class _ProfileEditorPageState extends State<_ProfileEditorPage> {
           (widget.initialProfile['displayName']?.toString().trim() ?? '') ||
       _timeZone.text.trim() !=
           (widget.initialProfile['timeZone']?.toString().trim() ?? '') ||
-      _locale != (widget.initialProfile['locale']?.toString() == 'en' ? 'en' : 'fa') ||
+      _locale !=
+          (widget.initialProfile['locale']?.toString() == 'en' ? 'en' : 'fa') ||
       _avatarKey !=
           LifeMateProfileAvatars.normalize(
             widget.initialProfile['avatarKey']?.toString(),
@@ -548,10 +559,12 @@ class _ProfileEditorPageState extends State<_ProfileEditorPage> {
     if (!_formKey.currentState!.validate()) return;
     final version = widget.initialProfile['version'];
     if (version is! num) {
-      setState(() => _error = t(
-            'This profile cannot be safely updated because its version is missing.',
-            'به‌دلیل نبود نسخه پروفایل، به‌روزرسانی امن ممکن نیست.',
-          ));
+      setState(
+        () => _error = t(
+          'This profile cannot be safely updated because its version is missing.',
+          'به‌دلیل نبود نسخه پروفایل، به‌روزرسانی امن ممکن نیست.',
+        ),
+      );
       return;
     }
 
@@ -617,7 +630,8 @@ class _ProfileEditorPageState extends State<_ProfileEditorPage> {
                 Center(
                   child: LifeMateProfileAvatar(
                     avatarKey: _avatarKey,
-                    photoUrl: widget.initialProfile['profilePhotoUrl']?.toString(),
+                    photoUrl: widget.initialProfile['profilePhotoUrl']
+                        ?.toString(),
                     radius: 48,
                   ),
                 ),
@@ -748,8 +762,8 @@ class _IdentityCard extends StatelessWidget {
                     child: Text(
                       displayName,
                       style: Theme.of(context).textTheme.titleLarge?.copyWith(
-                            fontWeight: FontWeight.w800,
-                          ),
+                        fontWeight: FontWeight.w800,
+                      ),
                     ),
                   ),
                   const SizedBox(height: 4),

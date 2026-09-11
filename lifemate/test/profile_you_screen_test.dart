@@ -43,11 +43,7 @@ void main() {
         if (request.method == 'PATCH' &&
             request.url.path == '/api/v1/me/profile') {
           final body = jsonDecode(request.body) as Map<String, dynamic>;
-          profile = <String, dynamic>{
-            ...profile,
-            ...body,
-            'version': 4,
-          };
+          profile = <String, dynamic>{...profile, ...body, 'version': 4};
           return http.Response(
             jsonEncode(profile),
             200,
@@ -74,7 +70,10 @@ void main() {
     expect(find.text('Europe/Berlin'), findsOneWidget);
     expect(find.text('Membership'), findsOneWidget);
     expect(find.text('Ambient audio'), findsOneWidget);
-    expect(find.textContaining('durable preference is not available'), findsOneWidget);
+    expect(
+      find.textContaining('durable preference is not available'),
+      findsOneWidget,
+    );
 
     await tester.tap(find.byTooltip('Edit profile'));
     await tester.pumpAndSettle();

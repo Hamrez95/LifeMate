@@ -68,7 +68,8 @@ class _LifeMateAppState extends State<LifeMateApp> {
         textDirection: isPersian ? TextDirection.rtl : TextDirection.ltr,
         child: child ?? const SizedBox.shrink(),
       ),
-      home: widget.home ?? _productionHome(runtimeConfig, widget.authInitialized),
+      home:
+          widget.home ?? _productionHome(runtimeConfig, widget.authInitialized),
     );
   }
 
@@ -124,10 +125,8 @@ class _LifeMateAppState extends State<LifeMateApp> {
       // blocking states render their built-in fallback icon when this asset is
       // absent. Final visual assets remain owned by the approved design lane.
       logoAssetPath: 'assets/lifemate-logo.png',
-      authenticatedBuilder: (context, apiClient) => LifeMateShell(
-        apiClient: apiClient,
-        onLocaleChanged: _setLocale,
-      ),
+      authenticatedBuilder: (context, apiClient) =>
+          LifeMateShell(apiClient: apiClient, onLocaleChanged: _setLocale),
     );
   }
 }
