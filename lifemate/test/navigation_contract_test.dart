@@ -3,14 +3,20 @@ import 'package:lifemate/navigation/shell_navigation.dart';
 
 void main() {
   test('primary destination IDs and paths stay stable', () {
-    expect(
-      shellDestinationOrder.map((item) => item.id),
-      ['home', 'today', 'journey', 'circle', 'you'],
-    );
-    expect(
-      shellDestinationOrder.map((item) => item.path),
-      ['/home', '/today', '/journey', '/circle', '/you'],
-    );
+    expect(shellDestinationOrder.map((item) => item.id), [
+      'home',
+      'today',
+      'journey',
+      'circle',
+      'you',
+    ]);
+    expect(shellDestinationOrder.map((item) => item.path), [
+      '/home',
+      '/today',
+      '/journey',
+      '/circle',
+      '/you',
+    ]);
   });
 
   test('normalizes known shell and product routes', () {
@@ -31,10 +37,7 @@ void main() {
       normalizeShellUri(Uri.parse('/apps/wellmate?diagnosis=private')),
       isNull,
     );
-    expect(
-      normalizeShellUri(Uri.parse('/today?unexpected=value')),
-      isNull,
-    );
+    expect(normalizeShellUri(Uri.parse('/today?unexpected=value')), isNull);
   });
 
   test('root and trailing slash normalize safely', () {
