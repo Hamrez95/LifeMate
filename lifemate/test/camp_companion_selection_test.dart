@@ -19,25 +19,28 @@ void main() {
     ineligibleReason: eligible ? null : 'Permission required',
   );
 
-  test('synthetic source enforces eligibility and configured capacity', () async {
-    final source = SyntheticCampCompanionSelectionSource(
-      candidates: [
-        candidate('a', 'A'),
-        candidate('b', 'B'),
-        candidate('c', 'C', eligible: false),
-      ],
-      capacity: 1,
-    );
+  test(
+    'synthetic source enforces eligibility and configured capacity',
+    () async {
+      final source = SyntheticCampCompanionSelectionSource(
+        candidates: [
+          candidate('a', 'A'),
+          candidate('b', 'B'),
+          candidate('c', 'C', eligible: false),
+        ],
+        capacity: 1,
+      );
 
-    await source.setSelectedPresentationIds({'a', 'c'});
-    final snapshot = await source.load();
-    expect(snapshot.selectedPresentationIds, {'a'});
+      await source.setSelectedPresentationIds({'a', 'c'});
+      final snapshot = await source.load();
+      expect(snapshot.selectedPresentationIds, {'a'});
 
-    expect(
-      () => source.setSelectedPresentationIds({'a', 'b'}),
-      throwsA(isA<StateError>()),
-    );
-  });
+      expect(
+        () => source.setSelectedPresentationIds({'a', 'b'}),
+        throwsA(isA<StateError>()),
+      );
+    },
+  );
 
   testWidgets('selection is explicit, capacity-bound and privacy-safe', (
     tester,
@@ -69,7 +72,10 @@ void main() {
 
     await tester.tap(find.text('Sam'));
     await tester.pump();
-    expect(find.text('You can show up to 1 companions in Camp.'), findsOneWidget);
+    expect(
+      find.text('You can show up to 1 companions in Camp.'),
+      findsOneWidget,
+    );
 
     final snapshot = await source.load();
     expect(snapshot.selectedPresentationIds, {'a'});
