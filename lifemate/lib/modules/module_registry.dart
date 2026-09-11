@@ -34,6 +34,7 @@ class LifeMateModuleDefinition {
 
 @immutable
 class LifeMateModuleRegistry {
+  // Stable module identity and routes deliberately exclude Camp stage/variant.
   LifeMateModuleRegistry(Iterable<LifeMateModuleDefinition> modules)
     : _modules = Map.unmodifiable({
         for (final module in modules) module.id: module,
