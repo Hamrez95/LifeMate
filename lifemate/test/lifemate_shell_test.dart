@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:lifemate/app/lifemate_app.dart';
+import 'package:lifemate/modules/module_registry.dart';
 import 'package:lifemate/shell/lifemate_shell.dart';
 
 void main() {
@@ -56,5 +57,76 @@ void main() {
     expect(find.text('امروز'), findsWidgets);
     expect(find.text('دایره'), findsOneWidget);
     expect(find.text('شما'), findsOneWidget);
+  });
+
+  testWidgets(
+    'WellMate hotspot routes through the module host after response',
+    (tester) async {
+      await tester.binding.setSurfaceSize(const Size(412, 915));
+      addTearDown(() => tester.binding.setSurfaceSize(null));
+
+      final registry = LifeMateModuleRegistry.foundation().replacing(
+        LifeMateModuleDefinition(
+          id: LifeMateModuleId.wellMate,
+          routeName: '/modules/wellmate',
+          labelEn: 'WellMate',
+          labelFa: 'ول‌میت',
+          icon: Icons.health_and_safety_outlined,
+          availability: ModuleAvailability.available,
+          pageBuilder: (_) => const Scaffold(body: Text('WellMate mounted')),
+        ),
+      );
+
+      await tester.pumpWidget(
+        LifeMateApp(
+          home: LifeMateShell(moduleRegistry: registry),
+          localeOverride: const Locale('en'),
+        ),
+      );
+
+      expect(
+        find.byWidgetPredicate(
+          (widget) =>
+              widget is Semantics && widget.properties.label == 'WellMate',
+          description: 'WellMate semantic hotspot',
+        ),
+        findsOneWidget,
+      );
+      final hotspot = find.byKey(
+        const ValueKey<String>('camp-zone-hit-wellmate'),
+      );
+      expect(hotspot, findsOneWidget);
+
+      await tester.tap(hotspot);
+      await tester.pump(const Duration(milliseconds: 349));
+      expect(find.text('WellMate mounted'), findsNothing);
+
+      await tester.pump(const Duration(milliseconds: 1));
+      await tester.pumpAndSettle();
+      expect(find.text('WellMate mounted'), findsOneWidget);
+    },
+  );
+
+  testWidgets('WellMate unavailable fallback is truthful', (tester) async {
+    await tester.binding.setSurfaceSize(const Size(412, 915));
+    addTearDown(() => tester.binding.setSurfaceSize(null));
+
+    await tester.pumpWidget(
+      const LifeMateApp(home: LifeMateShell(), localeOverride: Locale('en')),
+    );
+
+    final hotspot = find.byKey(
+      const ValueKey<String>('camp-zone-hit-wellmate'),
+    );
+    expect(hotspot, findsOneWidget);
+    await tester.tap(hotspot);
+    await tester.pump(const Duration(milliseconds: 350));
+    await tester.pumpAndSettle();
+
+    expect(find.text('WellMate'), findsWidgets);
+    expect(
+      find.text('This module is not mounted in the parent app yet.'),
+      findsOneWidget,
+    );
   });
 }

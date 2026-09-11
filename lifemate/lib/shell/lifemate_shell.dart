@@ -2,6 +2,8 @@ import 'package:flutter/material.dart';
 import 'package:lifemate_client/lifemate_client.dart';
 
 import '../living_camp/camp_home.dart';
+import '../modules/module_registry.dart';
+import '../modules/module_route_host.dart';
 import '../navigation/shell_navigation.dart';
 import '../profile/profile_you_screen.dart';
 
@@ -11,11 +13,13 @@ class LifeMateShell extends StatefulWidget {
     this.apiClient,
     this.onLocaleChanged,
     this.initialDestination = ShellDestination.home,
+    this.moduleRegistry,
   });
 
   final LifeMateApiClient? apiClient;
   final ValueChanged<Locale>? onLocaleChanged;
   final ShellDestination initialDestination;
+  final LifeMateModuleRegistry? moduleRegistry;
 
   @override
   State<LifeMateShell> createState() => _LifeMateShellState();
@@ -25,6 +29,9 @@ class _LifeMateShellState extends State<LifeMateShell> {
   late ShellDestination _destination = widget.initialDestination;
 
   bool get _isPersian => Localizations.localeOf(context).languageCode == 'fa';
+
+  LifeMateModuleRegistry get _moduleRegistry =>
+      widget.moduleRegistry ?? LifeMateModuleRegistry.foundation();
 
   String _t(String en, String fa) => _isPersian ? fa : en;
 
@@ -36,6 +43,15 @@ class _LifeMateShellState extends State<LifeMateShell> {
   void _handleBack(bool didPop, Object? result) {
     if (didPop || _destination == ShellDestination.home) return;
     setState(() => _destination = ShellDestination.home);
+  }
+
+  Future<void> _openModule(LifeMateModuleId moduleId) async {
+    final module = _moduleRegistry.byId(moduleId);
+    if (module == null || !mounted) return;
+
+    await Future<void>.delayed(const Duration(milliseconds: 350));
+    if (!mounted) return;
+    await openLifeMateModule(context, module: module, isPersian: _isPersian);
   }
 
   @override
@@ -86,6 +102,7 @@ class _LifeMateShellState extends State<LifeMateShell> {
       ShellDestination.home => CampHome(
         isPersian: _isPersian,
         onOpenToday: () => _select(ShellDestination.today),
+        onOpenWellMate: () => _openModule(LifeMateModuleId.wellMate),
       ),
       ShellDestination.today => _StagedDestination(
         icon: Icons.today_outlined,
