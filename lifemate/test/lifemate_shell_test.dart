@@ -8,10 +8,7 @@ void main() {
     tester,
   ) async {
     await tester.pumpWidget(
-      const LifeMateApp(
-        home: LifeMateShell(),
-        localeOverride: Locale('en'),
-      ),
+      const LifeMateApp(home: LifeMateShell(), localeOverride: Locale('en')),
     );
 
     expect(find.text('Home'), findsWidgets);
@@ -23,23 +20,20 @@ void main() {
     await tester.tap(find.text('Today').last);
     await tester.pumpAndSettle();
 
-    expect(
-      find.textContaining('Cross-module priorities'),
-      findsOneWidget,
-    );
+    expect(find.textContaining('Cross-module priorities'), findsOneWidget);
   });
 
   testWidgets('back from a peer destination returns to Home', (tester) async {
     await tester.pumpWidget(
-      const LifeMateApp(
-        home: LifeMateShell(),
-        localeOverride: Locale('en'),
-      ),
+      const LifeMateApp(home: LifeMateShell(), localeOverride: Locale('en')),
     );
 
     await tester.tap(find.text('Circle'));
     await tester.pumpAndSettle();
-    expect(find.textContaining('Relationships, companion selection'), findsOneWidget);
+    expect(
+      find.textContaining('Relationships, companion selection'),
+      findsOneWidget,
+    );
 
     await tester.binding.handlePopRoute();
     await tester.pumpAndSettle();
@@ -51,10 +45,7 @@ void main() {
     tester,
   ) async {
     await tester.pumpWidget(
-      const LifeMateApp(
-        home: LifeMateShell(),
-        localeOverride: Locale('fa'),
-      ),
+      const LifeMateApp(home: LifeMateShell(), localeOverride: Locale('fa')),
     );
 
     final directionality = tester.widget<Directionality>(
