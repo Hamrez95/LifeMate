@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:lifemate_client/lifemate_client.dart';
 
+import '../circle/camp_companion_selection.dart';
+import '../circle/camp_companion_selection_view.dart';
 import '../living_camp/camp_home.dart';
 import '../modules/module_registry.dart';
 import '../modules/module_route_host.dart';
@@ -20,6 +22,7 @@ class LifeMateShell extends StatefulWidget {
     this.moduleRegistry,
     this.todaySource,
     this.notificationSource,
+    this.campCompanionSource,
   });
 
   final LifeMateApiClient? apiClient;
@@ -28,6 +31,7 @@ class LifeMateShell extends StatefulWidget {
   final LifeMateModuleRegistry? moduleRegistry;
   final TodaySnapshotSource? todaySource;
   final NotificationCenterSource? notificationSource;
+  final CampCompanionSelectionSource? campCompanionSource;
 
   @override
   State<LifeMateShell> createState() => _LifeMateShellState();
@@ -46,6 +50,10 @@ class _LifeMateShellState extends State<LifeMateShell> {
 
   NotificationCenterSource get _notificationSource =>
       widget.notificationSource ?? const UnavailableNotificationCenterSource();
+
+  CampCompanionSelectionSource get _campCompanionSource =>
+      widget.campCompanionSource ??
+      const UnavailableCampCompanionSelectionSource();
 
   String _t(String en, String fa) => _isPersian ? fa : en;
 
@@ -186,13 +194,9 @@ class _LifeMateShellState extends State<LifeMateShell> {
           'Journey تا زمان طراحی و پیاده‌سازی فصل‌ها در #1095 تا #1097 عمداً در حالت آماده‌سازی می‌ماند.',
         ),
       ),
-      ShellDestination.circle => _StagedDestination(
-        icon: Icons.people_outline,
-        title: _t('Circle', 'دایره'),
-        description: _t(
-          'Relationships, companion selection and consent-safe presentation land in #1091–#1094.',
-          'روابط، انتخاب همراه و نمایش امن مبتنی بر رضایت در #1091 تا #1094 پیاده‌سازی می‌شود.',
-        ),
+      ShellDestination.circle => CampCompanionSelectionView(
+        source: _campCompanionSource,
+        isPersian: _isPersian,
       ),
       ShellDestination.you => _buildYouDestination(),
     };

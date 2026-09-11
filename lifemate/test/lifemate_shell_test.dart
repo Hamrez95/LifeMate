@@ -31,8 +31,9 @@ void main() {
 
     await tester.tap(find.text('Circle'));
     await tester.pumpAndSettle();
+    expect(find.text('Camp companions'), findsOneWidget);
     expect(
-      find.textContaining('Relationships, companion selection'),
+      find.text('Camp companion selection is not connected yet.'),
       findsOneWidget,
     );
 
