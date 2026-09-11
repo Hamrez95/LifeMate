@@ -64,7 +64,17 @@ jobs:
 
       - name: Verify formatting
         working-directory: lifemate
-        run: dart format --output=none --set-exit-if-changed lib test
+        shell: bash
+        run: |
+          set -euo pipefail
+          dart format lib test
+          if ! git diff --exit-code -- lib test; then
+            echo '::group::dart format diff'
+            git diff -- lib test
+            echo '::endgroup::'
+            echo 'Run dart format on the changed LifeMate sources.' >&2
+            exit 1
+          fi
 
       - name: Analyze
         working-directory: lifemate
