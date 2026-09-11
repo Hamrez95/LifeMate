@@ -2,35 +2,31 @@
 
 > Canonical continuity map for the LifeMate parent shell, Living Camp, Profile/You, Today, Circle, Journey, future Progression & Rewards, and future Impact.
 >
-> **Execution truth:** GitHub LIVE + merged code/CI. **Runtime truth:** Supabase LIVE where relevant. **Approved product/UX decisions:** Notion. This file is the durable execution map and must be reconciled when those sources change.
+> **Execution truth:** GitHub LIVE + merged code/CI. **Runtime truth:** Supabase LIVE where relevant. **Approved product/UX decisions:** Notion. This file is the durable execution map and must be reconciled whenever those sources change.
 
 ## 0. Reconciliation snapshot
 
 Last reconciled: **2026-09-11**
 
-GitHub `main` at bootstrap: `bcd161c9b873304bcbc505677394c7986ecd97a0`.
+Current verified `main` at this reconciliation point:
 
-Current repository facts:
-- `wellmate/`, `caremate/`, `cocoonmate/`, `packages/`, `supabase/` and backend boundaries already exist.
-- A top-level `lifemate/` parent Flutter application does **not** yet exist on current `main`; creating it remains #1067.
-- Cocoon's reusable `product module + thin host` precedent is completed in #783 and is the preferred migration pattern for future Super App mounting.
-- The cross-product offline-first platform invariant #828 remains open and authoritative for owner health execution. Living Camp PoC must not duplicate or bypass it.
-- Canonical Subscription Center / contextual paywall work #619 is completed. Shell presentation must consume canonical Commerce state rather than create another entitlement truth.
-- Gift/referral/advocacy reward precedent #494 is completed and must be reconciled by future Progression work instead of creating a conflicting reward ledger.
+`45a82f2c6c49c18036d3c7871ed10ccbbff5eafa`
 
-### Primary Epics — LIVE status at bootstrap
+Current implementation facts:
+- top-level `lifemate/` parent Flutter application exists and is independently buildable;
+- Shell/Profile lane through #1081 is merged on `main`;
+- Living Camp contracts #1070, #1071 and #1072 are merged;
+- Living Camp 2.5D renderer #1075 is merged and mounted as Shell Home;
+- #1073 and #1074 remain open because final visual/Rive production is not yet complete;
+- #1076 genuinely depends on the reusable Rive avatar output from #1074;
+- #1077 and #1078 do **not** need final #1073/#1074 output to begin their independent runtime/accessibility/navigation work after #1075;
+- #1079 remains the mandatory Go/No-Go gate and must evaluate representative final-enough art/Rive integration before Living Camp MVP expansion.
 
-All are open:
-- #827 — LifeMate Super App umbrella
-- #1058 — Living Camp
-- #1061 — Shell / Profile / You — **P0**
-- #1062 — Today / Alerts / Notifications — **P1**
-- #1063 — Circle / Companions — **P1**
-- #1064 — Journey / Chapters — **P2**
-- #1111 — Progression & Rewards — **P2 / post-Living-Camp-MVP**
-- #1112 — Impact — **P3 / post-Progression foundation**
-
-All shell/Living-Camp/Today/Circle/Journey/Progression/Impact child issues created on/after 2026-09-09 are still open at this reconciliation point. No implementation PR for `LivingCamp` exists yet.
+Existing platform precedents remain authoritative:
+- #783 reusable Cocoon product module + thin host is completed and remains the preferred convergence pattern;
+- #828 remains the offline-first owner-health execution authority;
+- #619 canonical Subscription Center/contextual paywall work is completed;
+- #494 Gift/Referral/Advocacy Reward Engine is completed and future Progression must reconcile with it.
 
 ## 1. Source-of-truth order
 
@@ -39,43 +35,95 @@ When sources disagree, reconcile in this order:
 1. **GitHub LIVE** — current `main`, Issues, PRs, CI, tests, code.
 2. **Supabase LIVE** — deployed database/runtime truth when a task depends on it.
 3. **Notion** — approved product/UX decisions and North Star references.
-4. **This file** — durable execution order, dependencies and continuity; update it after approved decisions or execution-map changes.
+4. **This file** — durable execution order, dependencies and continuity.
 
-Never restart architecture from zero when a decision is already approved. Verify before changing it.
+Never restart architecture from zero when approved decisions already exist. Verify before changing them.
 
-## 2. Locked product direction
+## 2. Execution policy
 
-### Living Camp
-- Fixed elevated/isometric cinematic viewport.
-- Layered **2.5D** world: raster environment layers + small independent Rive actors/effects.
-- Flutter owns shell UI, routing, semantics, state orchestration and accessibility.
-- No free camera, drag/zoom, joystick or city-builder behavior.
-- **Flame is out of MVP** unless measured profiling proves Flutter + Rive is insufficient.
-- Product principle: **Magical Shell. Efficient Tasks.** Health/care workflows remain fast conventional UI after entry.
-- Central LifeMate home opens Today.
-- Module tap gives a short 300–500 ms response, then navigates immediately; navigation never waits for avatar walking.
-- Day/night follows local sunrise/sunset from coarse saved location or selected city, with 06:00/20:00 local fallback.
-- Reduced Motion disables nonessential motion while preserving all actions.
-- Persian RTL and English LTR are first-class from the first implementation.
+### 2.1 Chat is the default executor
 
-### Avatar / companions
-- Main avatar is autonomous and deterministic, not user-steered.
-- Two character families × six life-stage variants (~2, 10, 20, 30, 50, 70).
-- MVP customization: skin tone only.
-- Common animation contract begins with `idle`, `walk`, `sit`, `drink`, `wellness`, `care`, `exercise`, `wave`, `sleep` and must be extensible without breaking existing actors.
-- Age-band visual change is a user-confirmed Chapter Transition, not a silent identity change.
-- MVP displays at most two user-selected companions, but capacity must be configuration-driven rather than hard-coded into the domain model.
+For every task, first determine whether Chat can complete it with appropriate quality. If yes, Chat owns the full loop:
 
-### Module zones
-- WellMate: wellness garden / health beacon.
-- CareMate: companion/care area.
-- CocoonMate / Women Health: one contextual location with mutually exclusive presentation.
-- FitMate: activity/movement area; quiet under-construction when unavailable.
-- LifeMate: central home / Today entry.
+`LIVE VERIFY → current-main reconciliation → inspect dependencies/contracts → implement → test → fix → retest → exact diff review → PR → CI → fix CI if needed → merge → verify current main → update/close issue → next`
+
+Do not stop for routine status reports or confirmation.
+
+### 2.2 When Work has a material advantage
+
+Use Work only for tasks where its tools/workspace materially improve output, especially:
+- heavy visual exploration;
+- original illustration/art asset production;
+- Rive authoring/animation;
+- large visual package generation;
+- broad repo-wide autonomous implementation;
+- long research + implementation workflows.
+
+A Work-suitable task must **not** be fake-completed and must **not** stop the whole project.
+
+For every Work handoff:
+1. keep the GitHub Issue **OPEN** until real output is LIVE verified;
+2. add/update a comment beginning exactly with `WORK HANDOFF — READY`;
+3. store in that comment:
+   - why Work is better;
+   - recommended model and reasoning level;
+   - completed dependencies and current LIVE main/context;
+   - exact scope and explicit out-of-scope;
+   - architecture/design references and files/contracts to read first;
+   - implementation + asset/Rive requirements as applicable;
+   - testing requirements;
+   - PR/CI/merge expectations;
+   - Definition of Done;
+   - return/handoff requirements;
+   - one **complete copy-ready Work prompt** that is self-contained;
+4. add/update the task in **Pending Work Handoffs** below;
+5. recompute the dependency graph and immediately continue the earliest genuinely-unblocked Chat-friendly task.
+
+Only real downstream dependencies may be blocked. A Work blocker is never automatically a project blocker.
+
+### 2.3 Recovering the Work queue
+
+When asked to review Work tasks:
+1. read this file and GitHub LIVE;
+2. find Issues with `WORK HANDOFF — READY`;
+3. verify they were not already completed, made obsolete, or superseded;
+4. re-check dependencies against current main;
+5. sort only truly ready Work tasks by execution priority/dependency value;
+6. refresh stale prompts if main/contracts moved;
+7. return the first Work task, recommended model/reasoning, and its final copy-ready prompt.
+
+The user should not need to remember issue numbers.
+
+### 2.4 After Work finishes
+
+Never accept Work completion claims blindly. LIVE verify:
+- branch;
+- commits;
+- exact diff;
+- PR;
+- CI/checks;
+- merged main;
+- issue state;
+- assets/files actually present;
+- tests/evidence.
+
+If incomplete, Chat completes Chat-friendly gaps or updates the Work handoff with the exact remaining gap. Then sync the Pending Work Handoffs section.
+
+### 2.5 Scheduler rule
+
+The existing LifeMate Living Shell hourly continuation automation is retained. Do not create a duplicate scheduler and do not reset/disable its hourly cadence.
+
+Each recurring run must:
+- refresh LIVE state;
+- read this file first;
+- continue the earliest unblocked Chat-friendly task;
+- register/update Work handoffs without stopping the project;
+- reuse open PRs/branches instead of duplicating implementation;
+- work to the execution limit of that run.
 
 ## 3. Non-negotiable architecture boundaries
 
-These are invariants, not implementation suggestions:
+These are invariants:
 
 - **Account != Person**
 - **Relationship != Consent**
@@ -84,287 +132,289 @@ These are invariants, not implementation suggestions:
 - **Progression != Entitlement**
 - **Progression != Scene State**
 - Living Camp must not infer clinical meaning from raw health measurements.
-- Flutter must not become the authority for trusted rewards, financial/Impact state, sensitive authorization, or canonical health truth.
+- Flutter must not become authoritative for trusted rewards, financial/Impact state, sensitive authorization, or canonical health truth.
 - Product modules must not create another global Auth/Person/Profile store.
-- Existing standalone products remain functional during incremental convergence; no big-bang rewrite.
+- Existing standalone products remain functional during incremental convergence.
 
-## 4. LIVE backend / database boundaries
+## 4. Locked Living Camp product direction
 
-Supabase production project `lifemate` is ACTIVE/HEALTHY at bootstrap.
+### World
+- fixed elevated/isometric cinematic viewport;
+- layered **2.5D** world: raster environment layers + small independent Rive actors/effects;
+- Flutter owns shell UI, routing, semantics, state orchestration and accessibility;
+- no free camera, drag/zoom, joystick or city-builder behavior;
+- Flame is out of MVP unless profiling proves Flutter + Rive insufficient;
+- product principle: **Magical Shell. Efficient Tasks.**
+- central LifeMate home opens Today;
+- module tap gives short 300–500 ms response then navigates immediately; navigation never waits for avatar walking;
+- day/night follows local sunrise/sunset from saved city/coarse location with 06:00/20:00 fallback;
+- Reduced Motion disables nonessential movement while preserving all actions;
+- Persian RTL and English LTR are first-class.
 
-Relevant existing canonical domains observed LIVE:
-- identity Account: `identity.accounts`
-- Person/profile: `core.persons`, `core.person_profiles`, `core.account_person_links`
-- application registry/enrollment: `ecosystem.applications`, `ecosystem.app_enrollments`
-- Commerce: `commerce.entitlements`, `commerce.entitlement_events`, `commerce.subscriptions`, related offer/payment/adjustment tables
-- consent: `consent.consent_records`, `consent.consent_events`, related data-use consent tables
-- relationships: `network.person_relationships` plus existing legacy/domain relationship tables where still supported
-- existing reward precedent: `growth.reward_events`, `growth.reward_rules`
+### Avatar / companions
+- main avatar is autonomous/deterministic, not user-steered;
+- two character families × six life-stage variants (~2, 10, 20, 30, 50, 70) in later MVP completion;
+- initial customization: skin tone only;
+- extensible action contract begins with `idle`, `walk`, `sit`, `drink`, `wellness`, `care`, `exercise`, `wave`, `sleep`;
+- age-band visual change is a user-confirmed Chapter Transition;
+- MVP shows at most two user-selected companions while domain capacity remains configuration-driven.
 
-No new canonical Progression or Impact table family was observed in this bootstrap scan. That matches #1111/#1112 being future work; do not pre-create speculative schema.
+### Module zones
+- `lifemate_home`: central home / Today entry;
+- `wellmate`: wellness garden / health beacon;
+- `caremate`: companion/care area;
+- `reproductive_context`: shared CocoonMate/Women Health contextual location;
+- `fitmate`: movement/activity area; quiet under-construction when unavailable.
 
-### Mobile/API boundary
-- Flutter authenticates through the approved Auth flow and reads/writes healthcare state through reviewed LifeMate API/shared clients.
-- No direct sensitive healthcare-table queries from the shell.
-- No service-role key in Flutter.
-- `packages/lifemate_client` is the shared authenticated API boundary.
-- `packages/lifemate_core` owns shared offline/local execution primitives; do not create one scheduler/outbox/database per product.
-- `supabase/functions/lifemate-api/` remains the current healthcare API runtime unless a separately reviewed runtime cutover is completed.
+## 5. Backend / database boundaries
 
-### Camp read-model direction
-The production Camp eventually consumes a privacy-safe resolved snapshot/read model. It may include presentation-safe fields such as:
-- active Account/Person context
-- avatar family/life-stage/skin-tone presentation
-- module availability + enrollment
-- entitlement presentation state
-- consent-safe companion presentation
-- normalized alert severity
-- resolved Today summary
-- future `zoneStage` / variant
-- future reviewed wellbeing presentation signal
+Supabase production `lifemate` is the runtime truth when relevant.
 
-The Camp must not assemble that state by joining sensitive raw tables on-device.
+Existing canonical domains observed during bootstrap:
+- `identity.accounts`;
+- `core.persons`, `core.person_profiles`, `core.account_person_links`;
+- `ecosystem.applications`, `ecosystem.app_enrollments`;
+- Commerce tables including `commerce.entitlements`, `commerce.entitlement_events`, `commerce.subscriptions`;
+- consent tables including `consent.consent_records`, `consent.consent_events`;
+- relationships including `network.person_relationships`;
+- existing rewards precedent `growth.reward_events`, `growth.reward_rules`.
 
-## 5. Asset, scene and Rive strategy
+No speculative Progression or Impact schema should be created before their approved phases.
+
+Mobile/API rules:
+- Flutter uses reviewed Auth + LifeMate API/shared clients for healthcare state;
+- no direct sensitive healthcare-table access from Shell;
+- no service-role key in Flutter;
+- `packages/lifemate_client` is the shared authenticated API boundary;
+- `packages/lifemate_core` owns shared offline/local execution primitives;
+- `supabase/functions/lifemate-api/` remains current healthcare API runtime until a separately reviewed cutover.
+
+The production Camp eventually consumes a privacy-safe resolved snapshot/read model, not on-device raw-table joins.
+
+## 6. Asset, scene and Rive strategy
 
 ### North Star
-The approved `lifemate-living-camp-north-star-v1.png` lives in the Notion Living Camp decision log. It is a **design reference**, not a shippable monolithic runtime image.
+The Notion `lifemate-living-camp-north-star-v1.png` is a **design reference**, never a monolithic runtime asset.
 
 ### Scene layering
-#1070 owns the exact specification, but the architecture must preserve independent replaceable layers such as:
-- background / sky
-- environment / distant depth
-- ground / paths / water
-- stable zone slots
-- replaceable zone visuals
-- actors
-- foreground occlusion
-- lights / night overlays
-- small ambient effects
-- semantic/hotspot layer independent of pixels
+Preserve independent replaceable layers:
+- background/sky;
+- distant environment/depth;
+- ground/paths/water;
+- stable zone slots;
+- replaceable zone visuals;
+- actors;
+- foreground occlusion;
+- lights/night overlays;
+- lightweight ambient effects;
+- semantic/hotspot layer independent of pixels.
 
-Responsive behavior uses a stable world coordinate system, safe composition area and bleed/crop rules. Do not stretch the world to each phone aspect ratio.
+Renderer/world uses stable logical coordinates and safe composition + bleed/crop; never stretch world art to each phone.
 
-### Stable zone identity and future upgrades
-Every module area has a stable `zoneId` independent from its current art asset, coordinates, hotspot and navigation route.
+### Stable zone identity / progression readiness
+Every zone has stable `zoneId` independent from art asset, stage, coordinates, hotspot and navigation route.
 
-Initial product/module structures are intentionally **modest Stage 1** visuals. Future Stage 2/3/N assets must be addable through versioned catalog/manifest entries without rewriting scene topology.
+Initial visuals are intentionally modest **Stage 1**. Future Stage 2/3/N packs must append through versioned manifest/catalog entries without scene-topology rewrites.
 
-Required fallback behavior:
-- requested compatible stage asset exists → render it;
-- missing/incompatible stage asset → deterministic compatible fallback, normally Stage 1 or last compatible stage;
-- module availability/entitlement presentation remains orthogonal to progression stage.
+Fallback rule:
+- compatible requested stage exists → render it;
+- otherwise → deterministic compatible fallback, normally Stage 1/last compatible stage.
+
+Availability/entitlement remains orthogonal to progression stage.
 
 ### Rive
-- Prefer several focused Rive actors/effects over one giant world artboard.
-- Define versioned artboard/state-machine inputs/events in #1071.
-- Character identity, route state and transient action state remain separable.
-- New actions, actors, companions and character families must be addable without changing old call sites.
-- Skin tint regions remain separately addressable from clothing/hair.
-- Rive source + exported `.riv` + contract/version metadata belong together.
-- Actual file/folder naming and numeric budgets are locked by #1070/#1071, not guessed here.
+- prefer focused Rive actors/effects over a giant world artboard;
+- `RIVE_AVATAR_CONTRACT.md` is the versioned actor/state-machine contract;
+- identity, route state and transient action state stay separable;
+- new actions/actors/companions/families must be addable without breaking old call sites;
+- skin tint regions remain separate from hair/clothing;
+- source + `.riv` + version metadata stay together.
 
-### Asset production rule
-Art-generation and Rive-production tasks may use Work when it materially improves visual/animation output. Runtime architecture, contracts and integration remain reviewable in Chat/GitHub.
+## 7. Execution map — actual dependency order
 
-## 6. Execution map — actual dependency order
+Multiple lanes may proceed in parallel when genuinely independent. Never turn visual Work into an artificial blocker for unrelated runtime/contracts/backend work.
 
-The project has multiple lanes. Do not force everything into one serial line when tasks are genuinely independent, but never skip a declared prerequisite.
-
-### Phase P0-A — Shell contract and parent-app foundation
+### P0-A — Shell / Profile
 Parent: #1061
 
-1. **#1066 — Define parent navigation map and information architecture**
-   - First default task.
-   - Owner: Chat.
-   - Defines Home / Today / Journey / Circle / You ownership, bottom navigation, back/deep-link behavior.
-2. **#1067 — Create independently buildable `lifemate/` parent application**
-   - Depends on #1066.
-   - Owner: Chat unless repo-wide refactoring becomes unexpectedly broad.
-3. **#1068 — Canonical Profile contract**
-4. **#1069 — Profile / You UX**
-5. **#1080 — Profile implementation**
-6. **#1081 — Module registry and resilient route host**
+Completed/merged on current ancestry:
+- #1066 — parent navigation map / IA
+- #1067 — independently buildable `lifemate/` parent app
+- #1068 — canonical Profile contract
+- #1069 — Profile / You UX
+- #1080 — Profile implementation
+- #1081 — module registry + resilient route host
 
-#1068–#1081 can advance in their declared Shell order while Living Camp technical work proceeds in parallel after #1067 establishes the host.
-
-### Phase P0-B — Living Camp art/runtime contracts
+### P0-B — Living Camp
 Parent: #1058
 
-1. **#1070 — Layered scene + responsive composition spec** — Chat.
-2. **#1071 — Versioned Rive avatar/animation contract** — Chat.
-3. **#1072 — Deterministic Scene Coordinator design** — Chat.
-4. After contracts:
-   - **#1073 — Produce layered master Camp asset package** — **Work preferred** (visual/art-heavy).
-   - **#1074 — Produce first reusable Rive avatar for PoC** — **Work preferred** (Rive/animation asset production).
-5. **#1075 — Implement 2.5D renderer in parent app** — Chat; requires parent app #1067 and scene contract #1070, and should integrate the approved asset contract rather than inventing a second one.
-6. **#1076 — Home → WellMate → Home technical PoC** — after #1072/#1074/#1075.
-7. **#1077 — Day/night, lifecycle, Reduced Motion**.
-8. **#1078 — WellMate hotspot and immediate route transition**.
-9. **#1079 — Performance/battery/accessibility gate** — mandatory Go/No-Go before Living Camp MVP expansion.
+Completed/merged:
+- #1070 — layered scene + responsive composition contract
+- #1071 — versioned Rive avatar/animation contract
+- #1072 — deterministic Scene Coordinator contract
+- #1075 — extensible 2.5D renderer in parent app
 
-### Global P0 scheduling rule
-The first task is #1066. After its contract is stable, #1067 and the Living Camp contract lane (#1070–#1072) may progress without waiting for full Profile implementation. Do not block technical PoC on full Circle/Today/Journey or live PHI.
+Pending Work:
+- #1073 — layered master Camp asset package — Work-preferred
+- #1074 — first reusable Rive avatar — Work-preferred
 
-### Phase P1 — Living Camp MVP
-Parent: #1058; begins only after #1079 provides acceptable evidence.
+Dependency behavior while Work is pending:
+- #1076 — **blocked by #1074** because the Home → WellMate → Home PoC requires the real reusable Rive actor; #1073 improves representative visuals but is not a reason to stop independent runtime work.
+- #1077 — **Chat-friendly and unblocked after #1075**; may proceed while #1073/#1074 are pending.
+- #1078 — **Chat-friendly and independently implementable after #1075/#1081**; may proceed while #1073/#1074 are pending, while final visual validation remains later.
+- #1079 — final performance/battery/accessibility Go/No-Go requires representative integrated art/Rive and completed PoC behavior; do not close it before #1073/#1074/#1076 are genuinely integrated.
 
-- #1082 — active / locked / expired module-zone presentation
+Recommended P0 continuation from current state:
+1. keep #1073/#1074 in Work queue;
+2. Chat implements #1077;
+3. Chat implements #1078 if still unblocked/current;
+4. when #1074 returns, LIVE verify/integrate it and execute #1076;
+5. when #1073/#1074/#1076 runtime is representative, execute #1079.
+
+### P1 — Living Camp MVP
+Begins only after acceptable #1079 evidence:
+- #1082 — active/locked/expired module-zone presentation
 - #1083 — complete avatar families + eligible-zone route system
 - #1084 — consent-safe companion presentation
-- #1085 — CocoonMate / Women Health contextual resolver
+- #1085 — CocoonMate/Women Health contextual resolver
 - #1086 — first-run Camp introduction
 
-Integration rules:
-- synthetic/privacy-safe placeholders are acceptable only where the Epic explicitly allows them;
-- canonical live companion/entitlement/context integration must use reviewed adapters and real consent/authorization boundaries;
-- no Progression economy or Impact implementation is pulled forward into this phase.
+Do not pull Progression economy or Impact implementation into this phase.
 
-### Phase P1 — Today / Alerts / Notifications
+### P1 — Today / Alerts / Notifications
 Parent: #1062
 
-Merge order:
+Order:
 1. #1087 — Today UX
 2. #1088 — shared data + normalized severity contract
 3. #1089 — Today Peek Sheet
 4. #1090 — Notification Center
 
-The shell consumes module-provided normalized severity; it does not infer clinical urgency from raw records.
+The shell consumes module-provided normalized severity and never infers clinical urgency from raw records.
 
-### Phase P1 — Circle / Companions
+### P1 — Circle / Companions
 Parent: #1063
 
-Merge order:
+Order:
 1. #1091 — Circle UX
 2. #1092 — Camp companion selection
 3. #1093 — consent-aware adapter
 4. #1094 — limited summary/presentation
 
-Relationship, consent, authorization and visual selection remain separate states.
+Relationship, consent, authorization and visual selection stay separate.
 
-### Phase P2 — Journey / Chapters
+### P2 — Journey / Chapters
 Parent: #1064
 
-Merge order:
+Order:
 1. #1095 — Journey concept
 2. #1096 — Journey visual design
 3. #1097 — confirmed Chapter Transition
 
-Journey must remain a meaningful life-stage narrative, not another generic dashboard.
+Journey is a meaningful life-stage narrative, not another dashboard.
 
-## 7. Progression & Rewards future path
+## 8. Pending Work Handoffs
 
-Parent: #1111. **Do not block current P0/P1 Living Camp work.** Current work only preserves extension points.
+This is the canonical recoverable Work queue. Every item remains OPEN until Work output is merged and LIVE verified.
+
+### #1073 — READY FOR WORK
+- **Title:** Produce layered master Camp asset package
+- **Priority:** P0
+- **Dependency order:** after #1070/#1071/#1072; renderer #1075 is already merged
+- **Status:** `WORK HANDOFF — READY`; Issue OPEN
+- **Why Work:** original visual/environment asset production, layered day/night package, zone art, runtime exports
+- **Work prompt:** stored in GitHub Issue #1073 comment headed `WORK HANDOFF — READY`
+- **Can continue in parallel:** #1077, #1078, Today/Circle contract work and other tasks without final Camp art dependency
+- **True downstream blockers:** representative visual portion of #1079 and any acceptance that explicitly requires final layered Camp art
+
+### #1074 — READY FOR WORK
+- **Title:** Produce first reusable Rive avatar for PoC
+- **Priority:** P0
+- **Dependency order:** after #1071/#1072; renderer #1075 already exists
+- **Status:** `WORK HANDOFF — READY`; Issue OPEN
+- **Why Work:** real Rive authoring/animation, reusable actor asset, state-machine/tint/export production
+- **Work prompt:** stored in GitHub Issue #1074 comment headed `WORK HANDOFF — READY`
+- **Can continue in parallel:** #1077, #1078, Today/Circle contract work and other tasks not requiring the actor
+- **True downstream blockers:** #1076 real avatar route PoC, actor-dependent portions of #1079, later avatar-family expansion
+
+When Work output appears, verify it before removing an item from this section.
+
+## 9. Progression & Rewards future path
+
+Parent: #1111. Do not block current P0/P1 Camp work.
 
 Locked direction:
-- trusted balances and progression are server-authoritative;
-- scene only renders resolved progression;
-- stage/variant catalog is versioned and open-ended;
-- health/wearable influence enters through reviewed derived presentation signals, never raw Camp inference;
-- paid state never buys better clinical care or safety priority;
-- reconcile with existing `growth.reward_events` / `growth.reward_rules` and #494 before introducing a new ledger model.
+- trusted balances/progression are server-authoritative;
+- scene renders resolved progression only;
+- stage/variant catalog is versioned/open-ended;
+- reviewed derived wellbeing signals only; never raw Camp clinical inference;
+- paid state never buys better clinical care/safety priority;
+- reconcile with existing `growth.reward_events` / `growth.reward_rules` and #494.
 
-Recommended order:
+Order:
 1. #1113 — canonical progression/economy + auditable reward ledger contract
-2. #1114 — versioned zone-stage catalog and upgrade contract
-3. #1115 — reviewed WellMate/wearable wellbeing presentation adapter; may progress in parallel with #1114 after boundaries stabilize
-4. #1116 — first real Stage-1 → Stage-2 upgrade slice, only after Living Camp MVP renderer is stable
-5. #1117 — approved Commerce/activity/referral reward sources + spend/reversal/anti-abuse
+2. #1114 — versioned zone-stage catalog/upgrade contract
+3. #1115 — reviewed WellMate/wearable presentation adapter
+4. #1116 — first Stage-1 → Stage-2 upgrade slice after renderer/MVP stability
+5. #1117 — approved Commerce/activity/referral sources + reversal/anti-abuse
 
-Progression must remain optional from the renderer's perspective: when unavailable/disabled, Living Camp renders a deterministic neutral/default state.
+Progression must remain optional to renderer; absent/disabled progression produces deterministic neutral/default presentation.
 
-## 8. Impact future path
+## 10. Impact future path
 
-Parent: #1112. **P3, downstream of Progression foundation.**
+Parent: #1112. P3, downstream of Progression foundation.
 
-Impact is a separate trusted accounting/product domain, not a cosmetic counter and not a Camp calculation.
+Never collapse:
+1. eligible impact value;
+2. user allocation;
+3. LifeMate funding commitment;
+4. actual settlement/disbursement;
+5. partner delivery/proof.
 
-Never collapse these states:
-1. user has eligible impact value;
-2. user allocated value to a cause;
-3. LifeMate committed company funding;
-4. funds were actually settled/disbursed;
-5. partner reported/proved delivery.
-
-Recommended order:
+Order:
 1. #1118 — funding/conversion policy + campaign lifecycle + auditable Impact ledger
-2. #1119 — cause catalog + idempotent user allocation + community aggregate progress
-3. #1120 — company funding reconciliation, disbursement/proof + Admin contract
-4. #1121 — Living Camp Impact presentation from canonical campaign state
+2. #1119 — cause catalog + idempotent allocation + community aggregate
+3. #1120 — funding reconciliation/disbursement/proof + Admin contract
+4. #1121 — Camp Impact presentation from canonical state
 
-A future Impact Grove/cause-vessel UI is read-only presentation of canonical Impact state. It must never fabricate donation value or delivered outcomes while offline.
+Impact Grove/cause vessels, if built later, are read-only presentation of canonical Impact state and never fabricate offline outcomes.
 
-## 9. Offline / lifecycle boundary
+## 11. Offline / lifecycle boundary
 
-#828 remains the cross-product authority for owner health offline behavior.
+#828 remains authoritative for owner-health offline behavior.
 
-Living Shell rules:
-- Camp ambience/scene state can be reconstructed locally and must pause in background.
-- Safe cached shell presentation may degrade gracefully.
-- Owner health schedules/reminders/outbox use shared `lifemate_core` mechanisms, not Living Camp-specific queues.
-- Remote/shared/Circle/Commerce authorization remains server-authoritative.
-- Cached shared data must never be treated as proof that revoked access still exists.
+- Camp ambience/scene presentation may reconstruct locally and must pause background animation;
+- safe cached shell presentation may degrade gracefully;
+- health schedules/reminders/outbox reuse `lifemate_core`;
+- remote/shared/Circle/Commerce authorization remains server-authoritative;
+- cached shared data never proves revoked access still exists.
 
-## 10. Chat vs Work operating rule
+## 12. No speculative expansion
 
-**Chat is the default coordinator and executor.** Use Chat whenever the task can be completed reliably here, including:
-- architecture and contracts;
-- GitHub/Notion/Supabase audits;
-- issue reconciliation;
-- scoped Flutter/package/backend implementation;
-- API/read-model contracts;
-- tests, CI debugging, review and merge;
-- documentation and execution-map maintenance.
+- do not create speculative tasks when backlog already covers work;
+- do not create parallel architecture/domain truth;
+- do not fake backend state because visual assets are pending;
+- do not mark placeholders as final visual completion;
+- do not turn a Work handoff into a whole-project blocker;
+- lower issue number alone does not determine priority;
+- actual priority comes from GitHub LIVE + dependency graph + approved Notion decisions.
 
-Use **Work only when it has a material advantage**, especially:
-- original visual asset production;
-- Rive animation/artboard authoring;
-- large visual exploration across many references;
-- broad repo-wide refactors touching many files;
-- extensive autonomous multi-step research + implementation where one continuous workspace materially reduces handoff cost.
+## 13. Immediate next action
 
-When Work is preferable, Chat must stop before duplicating that implementation and provide:
-1. a short reason;
-2. recommended model;
-3. recommended reasoning level;
-4. one complete copy-ready Work prompt;
-5. after Work finishes, Chat resumes ownership and LIVE verifies its PR/code/CI/result.
+At this reconciliation point:
 
-### Current known Work candidates
-- #1073 layered master Camp asset package — visual/art-heavy.
-- #1074 first reusable Rive avatar — Rive/animation-heavy.
-- #1096 Journey visual design may become Work-preferred when that phase starts.
-- Future Stage 2/3/N asset packs and large character/action expansions are likely Work-preferred.
+**Execute #1077 — `[LivingCamp] Implement permission-free day/night, lifecycle and Reduced Motion`.**
 
-#1066 is **not** a Work task; it is a bounded architecture/information-architecture contract and should be executed in Chat.
+Why:
+- #1073/#1074 are correctly parked in the Work queue rather than fake-completed;
+- #1076 is a real dependency consumer of #1074;
+- #1077 depends on existing renderer/runtime contracts, not on final art or Rive asset production;
+- #1077 is P0 and Chat-friendly;
+- completing it reduces risk for the later #1079 performance/accessibility gate.
 
-## 11. Standard execution loop
+After #1077, reconcile LIVE again and execute #1078 if still genuinely unblocked.
 
-For implementation sessions:
-
-`LIVE VERIFY → current-main reconciliation → earliest unblocked task → implement → test → fix → retest → exact diff review → PR → CI → fix if needed → merge → verify main → update issue → next`
-
-Additional rules:
-- do not generate speculative tasks when existing backlog already covers the work;
-- do not wait idly for CI if an independent task can safely proceed;
-- keep PRs focused and reviewable;
-- after an execution-order, dependency or locked-decision change, update this file in the same or immediately following focused PR.
-
-## 12. Immediate next action
-
-**Start #1066 — `[Shell] Define parent navigation map and information architecture`.**
-
-Why first:
-- it is P0;
-- it is open and has no recorded blocker;
-- it is the first declared child of #1061;
-- #1067 depends on it;
-- #1067 is a direct dependency of the Living Camp renderer #1075;
-- it is architecture/IA work with approved product decisions already available, so Chat can complete it without Work.
-
-After #1066 is merged, proceed to #1067 while also advancing #1070–#1072 as the independent Living Camp contract lane.
-
-## 13. Durable references
+## 14. Durable references
 
 GitHub:
 - #827 Super App umbrella
@@ -385,4 +435,4 @@ Notion:
 - `LifeMate Progression & Rewards — Product & Architecture Decision Log`
 - `LifeMate Impact — Real-World Causes & Community Contribution Decision Log`
 
-Whenever this file is read in a future session, verify current `main`, relevant issue/PR state and Supabase runtime facts before executing the next task.
+Whenever this file is read in a future session, verify current `main`, relevant issue/PR state, open Work handoffs and Supabase runtime facts before executing the next task.
