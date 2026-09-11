@@ -76,6 +76,7 @@ export 'src/session_gate.dart' hide LifeMateSessionGate;
 export 'src/session_gate_secure.dart';
 export 'src/shared_offline_runtime.dart';
 export 'src/support_conversations_api.dart';
+export 'src/treatment_create_api.dart';
 export 'src/women_calendar.dart';
 export 'src/women_calendar_offline.dart';
 export 'src/women_calendar_offline_snapshot.dart';
