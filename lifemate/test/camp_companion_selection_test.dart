@@ -3,6 +3,8 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:lifemate/app/lifemate_app.dart';
 import 'package:lifemate/circle/camp_companion_selection.dart';
 import 'package:lifemate/circle/camp_companion_selection_view.dart';
+import 'package:lifemate/navigation/shell_navigation.dart';
+import 'package:lifemate/shell/lifemate_shell.dart';
 
 void main() {
   CampCompanionCandidate candidate(
@@ -115,5 +117,28 @@ void main() {
       find.byType(Directionality).first,
     );
     expect(directionality.textDirection, TextDirection.rtl);
+  });
+
+  testWidgets('shell Circle destination mounts injected companion source', (
+    tester,
+  ) async {
+    final source = SyntheticCampCompanionSelectionSource(
+      candidates: [candidate('a', 'Alex')],
+    );
+
+    await tester.pumpWidget(
+      LifeMateApp(
+        localeOverride: const Locale('en'),
+        home: LifeMateShell(
+          initialDestination: ShellDestination.circle,
+          campCompanionSource: source,
+        ),
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    expect(find.text('Camp companions'), findsOneWidget);
+    expect(find.text('Alex'), findsOneWidget);
+    expect(find.text('0 of 2 selected'), findsOneWidget);
   });
 }
