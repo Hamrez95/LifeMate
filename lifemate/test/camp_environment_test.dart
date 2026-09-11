@@ -148,6 +148,7 @@ void main() {
             body: CampHome(
               isPersian: false,
               onOpenToday: () => openedToday = true,
+              onOpenWellMate: () {},
               environmentPreferences: const CampEnvironmentPreferences(
                 timezoneOffset: Duration.zero,
               ),
