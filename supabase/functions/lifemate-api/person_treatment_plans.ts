@@ -65,8 +65,6 @@ function mapTreatmentPlan(
   const recurrence = recurrenceFromRow(row);
   return {
     id: row.id,
-    // Preserve the public compatibility contract without authorizing from or
-    // depending on the stored legacy patient_user_id column.
     patientUserId: callerAppUserId,
     medication: mapMedication(medication),
     doseText: row.dose_text,
@@ -87,8 +85,6 @@ function mapTreatmentPlan(
         ? null
         : timeString(row.recurrence_start_local_time),
     version: row.version,
-    // The internal recurrence anchor is not exposed as a user-editable weekly
-    // schedule. Legacy explicit schedules remain unchanged.
     schedules: schedules
       .filter((schedule) =>
         String(schedule.day_of_week).toLowerCase() !== "recurrence"
@@ -156,11 +152,11 @@ async function insertAudit(
   `;
 }
 
-/** Treatment Plan ownership is authoritative on canonical Person. */
 export function createPersonTreatmentPlanStore(databaseUrl: string) {
   const sql = getLifeMateSql(databaseUrl);
 
-  async function createTreatmentPlan(
+  async function createTreatmentPlanInTransaction(
+    connection: any,
     appUserId: string,
     body: Record<string, unknown>,
   ): Promise<Record<string, unknown>> {
@@ -210,85 +206,91 @@ export function createPersonTreatmentPlanStore(databaseUrl: string) {
       60,
     );
     const now = new Date();
+    const personId = await requireSelfPerson(connection, appUserId);
+    const medicationRows = await connection`
+      select *
+      from lifemate.medications
+      where id = ${medicationId}::uuid
+        and owner_person_id = ${personId}::uuid
+      limit 1
+    `;
+    if (!medicationRows[0]) {
+      throw new ApiError(
+        400,
+        "invalid_medication",
+        "Medication does not belong to the user.",
+      );
+    }
 
-    return await sql.begin(async (tx: any) => {
-      const personId = await requireSelfPerson(tx, appUserId);
-      const medicationRows = await tx`
-        select *
-        from lifemate.medications
-        where id = ${medicationId}::uuid
-          and owner_person_id = ${personId}::uuid
-        limit 1
-      `;
-      if (!medicationRows[0]) {
-        throw new ApiError(
-          400,
-          "invalid_medication",
-          "Medication does not belong to the user.",
-        );
-      }
+    const planId = crypto.randomUUID();
+    const recurrenceJson = recurrence == null
+      ? null
+      : JSON.stringify(recurrence);
+    const planRows = await connection`
+      insert into lifemate.treatment_plans
+        (id, patient_person_id, medication_id, dose_text,
+         instructions, start_date, end_date, time_zone,
+         patient_reminder_minutes_before,
+         caregiver_reminder_minutes_before,
+         recurrence_rule, recurrence_start_local_time,
+         status, version, created_at_utc, updated_at_utc)
+      values
+        (${planId}::uuid, ${personId}::uuid,
+         ${medicationId}::uuid, ${doseText}, ${instructions}, ${startDate},
+         ${endDate}, ${timeZone}, ${patientReminderMinutesBefore},
+         ${caregiverReminderMinutesBefore},
+         ${recurrenceJson}::jsonb, ${recurrenceStartLocalTime}::time,
+         'Active', 1, ${now}, ${now})
+      returning *
+    `;
 
-      const planId = crypto.randomUUID();
-      const recurrenceJson = recurrence == null
-        ? null
-        : JSON.stringify(recurrence);
-      const planRows = await tx`
-        insert into lifemate.treatment_plans
-          (id, patient_person_id, medication_id, dose_text,
-           instructions, start_date, end_date, time_zone,
-           patient_reminder_minutes_before,
-           caregiver_reminder_minutes_before,
-           recurrence_rule, recurrence_start_local_time,
-           status, version, created_at_utc, updated_at_utc)
+    const createdSchedules: Row[] = [];
+    if (recurrence != null) {
+      const rows = await connection`
+        insert into lifemate.treatment_schedules
+          (id, treatment_plan_id, day_of_week, local_time, created_at_utc)
         values
-          (${planId}::uuid, ${personId}::uuid,
-           ${medicationId}::uuid, ${doseText}, ${instructions}, ${startDate},
-           ${endDate}, ${timeZone}, ${patientReminderMinutesBefore},
-           ${caregiverReminderMinutesBefore},
-           ${recurrenceJson}::jsonb, ${recurrenceStartLocalTime}::time,
-           'Active', 1, ${now}, ${now})
+          (${crypto.randomUUID()}::uuid, ${planId}::uuid,
+           'recurrence', ${recurrenceStartLocalTime}::time, ${now})
         returning *
       `;
-
-      const createdSchedules: Row[] = [];
-      if (recurrence != null) {
-        const rows = await tx`
+      createdSchedules.push(rows[0]);
+    } else {
+      for (const schedule of schedules) {
+        const rows = await connection`
           insert into lifemate.treatment_schedules
             (id, treatment_plan_id, day_of_week, local_time, created_at_utc)
           values
             (${crypto.randomUUID()}::uuid, ${planId}::uuid,
-             'recurrence', ${recurrenceStartLocalTime}::time, ${now})
+             ${schedule.dayOfWeek}, ${schedule.localTime}, ${now})
           returning *
         `;
         createdSchedules.push(rows[0]);
-      } else {
-        for (const schedule of schedules) {
-          const rows = await tx`
-            insert into lifemate.treatment_schedules
-              (id, treatment_plan_id, day_of_week, local_time, created_at_utc)
-            values
-              (${crypto.randomUUID()}::uuid, ${planId}::uuid,
-               ${schedule.dayOfWeek}, ${schedule.localTime}, ${now})
-            returning *
-          `;
-          createdSchedules.push(rows[0]);
-        }
       }
+    }
 
-      await insertAudit(
-        tx,
-        appUserId,
-        "treatment_plan.created",
-        "treatment_plan",
-        planId,
-      );
-      return mapTreatmentPlan(
-        planRows[0],
-        medicationRows[0],
-        createdSchedules,
-        appUserId,
-      );
-    });
+    await insertAudit(
+      connection,
+      appUserId,
+      "treatment_plan.created",
+      "treatment_plan",
+      planId,
+    );
+    return mapTreatmentPlan(
+      planRows[0],
+      medicationRows[0],
+      createdSchedules,
+      appUserId,
+    );
+  }
+
+  async function createTreatmentPlan(
+    appUserId: string,
+    body: Record<string, unknown>,
+  ): Promise<Record<string, unknown>> {
+    return await sql.begin((tx: any) =>
+      createTreatmentPlanInTransaction(tx, appUserId, body)
+    );
   }
 
   async function listTreatmentPlans(
@@ -339,5 +341,9 @@ export function createPersonTreatmentPlanStore(databaseUrl: string) {
     );
   }
 
-  return { createTreatmentPlan, listTreatmentPlans };
+  return {
+    createTreatmentPlan,
+    createTreatmentPlanInTransaction,
+    listTreatmentPlans,
+  };
 }
