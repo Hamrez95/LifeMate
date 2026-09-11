@@ -31,11 +31,12 @@ gradle="$app_dir/android/app/build.gradle.kts"
 [[ -f "$manifest" ]] || fail "generated AndroidManifest.xml is missing"
 [[ -f "$gradle" ]] || fail "generated Android build.gradle.kts is missing"
 
-python3 - "$manifest" <<'PY'
+python3 - "$manifest" "$gradle" <<'PY'
 from pathlib import Path
 import sys
 
 manifest = Path(sys.argv[1])
+gradle = Path(sys.argv[2])
 text = manifest.read_text()
 open_tag = '<manifest xmlns:android="http://schemas.android.com/apk/res/android">'
 if open_tag not in text:
@@ -50,10 +51,33 @@ if 'android:label="lifemate"' not in text:
     raise SystemExit('generated LifeMate label contract changed')
 text = text.replace('android:label="lifemate"', 'android:label="LifeMate"', 1)
 manifest.write_text(text)
+
+gradle_text = gradle.read_text()
+compile_options = '    compileOptions {\n'
+if compile_options not in gradle_text:
+    raise SystemExit('generated LifeMate compileOptions contract changed')
+if 'isCoreLibraryDesugaringEnabled = true' not in gradle_text:
+    gradle_text = gradle_text.replace(
+        compile_options,
+        compile_options + '        isCoreLibraryDesugaringEnabled = true\n',
+        1,
+    )
+desugaring_dependency = 'coreLibraryDesugaring("com.android.tools:desugar_jdk_libs:2.1.5")'
+if desugaring_dependency not in gradle_text:
+    gradle_text = gradle_text.rstrip() + (
+        '\n\ndependencies {\n'
+        '    coreLibraryDesugaring("com.android.tools:desugar_jdk_libs:2.1.5")\n'
+        '}\n'
+    )
+gradle.write_text(gradle_text)
 PY
 
 grep -Fq 'applicationId = "com.mylifemate.lifemate"' "$gradle" || \
   fail "LifeMate Android applicationId is not isolated."
+grep -Fq 'isCoreLibraryDesugaringEnabled = true' "$gradle" || \
+  fail "LifeMate Android core library desugaring is not enabled."
+grep -Fq 'coreLibraryDesugaring("com.android.tools:desugar_jdk_libs:2.1.5")' "$gradle" || \
+  fail "LifeMate Android desugaring dependency is missing."
 grep -Fq 'android:label="LifeMate"' "$manifest" || \
   fail "LifeMate Android display name is missing."
 grep -Fq 'android.permission.INTERNET' "$manifest" || \
