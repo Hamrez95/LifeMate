@@ -69,16 +69,18 @@ void main() {
     await tester.tap(find.text('Alex'));
     await tester.pumpAndSettle();
     expect(find.text('1 of 1 selected'), findsOneWidget);
+    expect(
+      find.text(
+        'Camp display limit reached. Remove a selected companion before adding another.',
+      ),
+      findsOneWidget,
+    );
 
     final sam = find.text('Sam');
     await tester.ensureVisible(sam);
     await tester.pumpAndSettle();
     await tester.tap(sam);
     await tester.pump();
-    expect(
-      find.text('You can show up to 1 companions in Camp.'),
-      findsOneWidget,
-    );
 
     final snapshot = await source.load();
     expect(snapshot.selectedPresentationIds, {'a'});
