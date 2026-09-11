@@ -75,7 +75,10 @@ void main() {
     final nameField = find.widgetWithText(TextFormField, 'Owner');
     expect(nameField, findsOneWidget);
     await tester.enterText(nameField, 'Updated Owner');
-    await tester.tap(find.text('Save changes'));
+    final saveButton = find.text('Save changes');
+    await tester.ensureVisible(saveButton);
+    await tester.pumpAndSettle();
+    await tester.tap(saveButton);
     await tester.pumpAndSettle();
 
     expect(find.text('Updated Owner'), findsWidgets);
