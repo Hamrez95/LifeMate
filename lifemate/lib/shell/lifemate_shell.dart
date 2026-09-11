@@ -1,13 +1,19 @@
 import 'package:flutter/material.dart';
+import 'package:lifemate_client/lifemate_client.dart';
 
 import '../navigation/shell_navigation.dart';
+import '../profile/profile_you_screen.dart';
 
 class LifeMateShell extends StatefulWidget {
   const LifeMateShell({
     super.key,
+    this.apiClient,
+    this.onLocaleChanged,
     this.initialDestination = ShellDestination.home,
   });
 
+  final LifeMateApiClient? apiClient;
+  final ValueChanged<Locale>? onLocaleChanged;
   final ShellDestination initialDestination;
 
   @override
@@ -104,15 +110,27 @@ class _LifeMateShellState extends State<LifeMateShell> {
           'روابط، انتخاب همراه و نمایش امن مبتنی بر رضایت در #1091 تا #1094 پیاده‌سازی می‌شود.',
         ),
       ),
-      ShellDestination.you => _StagedDestination(
+      ShellDestination.you => _buildYouDestination(),
+    };
+  }
+
+  Widget _buildYouDestination() {
+    final apiClient = widget.apiClient;
+    if (apiClient == null) {
+      return _StagedDestination(
         icon: Icons.person_outline,
         title: _t('You', 'شما'),
         description: _t(
-          'The canonical global Profile / You contract and UI land in #1068–#1080.',
-          'قرارداد و رابط پروفایل سراسری / شما در #1068 تا #1080 پیاده‌سازی می‌شود.',
+          'Profile needs an authenticated API session. This fallback is only used by isolated shell tests and preview hosts.',
+          'پروفایل به نشست API احراز هویت‌شده نیاز دارد. این حالت فقط در تست‌های مستقل shell و preview استفاده می‌شود.',
         ),
-      ),
-    };
+      );
+    }
+    return ProfileYouScreen(
+      apiClient: apiClient,
+      isPersian: _isPersian,
+      onLocaleChanged: widget.onLocaleChanged ?? (_) {},
+    );
   }
 
   String _title(ShellDestination destination) => switch (destination) {

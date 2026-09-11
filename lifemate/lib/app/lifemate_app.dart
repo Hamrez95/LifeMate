@@ -8,7 +8,7 @@ import '../shell/lifemate_shell.dart';
 
 const lifeMateAppVersion = '0.1.0+1';
 
-class LifeMateApp extends StatelessWidget {
+class LifeMateApp extends StatefulWidget {
   const LifeMateApp({
     super.key,
     this.home,
@@ -22,6 +22,13 @@ class LifeMateApp extends StatelessWidget {
   final bool authInitialized;
   final Locale? localeOverride;
 
+  @override
+  State<LifeMateApp> createState() => _LifeMateAppState();
+}
+
+class _LifeMateAppState extends State<LifeMateApp> {
+  Locale? _runtimeLocale;
+
   Locale get _platformLocale {
     final platform = PlatformDispatcher.instance.locale;
     return platform.languageCode == 'fa'
@@ -29,10 +36,21 @@ class LifeMateApp extends StatelessWidget {
         : const Locale('en');
   }
 
+  Locale get _locale =>
+      _runtimeLocale ?? widget.localeOverride ?? _platformLocale;
+
+  void _setLocale(Locale locale) {
+    final normalized = locale.languageCode == 'fa'
+        ? const Locale('fa')
+        : const Locale('en');
+    if (_locale == normalized) return;
+    setState(() => _runtimeLocale = normalized);
+  }
+
   @override
   Widget build(BuildContext context) {
-    final runtimeConfig = config ?? AppConfig.fromEnvironment();
-    final locale = localeOverride ?? _platformLocale;
+    final runtimeConfig = widget.config ?? AppConfig.fromEnvironment();
+    final locale = _locale;
     final isPersian = locale.languageCode == 'fa';
 
     return MaterialApp(
@@ -50,7 +68,8 @@ class LifeMateApp extends StatelessWidget {
         textDirection: isPersian ? TextDirection.rtl : TextDirection.ltr,
         child: child ?? const SizedBox.shrink(),
       ),
-      home: home ?? _productionHome(runtimeConfig, authInitialized),
+      home:
+          widget.home ?? _productionHome(runtimeConfig, widget.authInitialized),
     );
   }
 
@@ -84,7 +103,7 @@ class LifeMateApp extends StatelessWidget {
     );
   }
 
-  static Widget _productionHome(AppConfig config, bool authInitialized) {
+  Widget _productionHome(AppConfig config, bool authInitialized) {
     if (!config.isConfigured) {
       return ConfigurationRequiredScreen(
         appName: 'LifeMate',
@@ -106,7 +125,8 @@ class LifeMateApp extends StatelessWidget {
       // blocking states render their built-in fallback icon when this asset is
       // absent. Final visual assets remain owned by the approved design lane.
       logoAssetPath: 'assets/lifemate-logo.png',
-      authenticatedBuilder: (context, apiClient) => const LifeMateShell(),
+      authenticatedBuilder: (context, apiClient) =>
+          LifeMateShell(apiClient: apiClient, onLocaleChanged: _setLocale),
     );
   }
 }
