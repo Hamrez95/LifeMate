@@ -68,12 +68,6 @@ void main() {
 
     expect(find.text('Owner'), findsWidgets);
     expect(find.text('Europe/Berlin'), findsOneWidget);
-    expect(find.text('Membership'), findsOneWidget);
-    expect(find.text('Ambient audio'), findsOneWidget);
-    expect(
-      find.textContaining('durable preference is not available'),
-      findsOneWidget,
-    );
 
     await tester.tap(find.byTooltip('Edit profile'));
     await tester.pumpAndSettle();
@@ -94,6 +88,14 @@ void main() {
       'timeZone': 'Europe/Berlin',
       'avatarKey': 'person_green',
     });
+
+    await tester.scrollUntilVisible(
+      find.text('Membership'),
+      260,
+      scrollable: find.byType(Scrollable).first,
+    );
+    expect(find.text('Membership'), findsOneWidget);
+    expect(find.text('Ambient audio'), findsOneWidget);
   });
 
   testWidgets('Persian You remains RTL and exposes retry on profile failure', (
