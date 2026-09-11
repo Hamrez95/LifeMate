@@ -37,7 +37,19 @@
       "workflowInputs": { "release_type": "patch", "channel": "beta" },
       "requiresGeneratedAndroid": true,
       "prepareScript": "tools/release/prepare-cocoon-android.sh"
+    },
+    "lifemate": {
+      "path": "lifemate",
+      "technology": "Flutter",
+      "versionFile": "pubspec.yaml",
+      "android": true,
+      "formats": ["APK", "AAB"],
+      "tagPrefix": "lifemate-v",
+      "buildNumberStrategy": "GitCommitCount",
+      "workflow": "lifemate-shell.yml",
+      "workflowInputs": {},
+      "requiresGeneratedAndroid": true,
+      "prepareScript": "tools/release/prepare-lifemate-android.sh"
     }
   }
 }
-
