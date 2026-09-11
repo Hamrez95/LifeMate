@@ -19,48 +19,42 @@ void main() {
     expect(zone.resolveVisual(stage: 99, variant: 'future'), same(stage1));
   });
 
-  testWidgets(
-    'renderer exposes semantic hotspot independently from art',
-    (tester) async {
-      String? tapped;
-      final zone = CampZoneDefinition(
-        zoneId: 'lifemate_home',
-        bounds: const CampRect(
-          left: 300,
-          top: 800,
-          width: 400,
-          height: 300,
+  testWidgets('renderer exposes semantic hotspot independently from art', (
+    tester,
+  ) async {
+    String? tapped;
+    final zone = CampZoneDefinition(
+      zoneId: 'lifemate_home',
+      bounds: const CampRect(left: 300, top: 800, width: 400, height: 300),
+      semanticLabel: 'LifeMate home',
+      visuals: [
+        CampZoneVisual(
+          stage: 1,
+          variant: 'default',
+          builder: (_) => const ColoredBox(color: Colors.green),
         ),
-        semanticLabel: 'LifeMate home',
-        visuals: [
-          CampZoneVisual(
-            stage: 1,
-            variant: 'default',
-            builder: (_) => const ColoredBox(color: Colors.green),
-          ),
-        ],
-      );
+      ],
+    );
 
-      await tester.pumpWidget(
-        MaterialApp(
-          home: SizedBox.expand(
-            child: CampSceneRenderer(
-              zones: [zone],
-              presentations: const [
-                CampZonePresentation(zoneId: 'lifemate_home'),
-              ],
-              layers: const [],
-              onZoneTap: (id) => tapped = id,
-            ),
+    await tester.pumpWidget(
+      MaterialApp(
+        home: SizedBox.expand(
+          child: CampSceneRenderer(
+            zones: [zone],
+            presentations: const [
+              CampZonePresentation(zoneId: 'lifemate_home'),
+            ],
+            layers: const [],
+            onZoneTap: (id) => tapped = id,
           ),
         ),
-      );
+      ),
+    );
 
-      expect(find.bySemanticsLabel('LifeMate home'), findsOneWidget);
-      await tester.tap(find.bySemanticsLabel('LifeMate home'));
-      expect(tapped, 'lifemate_home');
-    },
-  );
+    expect(find.bySemanticsLabel('LifeMate home'), findsOneWidget);
+    await tester.tap(find.bySemanticsLabel('LifeMate home'));
+    expect(tapped, 'lifemate_home');
+  });
 
   testWidgets('locked zone remains semantic but cannot navigate', (
     tester,

@@ -87,9 +87,8 @@ class CampHome extends StatelessWidget {
                 CampSceneLayer(
                   id: 'background',
                   zIndex: 0,
-                  builder: (context) => ColoredBox(
-                    color: Theme.of(context).colorScheme.surface,
-                  ),
+                  builder: (context) =>
+                      ColoredBox(color: Theme.of(context).colorScheme.surface),
                 ),
                 CampSceneLayer(
                   id: 'ground',

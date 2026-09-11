@@ -74,7 +74,8 @@ class CampZoneDefinition {
     CampZoneVisual? stageDefault;
     CampZoneVisual? fallback;
     for (final visual in visuals) {
-      if (visual.stage == requestedStage && visual.variant == requestedVariant) {
+      if (visual.stage == requestedStage &&
+          visual.variant == requestedVariant) {
         exact = visual;
         break;
       }
@@ -159,10 +160,7 @@ class CampSceneRenderer extends StatelessWidget {
         final offsetY = (constraints.maxHeight - renderedHeight) / 2;
 
         Offset worldToScreen(CampPoint point) {
-          return Offset(
-            offsetX + point.x * scale,
-            offsetY + point.y * scale,
-          );
+          return Offset(offsetX + point.x * scale, offsetY + point.y * scale);
         }
 
         return ClipRect(
@@ -192,9 +190,7 @@ class CampSceneRenderer extends StatelessWidget {
     double scale,
     Offset Function(CampPoint) worldToScreen,
   ) {
-    final topLeft = worldToScreen(
-      CampPoint(zone.bounds.left, zone.bounds.top),
-    );
+    final topLeft = worldToScreen(CampPoint(zone.bounds.left, zone.bounds.top));
     final visual = zone.resolveVisual(
       stage: presentation.stage,
       variant: presentation.variant,
