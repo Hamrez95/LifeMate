@@ -104,7 +104,9 @@ void main() {
     expect(find.text('Later item'), findsOneWidget);
   });
 
-  testWidgets('default source never fabricates live Today data', (tester) async {
+  testWidgets('default source never fabricates live Today data', (
+    tester,
+  ) async {
     await tester.pumpWidget(
       const LifeMateApp(home: LifeMateShell(), localeOverride: Locale('en')),
     );

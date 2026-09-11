@@ -761,9 +761,8 @@ class _IdentityCard extends StatelessWidget {
                     header: true,
                     child: Text(
                       displayName,
-                      style: Theme.of(context).textTheme.titleLarge?.copyWith(
-                        fontWeight: FontWeight.w800,
-                      ),
+                      style: Theme.of(context).textTheme.titleLarge
+                          ?.copyWith(fontWeight: FontWeight.w800),
                     ),
                   ),
                   const SizedBox(height: 4),

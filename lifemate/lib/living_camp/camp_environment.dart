@@ -175,8 +175,10 @@ class CampDaylightResolver {
   double _degreesToRadians(double degrees) => degrees * math.pi / 180;
 }
 
-typedef CampEnvironmentBuilder =
-    Widget Function(BuildContext context, CampEnvironmentState state);
+typedef CampEnvironmentBuilder = Widget Function(
+  BuildContext context,
+  CampEnvironmentState state,
+);
 
 class CampEnvironmentHost extends StatefulWidget {
   const CampEnvironmentHost({

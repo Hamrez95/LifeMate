@@ -133,17 +133,20 @@ class _TodayResolvedViewState extends State<TodayResolvedView> {
   Widget build(BuildContext context) {
     return Semantics(
       container: true,
-      label: widget.peek ? _t('Today priorities', 'اولویت‌های امروز') : _t('Today', 'امروز'),
+      label: widget.peek
+          ? _t('Today priorities', 'اولویت‌های امروز')
+          : _t('Today', 'امروز'),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
           Padding(
             padding: const EdgeInsetsDirectional.fromSTEB(20, 8, 20, 8),
             child: Text(
-              widget.peek ? _t('Today', 'امروز') : _t('Your full day', 'کل روز شما'),
-              style: Theme.of(context).textTheme.headlineSmall?.copyWith(
-                    fontWeight: FontWeight.w800,
-                  ),
+              widget.peek
+                  ? _t('Today', 'امروز')
+                  : _t('Your full day', 'کل روز شما'),
+              style: Theme.of(context).textTheme.headlineSmall
+                  ?.copyWith(fontWeight: FontWeight.w800),
             ),
           ),
           Expanded(
@@ -204,17 +207,26 @@ class _LoadedToday extends StatelessWidget {
         if (sourceMode == TodaySourceMode.synthetic)
           _Notice(
             icon: Icons.science_outlined,
-            text: _t('Preview data — not live health state', 'داده نمایشی — وضعیت زنده سلامت نیست'),
+            text: _t(
+              'Preview data — not live health state',
+              'داده نمایشی — وضعیت زنده سلامت نیست',
+            ),
           ),
         if (snapshot.freshness == TodayFreshness.cached)
           _Notice(
             icon: Icons.cloud_off_outlined,
-            text: _t('Showing the last safe refresh', 'نمایش آخرین بروزرسانی امن'),
+            text: _t(
+              'Showing the last safe refresh',
+              'نمایش آخرین بروزرسانی امن',
+            ),
           ),
         if (snapshot.completeness == TodayCompleteness.partial)
           _Notice(
             icon: Icons.info_outline_rounded,
-            text: _t('Some information could not refresh', 'بخشی از اطلاعات بروزرسانی نشد'),
+            text: _t(
+              'Some information could not refresh',
+              'بخشی از اطلاعات بروزرسانی نشد',
+            ),
           ),
         if (items.isEmpty)
           Padding(
@@ -309,7 +321,9 @@ class _TodayItemCard extends StatelessWidget {
               ),
             ],
           ),
-          trailing: action == null ? null : const Icon(Icons.chevron_right_rounded),
+          trailing: action == null
+              ? null
+              : const Icon(Icons.chevron_right_rounded),
           enabled: item.state == TodayItemState.actionable && action != null,
           onTap: item.state == TodayItemState.actionable && action != null
               ? () => onAction(action)
@@ -390,15 +404,17 @@ class _FailureState extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final title = unavailable
-        ? (isPersian ? 'اطلاعات امروز هنوز متصل نیست' : 'Today is not connected yet')
+        ? (isPersian
+              ? 'اطلاعات امروز هنوز متصل نیست'
+              : 'Today is not connected yet')
         : (isPersian ? 'بروزرسانی امروز انجام نشد' : 'Today could not refresh');
     final message = unavailable
         ? (isPersian
-            ? 'هیچ وظیفه یا وضعیت سلامت ساختگی نمایش داده نمی‌شود.'
-            : 'No synthetic task or health state is shown as live data.')
+              ? 'هیچ وظیفه یا وضعیت سلامت ساختگی نمایش داده نمی‌شود.'
+              : 'No synthetic task or health state is shown as live data.')
         : (isPersian
-            ? 'دوباره تلاش کنید. جزئیات خطای سرویس نمایش داده نمی‌شود.'
-            : 'Try again. Service error details are not exposed here.');
+              ? 'دوباره تلاش کنید. جزئیات خطای سرویس نمایش داده نمی‌شود.'
+              : 'Try again. Service error details are not exposed here.');
 
     return Center(
       child: SingleChildScrollView(
@@ -406,7 +422,10 @@ class _FailureState extends StatelessWidget {
         child: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
-            Icon(unavailable ? Icons.link_off_rounded : Icons.sync_problem_rounded, size: 44),
+            Icon(
+              unavailable ? Icons.link_off_rounded : Icons.sync_problem_rounded,
+              size: 44,
+            ),
             const SizedBox(height: 12),
             Text(title, textAlign: TextAlign.center),
             const SizedBox(height: 8),
