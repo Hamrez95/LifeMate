@@ -145,7 +145,8 @@ class CampSceneRenderer extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final orderedLayers = [...layers]..sort((a, b) => a.zIndex.compareTo(b.zIndex));
+    final orderedLayers = [...layers]
+      ..sort((a, b) => a.zIndex.compareTo(b.zIndex));
     return LayoutBuilder(
       builder: (context, constraints) {
         final scale = math.max(
@@ -157,10 +158,12 @@ class CampSceneRenderer extends StatelessWidget {
         final offsetX = (constraints.maxWidth - renderedWidth) / 2;
         final offsetY = (constraints.maxHeight - renderedHeight) / 2;
 
-        Offset worldToScreen(CampPoint point) => Offset(
-              offsetX + point.x * scale,
-              offsetY + point.y * scale,
-            );
+        Offset worldToScreen(CampPoint point) {
+          return Offset(
+            offsetX + point.x * scale,
+            offsetY + point.y * scale,
+          );
+        }
 
         return ClipRect(
           child: Stack(
@@ -189,7 +192,9 @@ class CampSceneRenderer extends StatelessWidget {
     double scale,
     Offset Function(CampPoint) worldToScreen,
   ) {
-    final topLeft = worldToScreen(CampPoint(zone.bounds.left, zone.bounds.top));
+    final topLeft = worldToScreen(
+      CampPoint(zone.bounds.left, zone.bounds.top),
+    );
     final visual = zone.resolveVisual(
       stage: presentation.stage,
       variant: presentation.variant,
@@ -207,7 +212,9 @@ class CampSceneRenderer extends StatelessWidget {
         label: zone.semanticLabel,
         child: GestureDetector(
           behavior: HitTestBehavior.opaque,
-          onTap: enabled && onZoneTap != null ? () => onZoneTap!(zone.zoneId) : null,
+          onTap: enabled && onZoneTap != null
+              ? () => onZoneTap!(zone.zoneId)
+              : null,
           child: Opacity(
             opacity: switch (presentation.availability) {
               CampZoneAvailability.active => 1,
