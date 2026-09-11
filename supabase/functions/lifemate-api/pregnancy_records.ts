@@ -4,7 +4,10 @@ import { createPregnancyAuthorization } from "./pregnancy_authorization.ts";
 import { createPregnancyCalendarRouteHandler } from "./pregnancy_calendar.ts";
 import { createPregnancyCaptureRouteHandler } from "./pregnancy_capture.ts";
 import { createPregnancyMeasurementRouteHandler } from "./pregnancy_measurements.ts";
-import { createPregnancyStore, type PregnancyEpisode } from "./pregnancy_store.ts";
+import {
+  createPregnancyStore,
+  type PregnancyEpisode,
+} from "./pregnancy_store.ts";
 import { createPregnancyTreatmentRouteHandler } from "./pregnancy_treatments.ts";
 import { ApiError, requiredDate, validateRange } from "./validation.ts";
 
@@ -45,7 +48,8 @@ const allCategories = new Set<RecordCategory>([
 function asRows(value: unknown): Row[] {
   return Array.isArray(value)
     ? value.filter((item): item is Row =>
-      item != null && typeof item === "object" && !Array.isArray(item))
+      item != null && typeof item === "object" && !Array.isArray(item)
+    )
     : [];
 }
 
@@ -54,24 +58,28 @@ function stringValue(value: unknown): string | null {
 }
 
 function recordTimestamp(row: Row): string {
-  for (const key of [
-    "observedAtUtc",
-    "scheduledAtUtc",
-    "startAtUtc",
-    "startsAtUtc",
-    "occurrenceStartAtUtc",
-    "createdAtUtc",
-    "updatedAtUtc",
-  ]) {
+  for (
+    const key of [
+      "observedAtUtc",
+      "scheduledAtUtc",
+      "startAtUtc",
+      "startsAtUtc",
+      "occurrenceStartAtUtc",
+      "createdAtUtc",
+      "updatedAtUtc",
+    ]
+  ) {
     const value = stringValue(row[key]);
     if (value) return new Date(value).toISOString();
   }
-  for (const key of [
-    "localDate",
-    "scheduledLocalDate",
-    "occurrenceLocalDate",
-    "startDate",
-  ]) {
+  for (
+    const key of [
+      "localDate",
+      "scheduledLocalDate",
+      "occurrenceLocalDate",
+      "startDate",
+    ]
+  ) {
     const value = stringValue(row[key]);
     if (value) return `${value.slice(0, 10)}T00:00:00.000Z`;
   }
@@ -79,12 +87,14 @@ function recordTimestamp(row: Row): string {
 }
 
 function recordLocalDate(row: Row, timestamp: string): string {
-  for (const key of [
-    "localDate",
-    "scheduledLocalDate",
-    "occurrenceLocalDate",
-    "startDate",
-  ]) {
+  for (
+    const key of [
+      "localDate",
+      "scheduledLocalDate",
+      "occurrenceLocalDate",
+      "startDate",
+    ]
+  ) {
     const value = stringValue(row[key]);
     if (value) return value.slice(0, 10);
   }
@@ -129,18 +139,27 @@ function item(
   };
 }
 
-function compareRecords(a: PregnancyRecordItem, b: PregnancyRecordItem): number {
+function compareRecords(
+  a: PregnancyRecordItem,
+  b: PregnancyRecordItem,
+): number {
   const timestamp = b.occurredAtUtc.localeCompare(a.occurredAtUtc);
   return timestamp !== 0 ? timestamp : b.id.localeCompare(a.id);
 }
 
 type Cursor = { occurredAtUtc: string; id: string };
 
-export function encodePregnancyRecordsCursor(item: PregnancyRecordItem): string {
-  return btoa(JSON.stringify({ occurredAtUtc: item.occurredAtUtc, id: item.id }));
+export function encodePregnancyRecordsCursor(
+  item: PregnancyRecordItem,
+): string {
+  return btoa(
+    JSON.stringify({ occurredAtUtc: item.occurredAtUtc, id: item.id }),
+  );
 }
 
-export function decodePregnancyRecordsCursor(value: string | null): Cursor | null {
+export function decodePregnancyRecordsCursor(
+  value: string | null,
+): Cursor | null {
   if (!value) return null;
   try {
     const decoded = JSON.parse(atob(value)) as Row;
@@ -314,7 +333,9 @@ function appointmentItems(body: Row | null, categories: Set<RecordCategory>) {
       sourceKind: "care_event",
       sourceId: id,
       category: "appointments",
-      type: String(row.pregnancyClassification ?? row.eventType ?? "appointment"),
+      type: String(
+        row.pregnancyClassification ?? row.eventType ?? "appointment",
+      ),
       summary: {
         eventType: row.eventType,
         status: row.status,
@@ -349,7 +370,10 @@ function treatmentItems(body: Row | null, categories: Set<RecordCategory>) {
       sourceId: id,
       category: "medications",
       type: "dose_occurrence",
-      summary: { status: row.status, scheduledLocalTime: row.scheduledLocalTime },
+      summary: {
+        status: row.status,
+        scheduledLocalTime: row.scheduledLocalTime,
+      },
       deepLink: planId == null ? undefined : `/treatments/${planId}`,
     }));
   }
@@ -374,7 +398,9 @@ export function createPregnancyRecordsRouteHandler(databaseUrl: string) {
     path: string;
     appUserId: string;
   }): Promise<Response | null> => {
-    if (request.method !== "GET" || path !== "/api/v1/cocoon/pregnancy/records") {
+    if (
+      request.method !== "GET" || path !== "/api/v1/cocoon/pregnancy/records"
+    ) {
       return null;
     }
 
@@ -410,14 +436,16 @@ export function createPregnancyRecordsRouteHandler(databaseUrl: string) {
       scope: "pregnancy.summary.read",
     });
 
-    const query = `fromDate=${encodeURIComponent(fromDate)}&toDate=${encodeURIComponent(toDate)}`;
+    const query = `fromDate=${encodeURIComponent(fromDate)}&toDate=${
+      encodeURIComponent(toDate)
+    }`;
     const sourceRequest = (sourcePath: string) =>
       new Request(`${url.origin}${sourcePath}?${query}`);
 
     const [captureBody, measurementBody, calendarBody, treatmentBody] =
       await Promise.all([
         categories.has("check_ins") || categories.has("symptoms") ||
-            categories.has("moods")
+          categories.has("moods")
           ? responseBody(captures({
             request: sourceRequest("/api/v1/cocoon/pregnancy/daily-captures"),
             path: "/api/v1/cocoon/pregnancy/daily-captures",
