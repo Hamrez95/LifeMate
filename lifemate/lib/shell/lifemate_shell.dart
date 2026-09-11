@@ -6,6 +6,8 @@ import '../modules/module_registry.dart';
 import '../modules/module_route_host.dart';
 import '../navigation/shell_navigation.dart';
 import '../profile/profile_you_screen.dart';
+import '../today/notification_center_contract.dart';
+import '../today/notification_center_view.dart';
 import '../today/today_contract.dart';
 import '../today/today_views.dart';
 
@@ -17,6 +19,7 @@ class LifeMateShell extends StatefulWidget {
     this.initialDestination = ShellDestination.home,
     this.moduleRegistry,
     this.todaySource,
+    this.notificationSource,
   });
 
   final LifeMateApiClient? apiClient;
@@ -24,6 +27,7 @@ class LifeMateShell extends StatefulWidget {
   final ShellDestination initialDestination;
   final LifeMateModuleRegistry? moduleRegistry;
   final TodaySnapshotSource? todaySource;
+  final NotificationCenterSource? notificationSource;
 
   @override
   State<LifeMateShell> createState() => _LifeMateShellState();
@@ -39,6 +43,9 @@ class _LifeMateShellState extends State<LifeMateShell> {
 
   TodaySnapshotSource get _todaySource =>
       widget.todaySource ?? const UnavailableTodaySource();
+
+  NotificationCenterSource get _notificationSource =>
+      widget.notificationSource ?? const UnavailableNotificationCenterSource();
 
   String _t(String en, String fa) => _isPersian ? fa : en;
 
@@ -99,6 +106,15 @@ class _LifeMateShellState extends State<LifeMateShell> {
     );
   }
 
+  Future<void> _showNotificationCenter() async {
+    await showNotificationCenter(
+      context: context,
+      source: _notificationSource,
+      isPersian: _isPersian,
+      onAction: _openTodayAction,
+    );
+  }
+
   void _showActionUnavailable() {
     if (!mounted) return;
     ScaffoldMessenger.of(context).showSnackBar(
@@ -125,13 +141,7 @@ class _LifeMateShellState extends State<LifeMateShell> {
           actions: [
             IconButton(
               tooltip: _t('Notifications', 'اعلان‌ها'),
-              onPressed: () => _showSecondaryPlaceholder(
-                title: _t('Notifications', 'اعلان‌ها'),
-                message: _t(
-                  'The Notification Center will be implemented under the Today / Alerts epic.',
-                  'مرکز اعلان‌ها در اپیک Today / Alerts پیاده‌سازی می‌شود.',
-                ),
-              ),
+              onPressed: _showNotificationCenter,
               icon: const Icon(Icons.notifications_none_rounded),
             ),
           ],
@@ -214,35 +224,6 @@ class _LifeMateShellState extends State<LifeMateShell> {
     ShellDestination.circle => _t('Circle', 'دایره'),
     ShellDestination.you => _t('You', 'شما'),
   };
-
-  void _showSecondaryPlaceholder({
-    required String title,
-    required String message,
-  }) {
-    showModalBottomSheet<void>(
-      context: context,
-      showDragHandle: true,
-      builder: (context) => SafeArea(
-        child: Padding(
-          padding: const EdgeInsetsDirectional.fromSTEB(24, 8, 24, 24),
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            crossAxisAlignment: CrossAxisAlignment.stretch,
-            children: [
-              Text(title, style: Theme.of(context).textTheme.titleLarge),
-              const SizedBox(height: 12),
-              Text(message),
-              const SizedBox(height: 16),
-              FilledButton(
-                onPressed: () => Navigator.of(context).pop(),
-                child: Text(_t('Close', 'بستن')),
-              ),
-            ],
-          ),
-        ),
-      ),
-    );
-  }
 }
 
 class _StagedDestination extends StatelessWidget {
