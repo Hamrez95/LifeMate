@@ -6,6 +6,8 @@ import '../modules/module_registry.dart';
 import '../modules/module_route_host.dart';
 import '../navigation/shell_navigation.dart';
 import '../profile/profile_you_screen.dart';
+import '../today/today_contract.dart';
+import '../today/today_views.dart';
 
 class LifeMateShell extends StatefulWidget {
   const LifeMateShell({
@@ -14,12 +16,14 @@ class LifeMateShell extends StatefulWidget {
     this.onLocaleChanged,
     this.initialDestination = ShellDestination.home,
     this.moduleRegistry,
+    this.todaySource,
   });
 
   final LifeMateApiClient? apiClient;
   final ValueChanged<Locale>? onLocaleChanged;
   final ShellDestination initialDestination;
   final LifeMateModuleRegistry? moduleRegistry;
+  final TodaySnapshotSource? todaySource;
 
   @override
   State<LifeMateShell> createState() => _LifeMateShellState();
@@ -32,6 +36,9 @@ class _LifeMateShellState extends State<LifeMateShell> {
 
   LifeMateModuleRegistry get _moduleRegistry =>
       widget.moduleRegistry ?? LifeMateModuleRegistry.foundation();
+
+  TodaySnapshotSource get _todaySource =>
+      widget.todaySource ?? const UnavailableTodaySource();
 
   String _t(String en, String fa) => _isPersian ? fa : en;
 
@@ -52,6 +59,52 @@ class _LifeMateShellState extends State<LifeMateShell> {
     await Future<void>.delayed(const Duration(milliseconds: 350));
     if (!mounted) return;
     await openLifeMateModule(context, module: module, isPersian: _isPersian);
+  }
+
+  Future<void> _openTodayAction(TodayActionIntent intent) async {
+    if (!mounted) return;
+
+    switch (intent.kind) {
+      case TodayActionKind.moduleRoute:
+        final module = _moduleRegistry.byRoute(intent.routeId);
+        if (module == null) {
+          _showActionUnavailable();
+          return;
+        }
+        await openLifeMateModule(context, module: module, isPersian: _isPersian);
+      case TodayActionKind.shellRoute:
+        if (intent.routeId == '/today') {
+          _select(ShellDestination.today);
+          return;
+        }
+        _showActionUnavailable();
+      case TodayActionKind.refreshOnly:
+        return;
+    }
+  }
+
+  Future<void> _showTodayPeek() async {
+    await showTodayPeekSheet(
+      context: context,
+      source: _todaySource,
+      isPersian: _isPersian,
+      onViewFullDay: () => _select(ShellDestination.today),
+      onAction: _openTodayAction,
+    );
+  }
+
+  void _showActionUnavailable() {
+    if (!mounted) return;
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Text(
+          _t(
+            'This action is not available in the parent app yet.',
+            'این اقدام هنوز در اپ مادر در دسترس نیست.',
+          ),
+        ),
+      ),
+    );
   }
 
   @override
@@ -101,16 +154,13 @@ class _LifeMateShellState extends State<LifeMateShell> {
     return switch (destination) {
       ShellDestination.home => CampHome(
         isPersian: _isPersian,
-        onOpenToday: () => _select(ShellDestination.today),
+        onOpenToday: _showTodayPeek,
         onOpenWellMate: () => _openModule(LifeMateModuleId.wellMate),
       ),
-      ShellDestination.today => _StagedDestination(
-        icon: Icons.today_outlined,
-        title: _t('Today', 'امروز'),
-        description: _t(
-          'Cross-module priorities and the full Today experience land in #1087–#1090.',
-          'اولویت‌های بین‌ماژولی و تجربه کامل امروز در #1087 تا #1090 پیاده‌سازی می‌شود.',
-        ),
+      ShellDestination.today => TodayFullDay(
+        source: _todaySource,
+        isPersian: _isPersian,
+        onAction: _openTodayAction,
       ),
       ShellDestination.journey => _StagedDestination(
         icon: Icons.route_outlined,
