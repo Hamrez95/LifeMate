@@ -151,9 +151,14 @@ export function createPregnancyCalendarRouteHandler(databaseUrl: string) {
     path: string;
     appUserId: string;
   }): Promise<Response | null> => {
-    if (request.method === "GET" && path === "/api/v1/cocoon/pregnancy/calendar") {
+    if (
+      request.method === "GET" && path === "/api/v1/cocoon/pregnancy/calendar"
+    ) {
       const url = new URL(request.url);
-      const fromDate = requiredDate(url.searchParams.get("fromDate"), "fromDate");
+      const fromDate = requiredDate(
+        url.searchParams.get("fromDate"),
+        "fromDate",
+      );
       const toDate = requiredDate(url.searchParams.get("toDate"), "toDate");
       validateRange(fromDate, toDate, 31);
       const { episode } = await context(appUserId, false);
@@ -188,7 +193,11 @@ export function createPregnancyCalendarRouteHandler(databaseUrl: string) {
     ) {
       const body = await readJsonObject(request);
       const careEventBody = body.careEvent;
-      if (!careEventBody || typeof careEventBody !== "object" || Array.isArray(careEventBody)) {
+      if (
+        !careEventBody ||
+        typeof careEventBody !== "object" ||
+        Array.isArray(careEventBody)
+      ) {
         throw new ApiError(
           400,
           "pregnancy_calendar_care_event_invalid",
@@ -203,7 +212,10 @@ export function createPregnancyCalendarRouteHandler(databaseUrl: string) {
         appUserId,
         careEventBody as Record<string, unknown>,
       );
-      const seriesId = requiredUuid(created.seriesId ?? created.id, "careEventId");
+      const seriesId = requiredUuid(
+        created.seriesId ?? created.id,
+        "careEventId",
+      );
       const link = await linkExisting(
         appUserId,
         seriesId,
