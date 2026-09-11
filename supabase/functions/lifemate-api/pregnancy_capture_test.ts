@@ -19,7 +19,10 @@ Deno.test("pregnancy check-in fields are bounded and normalized", () => {
 });
 
 Deno.test("pregnancy symptom capture accepts structured codes only", () => {
-  assertEquals(normalizePregnancySymptomCode(" nausea.morning "), "nausea.morning");
+  assertEquals(
+    normalizePregnancySymptomCode(" nausea.morning "),
+    "nausea.morning",
+  );
   assertEquals(normalizePregnancySymptomIntensity("STRONG"), "strong");
   const freeText = assertThrows(
     () => normalizePregnancySymptomCode("I feel very dizzy today!"),

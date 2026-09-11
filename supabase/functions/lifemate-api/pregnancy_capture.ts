@@ -8,8 +8,8 @@ import {
   limitedOptional,
   readJsonObject,
   requiredDate,
-  requiredTimeZone,
   requiredTimestamp,
+  requiredTimeZone,
   requiredUuid,
   validateRange,
   validateReportedAt,
@@ -30,7 +30,9 @@ function localDateFor(timestamp: Date, timeZone: string): string {
     month: "2-digit",
     day: "2-digit",
   }).formatToParts(timestamp);
-  const values = Object.fromEntries(parts.map((part) => [part.type, part.value]));
+  const values = Object.fromEntries(
+    parts.map((part) => [part.type, part.value]),
+  );
   return `${values.year}-${values.month}-${values.day}`;
 }
 
@@ -62,7 +64,11 @@ function oneOf<T extends string>(
 }
 
 export function normalizePregnancyFeeling(value: unknown) {
-  return oneOf(value, "feeling", ["comfortable", "mixed", "difficult"] as const);
+  return oneOf(
+    value,
+    "feeling",
+    ["comfortable", "mixed", "difficult"] as const,
+  );
 }
 
 export function normalizePregnancyEnergy(value: unknown) {
@@ -74,13 +80,17 @@ export function normalizePregnancySymptomIntensity(value: unknown) {
 }
 
 export function normalizePregnancyMood(value: unknown) {
-  return oneOf(value, "moodCode", [
-    "very_low",
-    "low",
-    "neutral",
-    "good",
-    "very_good",
-  ] as const);
+  return oneOf(
+    value,
+    "moodCode",
+    [
+      "very_low",
+      "low",
+      "neutral",
+      "good",
+      "very_good",
+    ] as const,
+  );
 }
 
 export function normalizePregnancySymptomCode(value: unknown): string {
@@ -139,7 +149,10 @@ export function createPregnancyCaptureRouteHandler(databaseUrl: string) {
     return { accountId, personId, episodeId: episode.id };
   }
 
-  async function createCheckIn(appUserId: string, body: Record<string, unknown>) {
+  async function createCheckIn(
+    appUserId: string,
+    body: Record<string, unknown>,
+  ) {
     const context = await ownerContext(appUserId);
     const requestId = requiredUuid(body.clientRequestId, "clientRequestId");
     const observed = requireObservedContext(body);
@@ -184,7 +197,10 @@ export function createPregnancyCaptureRouteHandler(databaseUrl: string) {
     });
   }
 
-  async function createSymptom(appUserId: string, body: Record<string, unknown>) {
+  async function createSymptom(
+    appUserId: string,
+    body: Record<string, unknown>,
+  ) {
     const context = await ownerContext(appUserId);
     const requestId = requiredUuid(body.clientRequestId, "clientRequestId");
     const observed = requireObservedContext(body);
@@ -266,7 +282,11 @@ export function createPregnancyCaptureRouteHandler(databaseUrl: string) {
     });
   }
 
-  async function listCaptures(appUserId: string, fromDate: string, toDate: string) {
+  async function listCaptures(
+    appUserId: string,
+    fromDate: string,
+    toDate: string,
+  ) {
     const context = await ownerContext(appUserId);
     const [checkIns, symptoms, moods] = await Promise.all([
       sql`select * from pregnancy.daily_check_ins where episode_id=${context.episodeId}::uuid and local_date between ${fromDate}::date and ${toDate}::date order by observed_at_utc desc,id desc`,
@@ -291,18 +311,39 @@ export function createPregnancyCaptureRouteHandler(databaseUrl: string) {
     path: string;
     appUserId: string;
   }): Promise<Response | null> => {
-    if (request.method === "POST" && path === "/api/v1/cocoon/pregnancy/check-ins") {
-      return json({ contractVersion: 1, checkIn: await createCheckIn(appUserId, await readJsonObject(request)) }, 201);
+    if (
+      request.method === "POST" && path === "/api/v1/cocoon/pregnancy/check-ins"
+    ) {
+      return json({
+        contractVersion: 1,
+        checkIn: await createCheckIn(appUserId, await readJsonObject(request)),
+      }, 201);
     }
-    if (request.method === "POST" && path === "/api/v1/cocoon/pregnancy/symptoms") {
-      return json({ contractVersion: 1, symptom: await createSymptom(appUserId, await readJsonObject(request)) }, 201);
+    if (
+      request.method === "POST" && path === "/api/v1/cocoon/pregnancy/symptoms"
+    ) {
+      return json({
+        contractVersion: 1,
+        symptom: await createSymptom(appUserId, await readJsonObject(request)),
+      }, 201);
     }
-    if (request.method === "POST" && path === "/api/v1/cocoon/pregnancy/moods") {
-      return json({ contractVersion: 1, mood: await createMood(appUserId, await readJsonObject(request)) }, 201);
+    if (
+      request.method === "POST" && path === "/api/v1/cocoon/pregnancy/moods"
+    ) {
+      return json({
+        contractVersion: 1,
+        mood: await createMood(appUserId, await readJsonObject(request)),
+      }, 201);
     }
-    if (request.method === "GET" && path === "/api/v1/cocoon/pregnancy/daily-captures") {
+    if (
+      request.method === "GET" &&
+      path === "/api/v1/cocoon/pregnancy/daily-captures"
+    ) {
       const url = new URL(request.url);
-      const fromDate = requiredDate(url.searchParams.get("fromDate"), "fromDate");
+      const fromDate = requiredDate(
+        url.searchParams.get("fromDate"),
+        "fromDate",
+      );
       const toDate = requiredDate(url.searchParams.get("toDate"), "toDate");
       validateRange(fromDate, toDate, 31);
       return json(await listCaptures(appUserId, fromDate, toDate));
