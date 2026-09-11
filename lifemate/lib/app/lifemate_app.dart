@@ -45,7 +45,7 @@ class LifeMateApp extends StatelessWidget {
         GlobalWidgetsLocalizations.delegate,
         GlobalCupertinoLocalizations.delegate,
       ],
-      theme: _theme(isPersian),
+      theme: _theme(),
       builder: (context, child) => Directionality(
         textDirection: isPersian ? TextDirection.rtl : TextDirection.ltr,
         child: child ?? const SizedBox.shrink(),
@@ -54,7 +54,7 @@ class LifeMateApp extends StatelessWidget {
     );
   }
 
-  static ThemeData _theme(bool isPersian) {
+  static ThemeData _theme() {
     const seed = Color(0xFF2F8F73);
     final scheme = ColorScheme.fromSeed(
       seedColor: seed,
@@ -65,7 +65,6 @@ class LifeMateApp extends StatelessWidget {
       useMaterial3: true,
       colorScheme: scheme,
       scaffoldBackgroundColor: const Color(0xFFFFFBF5),
-      fontFamily: isPersian ? null : null,
       appBarTheme: const AppBarTheme(centerTitle: false),
       navigationBarTheme: NavigationBarThemeData(
         height: 72,
