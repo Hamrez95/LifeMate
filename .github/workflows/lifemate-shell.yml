@@ -1,0 +1,75 @@
+name: lifemate-shell
+
+on:
+  workflow_dispatch:
+  pull_request:
+    paths:
+      - 'lifemate/**'
+      - 'packages/lifemate_client/**'
+      - 'tools/release/prepare-lifemate-android.sh'
+      - '.github/workflows/lifemate-shell.yml'
+      - 'docs/lifemate-shell/NAVIGATION_ARCHITECTURE.md'
+  push:
+    branches: [ main ]
+    paths:
+      - 'lifemate/**'
+      - 'packages/lifemate_client/**'
+      - 'tools/release/prepare-lifemate-android.sh'
+      - '.github/workflows/lifemate-shell.yml'
+      - 'docs/lifemate-shell/NAVIGATION_ARCHITECTURE.md'
+
+permissions:
+  contents: read
+
+concurrency:
+  group: lifemate-shell-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  verify:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+          show-progress: false
+
+      - uses: subosito/flutter-action@4cab68ce0f1c7c924f688bff4792e044f1aeb30c
+        with:
+          flutter-version: '3.44.0'
+          channel: stable
+          cache: true
+
+      - name: Flutter environment
+        run: flutter --version
+
+      - name: Prepare generated Android host
+        shell: bash
+        run: bash tools/release/prepare-lifemate-android.sh
+
+      - name: Resolve dependencies
+        working-directory: lifemate
+        run: flutter pub get
+
+      - name: Verify formatting
+        working-directory: lifemate
+        run: dart format --output=none --set-exit-if-changed lib test
+
+      - name: Analyze
+        working-directory: lifemate
+        run: flutter analyze --no-fatal-warnings --no-fatal-infos
+
+      - name: Test parent shell
+        working-directory: lifemate
+        run: flutter test
+
+      - name: Build Android APK
+        working-directory: lifemate
+        run: flutter build apk --release --dart-define=ENABLE_GOOGLE_AUTH=false
+
+      - name: Verify isolated Android package
+        shell: bash
+        run: |
+          grep -Fq 'applicationId = "com.mylifemate.lifemate"' lifemate/android/app/build.gradle.kts
+          test -s lifemate/build/app/outputs/flutter-apk/app-release.apk
