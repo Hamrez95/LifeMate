@@ -17,19 +17,53 @@ class CampHome extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final zones = <CampZoneDefinition>[
-      _zone('lifemate_home', const CampRect(left: 360, top: 820, width: 280, height: 260), Icons.cottage_outlined, _t('LifeMate home', 'خانه LifeMate')),
-      _zone('wellmate', const CampRect(left: 100, top: 1110, width: 250, height: 220), Icons.spa_outlined, 'WellMate'),
-      _zone('caremate', const CampRect(left: 650, top: 1100, width: 250, height: 220), Icons.favorite_outline, 'CareMate'),
-      _zone('reproductive_context', const CampRect(left: 120, top: 1450, width: 260, height: 220), Icons.nightlight_outlined, _t('Cocoon / Women Health', 'Cocoon / سلامت زنان')),
-      _zone('fitmate', const CampRect(left: 620, top: 1460, width: 260, height: 220), Icons.directions_run_outlined, 'FitMate'),
+      _zone(
+        'lifemate_home',
+        const CampRect(left: 360, top: 820, width: 280, height: 260),
+        Icons.cottage_outlined,
+        _t('LifeMate home', 'خانه LifeMate'),
+      ),
+      _zone(
+        'wellmate',
+        const CampRect(left: 100, top: 1110, width: 250, height: 220),
+        Icons.spa_outlined,
+        'WellMate',
+      ),
+      _zone(
+        'caremate',
+        const CampRect(left: 650, top: 1100, width: 250, height: 220),
+        Icons.favorite_outline,
+        'CareMate',
+      ),
+      _zone(
+        'reproductive_context',
+        const CampRect(left: 120, top: 1450, width: 260, height: 220),
+        Icons.nightlight_outlined,
+        _t('Cocoon / Women Health', 'Cocoon / سلامت زنان'),
+      ),
+      _zone(
+        'fitmate',
+        const CampRect(left: 620, top: 1460, width: 260, height: 220),
+        Icons.directions_run_outlined,
+        'FitMate',
+      ),
     ];
 
     const presentations = <CampZonePresentation>[
       CampZonePresentation(zoneId: 'lifemate_home'),
       CampZonePresentation(zoneId: 'wellmate'),
-      CampZonePresentation(zoneId: 'caremate', availability: CampZoneAvailability.locked),
-      CampZonePresentation(zoneId: 'reproductive_context', availability: CampZoneAvailability.locked),
-      CampZonePresentation(zoneId: 'fitmate', availability: CampZoneAvailability.unavailable),
+      CampZonePresentation(
+        zoneId: 'caremate',
+        availability: CampZoneAvailability.locked,
+      ),
+      CampZonePresentation(
+        zoneId: 'reproductive_context',
+        availability: CampZoneAvailability.locked,
+      ),
+      CampZonePresentation(
+        zoneId: 'fitmate',
+        availability: CampZoneAvailability.unavailable,
+      ),
     ];
 
     return SafeArea(
@@ -40,7 +74,9 @@ class CampHome extends StatelessWidget {
             padding: const EdgeInsetsDirectional.fromSTEB(20, 12, 20, 8),
             child: Text(
               _t('Living Camp', 'کمپ زنده'),
-              style: Theme.of(context).textTheme.titleLarge?.copyWith(fontWeight: FontWeight.w800),
+              style: Theme.of(
+                context,
+              ).textTheme.titleLarge?.copyWith(fontWeight: FontWeight.w800),
             ),
           ),
           Expanded(
@@ -51,7 +87,9 @@ class CampHome extends StatelessWidget {
                 CampSceneLayer(
                   id: 'background',
                   zIndex: 0,
-                  builder: (context) => ColoredBox(color: Theme.of(context).colorScheme.surface),
+                  builder: (context) => ColoredBox(
+                    color: Theme.of(context).colorScheme.surface,
+                  ),
                 ),
                 CampSceneLayer(
                   id: 'ground',
