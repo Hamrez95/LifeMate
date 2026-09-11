@@ -134,6 +134,9 @@ class _CampCompanionSelectionViewState
                   );
                 }
 
+                final capacityReached =
+                    value.capacity > 0 &&
+                    value.selectedPresentationIds.length >= value.capacity;
                 return ListView(
                   padding: const EdgeInsetsDirectional.fromSTEB(16, 0, 16, 24),
                   children: [
@@ -163,6 +166,20 @@ class _CampCompanionSelectionViewState
                         style: Theme.of(context).textTheme.labelLarge,
                       ),
                     ),
+                    if (capacityReached)
+                      Padding(
+                        padding: const EdgeInsetsDirectional.fromSTEB(4, 0, 4, 8),
+                        child: Semantics(
+                          liveRegion: true,
+                          child: Text(
+                            _t(
+                              'Camp display limit reached. Remove a selected companion before adding another.',
+                              'ظرفیت نمایش کمپ تکمیل است. برای افزودن همراه جدید، ابتدا یکی از همراهان انتخاب‌شده را حذف کنید.',
+                            ),
+                            style: Theme.of(context).textTheme.bodySmall,
+                          ),
+                        ),
+                      ),
                     for (final candidate in value.candidates)
                       _CandidateTile(
                         candidate: candidate,
