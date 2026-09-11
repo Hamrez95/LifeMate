@@ -70,7 +70,10 @@ void main() {
     await tester.pumpAndSettle();
     expect(find.text('1 of 1 selected'), findsOneWidget);
 
-    await tester.tap(find.text('Sam'));
+    final sam = find.text('Sam');
+    await tester.ensureVisible(sam);
+    await tester.pumpAndSettle();
+    await tester.tap(sam);
     await tester.pump();
     expect(
       find.text('You can show up to 1 companions in Camp.'),
