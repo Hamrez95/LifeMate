@@ -118,7 +118,8 @@ void main() {
 
     await tester.tap(
       find.byWidgetPredicate(
-        (widget) => widget is Semantics && widget.properties.label == 'WellMate',
+        (widget) =>
+            widget is Semantics && widget.properties.label == 'WellMate',
       ),
     );
     await tester.pump(const Duration(milliseconds: 350));
