@@ -1,0 +1,178 @@
+{
+  "contractVersion": 1,
+  "actorDefinitionId": "avatar_family_a_age_20",
+  "assetVersion": "1.0.0",
+  "assetPath": "rive/avatar_family_a_age_20_v1.riv",
+  "artboard": "LifeMateAvatar",
+  "stateMachine": "LifeMateAvatarV1",
+  "groundAnchor": {
+    "xNormalized": 0.5,
+    "yNormalized": 0.92
+  },
+  "adapterCompatibility": {
+    "min": 1,
+    "max": 1
+  },
+  "inputs": {
+    "actionCode": {
+      "riveName": "action_code",
+      "type": "number"
+    },
+    "directionCode": {
+      "riveName": "direction_code",
+      "type": "number"
+    },
+    "variantCode": {
+      "riveName": "variant_code",
+      "type": "number"
+    },
+    "speedScale": {
+      "riveName": "speed_scale",
+      "type": "number",
+      "min": 0.75,
+      "max": 1.25,
+      "default": 1.0
+    },
+    "actionTrigger": {
+      "riveName": "action_trigger",
+      "type": "trigger"
+    },
+    "active": {
+      "riveName": "active",
+      "type": "boolean"
+    }
+  },
+  "events": {
+    "required": [
+      {
+        "semanticId": "action_complete",
+        "riveName": "action_complete"
+      }
+    ],
+    "optional": [
+      {
+        "semanticId": "loop_boundary",
+        "riveName": "loop_boundary"
+      },
+      {
+        "semanticId": "footstep_cue",
+        "riveName": "footstep_cue"
+      }
+    ]
+  },
+  "actions": {
+    "idle": {
+      "code": 0,
+      "playback": "loop",
+      "interruptible": true,
+      "fallback": "idle",
+      "variants": [0, 1]
+    },
+    "walk": {
+      "code": 1,
+      "playback": "loop",
+      "interruptible": true,
+      "fallback": "idle",
+      "variants": [0]
+    },
+    "sit": {
+      "code": 2,
+      "playback": "hold",
+      "interruptible": true,
+      "fallback": "idle",
+      "variants": [0]
+    },
+    "drink": {
+      "code": 3,
+      "playback": "oneShot",
+      "interruptible": true,
+      "fallback": "wellness",
+      "variants": [0],
+      "expectedDurationMs": 2400,
+      "completionTimeoutMs": 3600
+    },
+    "wellness": {
+      "code": 4,
+      "playback": "oneShot",
+      "interruptible": true,
+      "fallback": "idle",
+      "variants": [0, 1],
+      "expectedDurationMs": 3200,
+      "completionTimeoutMs": 4600
+    },
+    "care": {
+      "code": 5,
+      "playback": "oneShot",
+      "interruptible": true,
+      "fallback": "wave",
+      "variants": [0],
+      "expectedDurationMs": 3000,
+      "completionTimeoutMs": 4400
+    },
+    "exercise": {
+      "code": 6,
+      "playback": "oneShot",
+      "interruptible": true,
+      "fallback": "wellness",
+      "variants": [0],
+      "expectedDurationMs": 3600,
+      "completionTimeoutMs": 5200
+    },
+    "wave": {
+      "code": 7,
+      "playback": "oneShot",
+      "interruptible": true,
+      "fallback": "idle",
+      "variants": [0, 1],
+      "expectedDurationMs": 1800,
+      "completionTimeoutMs": 3000
+    },
+    "sleep": {
+      "code": 8,
+      "playback": "loop",
+      "interruptible": true,
+      "fallback": "idle",
+      "variants": [0]
+    }
+  },
+  "directions": {
+    "front_left": {
+      "code": 0
+    },
+    "front_right": {
+      "code": 1,
+      "mirrorOf": "front_left",
+      "mirrorSafe": true
+    },
+    "back_left": {
+      "code": 2
+    },
+    "back_right": {
+      "code": 3,
+      "mirrorOf": "back_left",
+      "mirrorSafe": true
+    }
+  },
+  "appearanceBindings": {
+    "skin_tone": {
+      "bindingType": "color",
+      "regionIds": [
+        "skin_face",
+        "skin_neck",
+        "skin_left_hand",
+        "skin_right_hand"
+      ],
+      "paletteTokenRequired": true
+    }
+  },
+  "capabilities": {
+    "reducedMotionStaticPose": true,
+    "supportsRuntimeMirroring": true,
+    "companionCompatible": false
+  },
+  "fallback": {
+    "action": "idle",
+    "direction": "front_left",
+    "actorDefinitionId": "avatar_neutral_placeholder"
+  }
+}
