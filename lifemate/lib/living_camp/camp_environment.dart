@@ -92,7 +92,8 @@ class CampDaylightResolver {
     final local = nowUtc.toUtc().add(offset);
     final dayOfYear = _dayOfYear(local);
     final gamma = 2 * math.pi / 365 * (dayOfYear - 1);
-    final equationOfTime = 229.18 *
+    final equationOfTime =
+        229.18 *
         (0.000075 +
             0.001868 * math.cos(gamma) -
             0.032077 * math.sin(gamma) -
@@ -119,20 +120,14 @@ class CampDaylightResolver {
       return CampDaylightWindow.fallback;
     }
 
-    final hourAngleDegrees =
-        math.acos(cosHourAngle) * 180 / math.pi;
-    final solarNoonUtcMinutes =
-        720 - (4 * location.longitude) - equationOfTime;
+    final hourAngleDegrees = math.acos(cosHourAngle) * 180 / math.pi;
+    final solarNoonUtcMinutes = 720 - (4 * location.longitude) - equationOfTime;
     final sunriseUtcMinutes = solarNoonUtcMinutes - (4 * hourAngleDegrees);
     final sunsetUtcMinutes = solarNoonUtcMinutes + (4 * hourAngleDegrees);
 
     return CampDaylightWindow(
-      sunriseMinute: _normalizeMinute(
-        sunriseUtcMinutes + offset.inMinutes,
-      ),
-      sunsetMinute: _normalizeMinute(
-        sunsetUtcMinutes + offset.inMinutes,
-      ),
+      sunriseMinute: _normalizeMinute(sunriseUtcMinutes + offset.inMinutes),
+      sunsetMinute: _normalizeMinute(sunsetUtcMinutes + offset.inMinutes),
       usesFallback: false,
     );
   }

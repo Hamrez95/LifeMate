@@ -66,10 +66,7 @@ void main() {
 
   test('coarse location produces astronomical daylight without permission', () {
     const preferences = CampEnvironmentPreferences(
-      coarseLocation: CampCoarseLocation(
-        latitude: 35.6892,
-        longitude: 51.3890,
-      ),
+      coarseLocation: CampCoarseLocation(latitude: 35.6892, longitude: 51.3890),
       timezoneOffset: Duration(hours: 3, minutes: 30),
     );
     final window = resolver.resolveWindow(
@@ -121,9 +118,8 @@ void main() {
           ),
           nowUtc: () => nowUtc,
           builder: (context, state) => Builder(
-            builder: (tickerContext) => Text(
-              '${state.phase.name}:${TickerMode.of(tickerContext)}',
-            ),
+            builder: (tickerContext) =>
+                Text('${state.phase.name}:${TickerMode.of(tickerContext)}'),
           ),
         ),
       ),
@@ -131,12 +127,16 @@ void main() {
 
     expect(find.text('day:true'), findsOneWidget);
 
-    await tester.binding.handleAppLifecycleStateChanged(AppLifecycleState.paused);
+    await tester.binding.handleAppLifecycleStateChanged(
+      AppLifecycleState.paused,
+    );
     await tester.pump();
     expect(find.text('day:false'), findsOneWidget);
 
     nowUtc = DateTime.utc(2026, 1, 1, 22);
-    await tester.binding.handleAppLifecycleStateChanged(AppLifecycleState.resumed);
+    await tester.binding.handleAppLifecycleStateChanged(
+      AppLifecycleState.resumed,
+    );
     await tester.pump();
     expect(find.text('night:true'), findsOneWidget);
   });
