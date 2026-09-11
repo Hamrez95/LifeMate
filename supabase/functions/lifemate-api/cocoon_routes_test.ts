@@ -1,6 +1,10 @@
 import { assertEquals, assertThrows } from "jsr:@std/assert@1.0.14";
 import { normalizePregnancyCalendarClassification } from "./pregnancy_calendar.ts";
 import {
+  paginatePregnancyRecords,
+  type PregnancyRecordItem,
+} from "./pregnancy_records.ts";
+import {
   requireCocoonPregnancyActivationEntitlement,
   requiresCocoonPregnancyActivationEntitlement,
 } from "./cocoon_routes.ts";
@@ -163,4 +167,35 @@ Deno.test("Cocoon pregnancy treatment context reuses canonical treatment truth",
       episodeId: "33333333-3333-4333-8333-333333333333",
     },
   ]);
+});
+
+Deno.test("Cocoon pregnancy records cursor remains stable when newer items arrive", () => {
+  const record = (
+    id: string,
+    occurredAtUtc: string,
+  ): PregnancyRecordItem => ({
+    id,
+    sourceKind: "test",
+    sourceId: id,
+    category: "check_ins",
+    occurredAtUtc,
+    localDate: occurredAtUtc.slice(0, 10),
+    type: "test",
+    summary: {},
+  });
+  const initial = [
+    record("a", "2026-09-12T10:00:00.000Z"),
+    record("b", "2026-09-11T10:00:00.000Z"),
+    record("c", "2026-09-10T10:00:00.000Z"),
+  ];
+  const first = paginatePregnancyRecords(initial, 2, null);
+  assertEquals(first.items.map((value) => value.id), ["a", "b"]);
+  const cursor = first.nextCursor;
+  assertEquals(cursor == null, false);
+
+  const newer = record("new", "2026-09-13T10:00:00.000Z");
+  const decoded = JSON.parse(atob(cursor!));
+  const second = paginatePregnancyRecords([...initial, newer], 2, decoded);
+  assertEquals(second.items.map((value) => value.id), ["c"]);
+  assertEquals(second.nextCursor, null);
 });
