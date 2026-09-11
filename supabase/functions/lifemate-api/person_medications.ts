@@ -56,7 +56,8 @@ async function insertAudit(
 export function createPersonMedicationStore(databaseUrl: string) {
   const sql = getLifeMateSql(databaseUrl);
 
-  async function createMedication(
+  async function createMedicationInTransaction(
+    connection: any,
     appUserId: string,
     body: Record<string, unknown>,
   ): Promise<Record<string, unknown>> {
@@ -65,52 +66,89 @@ export function createPersonMedicationStore(databaseUrl: string) {
     const form = limitedOptional(body.form, "form", 50);
     const notes = limitedOptional(body.notes, "notes", 500);
     const now = new Date();
+    const personId = await requireSelfPerson(connection, appUserId);
 
-    return await sql.begin(async (tx: any) => {
-      const personId = await requireSelfPerson(tx, appUserId);
-      const countRows =
-        await tx`select count(*)::integer as count from lifemate.medications where owner_person_id=${personId}::uuid`;
-      try {
-        await tx`select commerce.assert_free_quota(${appUserId}::uuid,'free.medications.max',${
-          Number(countRows[0]?.count ?? 0)
-        }::integer)`;
-      } catch (error) {
-        if (
-          String((error as Record<string, unknown>)?.message ?? "").includes(
-            "premium_required_quota_reached",
-          )
-        ) {
-          throw new ApiError(
-            403,
-            "premium_required_quota_reached",
-            "Premium is required to add another active medication.",
-          );
-        }
-        throw error;
-      }
-      const rows = await tx`
-        insert into lifemate.medications
-          (id,owner_person_id,name,strength_text,form,notes,version,created_at_utc,updated_at_utc)
-        values (${crypto.randomUUID()}::uuid,${personId}::uuid,${name},${strength},${form},${notes},1,${now},${now}) returning *
+    // Quota must be evaluated atomically. Without this lock two concurrent
+    // creates can both observe the same count and exceed the intended limit.
+    await connection`
+      select pg_advisory_xact_lock(
+        hashtextextended(${`medication-quota:${personId}`}::text, 0)
+      )
+    `;
+    const countRows = await connection`
+      select count(*)::integer as count
+      from lifemate.medications
+      where owner_person_id=${personId}::uuid
+    `;
+    try {
+      await connection`
+        select commerce.assert_free_quota(
+          ${appUserId}::uuid,
+          'free.medications.max',
+          ${Number(countRows[0]?.count ?? 0)}::integer
+        )
       `;
-      await insertAudit(
-        tx,
-        appUserId,
-        "medication.created",
-        "medication",
-        String(rows[0].id),
-      );
-      return mapMedication(rows[0]);
-    });
+    } catch (error) {
+      if (
+        String((error as Record<string, unknown>)?.message ?? "").includes(
+          "premium_required_quota_reached",
+        )
+      ) {
+        throw new ApiError(
+          403,
+          "premium_required_quota_reached",
+          "Premium is required to add another active medication.",
+        );
+      }
+      throw error;
+    }
+
+    const rows = await connection`
+      insert into lifemate.medications
+        (id,owner_person_id,name,strength_text,form,notes,version,created_at_utc,updated_at_utc)
+      values (
+        ${crypto.randomUUID()}::uuid,
+        ${personId}::uuid,
+        ${name},${strength},${form},${notes},1,${now},${now}
+      )
+      returning *
+    `;
+    await insertAudit(
+      connection,
+      appUserId,
+      "medication.created",
+      "medication",
+      String(rows[0].id),
+    );
+    return mapMedication(rows[0]);
+  }
+
+  async function createMedication(
+    appUserId: string,
+    body: Record<string, unknown>,
+  ): Promise<Record<string, unknown>> {
+    return await sql.begin((tx: any) =>
+      createMedicationInTransaction(tx, appUserId, body)
+    );
   }
 
   async function listMedications(
     appUserId: string,
   ): Promise<Record<string, unknown>[]> {
     const personId = await requireSelfPerson(sql, appUserId);
-    const rows =
-      await sql`select * from lifemate.medications where owner_person_id=${personId}::uuid order by name,id limit 100`;
+    const rows = await sql`
+      select *
+      from lifemate.medications
+      where owner_person_id=${personId}::uuid
+      order by name,id
+      limit 100
+    `;
     return rows.map(mapMedication);
   }
-  return { createMedication, listMedications };
+
+  return {
+    createMedication,
+    createMedicationInTransaction,
+    listMedications,
+  };
 }
