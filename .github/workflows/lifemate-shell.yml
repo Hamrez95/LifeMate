@@ -6,6 +6,8 @@ on:
     paths:
       - 'lifemate/**'
       - 'packages/lifemate_client/**'
+      - 'tools/lifemate.ps1'
+      - 'tools/lifemate.apps.json'
       - 'tools/release/prepare-lifemate-android.sh'
       - '.github/workflows/lifemate-shell.yml'
       - 'docs/lifemate-shell/NAVIGATION_ARCHITECTURE.md'
@@ -14,6 +16,8 @@ on:
     paths:
       - 'lifemate/**'
       - 'packages/lifemate_client/**'
+      - 'tools/lifemate.ps1'
+      - 'tools/lifemate.apps.json'
       - 'tools/release/prepare-lifemate-android.sh'
       - '.github/workflows/lifemate-shell.yml'
       - 'docs/lifemate-shell/NAVIGATION_ARCHITECTURE.md'
