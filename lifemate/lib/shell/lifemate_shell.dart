@@ -142,7 +142,7 @@ class _LifeMateShellState extends State<LifeMateShell> {
               Text(message),
               const SizedBox(height: 16),
               FilledButton(
-                onPressed: Navigator.of(context).pop,
+                onPressed: () => Navigator.of(context).pop(),
                 child: Text(_t('Close', 'بستن')),
               ),
             ],
