@@ -207,6 +207,7 @@ class CampSceneRenderer extends StatelessWidget {
         enabled: enabled,
         label: zone.semanticLabel,
         child: GestureDetector(
+          key: ValueKey<String>('camp-zone-hit-${zone.zoneId}'),
           behavior: HitTestBehavior.opaque,
           onTap: enabled && onZoneTap != null
               ? () => onZoneTap!(zone.zoneId)
