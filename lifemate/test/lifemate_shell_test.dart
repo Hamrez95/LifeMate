@@ -38,7 +38,7 @@ void main() {
     await tester.binding.handlePopRoute();
     await tester.pumpAndSettle();
 
-    expect(find.text('LifeMate Living Shell'), findsOneWidget);
+    expect(find.text('Living Camp'), findsOneWidget);
   });
 
   testWidgets('Persian locale is RTL and keeps semantic destinations', (
