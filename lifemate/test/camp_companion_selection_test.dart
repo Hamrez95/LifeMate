@@ -71,7 +71,7 @@ void main() {
     expect(find.text('1 of 1 selected'), findsOneWidget);
 
     await tester.tap(find.text('Sam'));
-    await tester.pumpAndSettle();
+    await tester.pump(const Duration(milliseconds: 300));
     expect(
       find.text('You can show up to 1 companions in Camp.'),
       findsOneWidget,
