@@ -97,8 +97,9 @@ class CampHome extends StatelessWidget {
                 padding: const EdgeInsetsDirectional.fromSTEB(20, 12, 20, 8),
                 child: Text(
                   _t('Living Camp', 'کمپ زنده'),
-                  style: Theme.of(context).textTheme.titleLarge
-                      ?.copyWith(fontWeight: FontWeight.w800),
+                  style: Theme.of(
+                    context,
+                  ).textTheme.titleLarge?.copyWith(fontWeight: FontWeight.w800),
                 ),
               ),
               Expanded(

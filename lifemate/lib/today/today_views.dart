@@ -145,8 +145,9 @@ class _TodayResolvedViewState extends State<TodayResolvedView> {
               widget.peek
                   ? _t('Today', 'امروز')
                   : _t('Your full day', 'کل روز شما'),
-              style: Theme.of(context).textTheme.headlineSmall
-                  ?.copyWith(fontWeight: FontWeight.w800),
+              style: Theme.of(
+                context,
+              ).textTheme.headlineSmall?.copyWith(fontWeight: FontWeight.w800),
             ),
           ),
           Expanded(
