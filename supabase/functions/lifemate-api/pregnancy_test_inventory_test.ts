@@ -29,11 +29,15 @@ Deno.test("all pregnancy unit tests are executed and type-checked by canonical t
   assertEquals(
     missingFromTest,
     [],
-    `Pregnancy unit tests missing from deno task test: ${missingFromTest.join(", ")}`,
+    `Pregnancy unit tests missing from deno task test: ${
+      missingFromTest.join(", ")
+    }`,
   );
   assertEquals(
     missingFromCheck,
     [],
-    `Pregnancy unit tests missing from deno task check: ${missingFromCheck.join(", ")}`,
+    `Pregnancy unit tests missing from deno task check: ${
+      missingFromCheck.join(", ")
+    }`,
   );
 });
