@@ -1,7 +1,4 @@
-import {
-  assertEquals,
-  assertRejects,
-} from "jsr:@std/assert@1.0.14";
+import { assertEquals, assertRejects } from "jsr:@std/assert@1.0.14";
 import { createPregnancyTreatmentRouteHandler } from "./pregnancy_treatments.ts";
 import { ApiError } from "./validation.ts";
 
@@ -43,11 +40,14 @@ function dependencies(overrides: Record<string, unknown> = {}) {
 
 Deno.test("pregnancy treatment context returns only active canonical treatment data", async () => {
   const authorizationCalls: Array<Record<string, string>> = [];
-  const handler = createPregnancyTreatmentRouteHandler("unused", dependencies({
-    requireMedicationRead: async (args: Record<string, string>) => {
-      authorizationCalls.push(args);
-    },
-  }));
+  const handler = createPregnancyTreatmentRouteHandler(
+    "unused",
+    dependencies({
+      requireMedicationRead: async (args: Record<string, string>) => {
+        authorizationCalls.push(args);
+      },
+    }),
+  );
 
   const response = await handler({
     request: request(),
@@ -75,72 +75,93 @@ Deno.test("pregnancy treatment context returns only active canonical treatment d
 });
 
 Deno.test("pregnancy treatment route ignores unrelated methods and paths", async () => {
-  const handler = createPregnancyTreatmentRouteHandler("unused", dependencies());
-  assertEquals(await handler({
-    request: new Request(
-      "https://example.test/api/v1/cocoon/pregnancy/treatments",
-      { method: "POST" },
-    ),
-    path: "/api/v1/cocoon/pregnancy/treatments",
-    appUserId,
-  }), null);
-  assertEquals(await handler({
-    request: request(),
-    path: "/api/v1/cocoon/pregnancy/other",
-    appUserId,
-  }), null);
-});
-
-Deno.test("pregnancy treatment context validates required dates and bounded range", async () => {
-  const handler = createPregnancyTreatmentRouteHandler("unused", dependencies());
-
-  const missing = await assertRejects(
-    () => handler({
-      request: request("toDate=2026-09-18"),
+  const handler = createPregnancyTreatmentRouteHandler(
+    "unused",
+    dependencies(),
+  );
+  assertEquals(
+    await handler({
+      request: new Request(
+        "https://example.test/api/v1/cocoon/pregnancy/treatments",
+        { method: "POST" },
+      ),
       path: "/api/v1/cocoon/pregnancy/treatments",
       appUserId,
     }),
+    null,
+  );
+  assertEquals(
+    await handler({
+      request: request(),
+      path: "/api/v1/cocoon/pregnancy/other",
+      appUserId,
+    }),
+    null,
+  );
+});
+
+Deno.test("pregnancy treatment context validates required dates and bounded range", async () => {
+  const handler = createPregnancyTreatmentRouteHandler(
+    "unused",
+    dependencies(),
+  );
+
+  const missing = await assertRejects(
+    () =>
+      handler({
+        request: request("toDate=2026-09-18"),
+        path: "/api/v1/cocoon/pregnancy/treatments",
+        appUserId,
+      }),
     ApiError,
   );
   assertEquals(missing.status, 400);
   assertEquals(missing.code, "invalid_fromDate");
 
   const invalidDate = await assertRejects(
-    () => handler({
-      request: request("fromDate=2026-02-30&toDate=2026-03-01"),
-      path: "/api/v1/cocoon/pregnancy/treatments",
-      appUserId,
-    }),
+    () =>
+      handler({
+        request: request("fromDate=2026-02-30&toDate=2026-03-01"),
+        path: "/api/v1/cocoon/pregnancy/treatments",
+        appUserId,
+      }),
     ApiError,
   );
   assertEquals(invalidDate.code, "invalid_fromDate");
 
   const oversized = await assertRejects(
-    () => handler({
-      request: request("fromDate=2026-09-01&toDate=2026-10-03"),
-      path: "/api/v1/cocoon/pregnancy/treatments",
-      appUserId,
-    }),
+    () =>
+      handler({
+        request: request("fromDate=2026-09-01&toDate=2026-10-03"),
+        path: "/api/v1/cocoon/pregnancy/treatments",
+        appUserId,
+      }),
     ApiError,
   );
   assertEquals(oversized.code, "invalid_date_range");
 });
 
 Deno.test("pregnancy treatment context requires an active episode", async () => {
-  for (const episode of [
-    null,
-    { id: episodeId, status: "ended" },
-    { id: "", status: "active" },
-  ]) {
-    const handler = createPregnancyTreatmentRouteHandler("unused", dependencies({
-      currentEpisode: async () => episode,
-    }));
-    const error = await assertRejects(
-      () => handler({
-        request: request(),
-        path: "/api/v1/cocoon/pregnancy/treatments",
-        appUserId,
+  for (
+    const episode of [
+      null,
+      { id: episodeId, status: "ended" },
+      { id: "", status: "active" },
+    ]
+  ) {
+    const handler = createPregnancyTreatmentRouteHandler(
+      "unused",
+      dependencies({
+        currentEpisode: async () => episode,
       }),
+    );
+    const error = await assertRejects(
+      () =>
+        handler({
+          request: request(),
+          path: "/api/v1/cocoon/pregnancy/treatments",
+          appUserId,
+        }),
       ApiError,
     );
     assertEquals(error.status, 409);
@@ -151,26 +172,30 @@ Deno.test("pregnancy treatment context requires an active episode", async () => 
 Deno.test("pregnancy treatment authorization fails closed before canonical data reads", async () => {
   let plansRead = 0;
   let dosesRead = 0;
-  const handler = createPregnancyTreatmentRouteHandler("unused", dependencies({
-    requireMedicationRead: async () => {
-      throw new ApiError(403, "pregnancy_scope_required", "denied");
-    },
-    listTreatmentPlans: async () => {
-      plansRead += 1;
-      return [];
-    },
-    listDoseOccurrences: async () => {
-      dosesRead += 1;
-      return [];
-    },
-  }));
+  const handler = createPregnancyTreatmentRouteHandler(
+    "unused",
+    dependencies({
+      requireMedicationRead: async () => {
+        throw new ApiError(403, "pregnancy_scope_required", "denied");
+      },
+      listTreatmentPlans: async () => {
+        plansRead += 1;
+        return [];
+      },
+      listDoseOccurrences: async () => {
+        dosesRead += 1;
+        return [];
+      },
+    }),
+  );
 
   const error = await assertRejects(
-    () => handler({
-      request: request(),
-      path: "/api/v1/cocoon/pregnancy/treatments",
-      appUserId,
-    }),
+    () =>
+      handler({
+        request: request(),
+        path: "/api/v1/cocoon/pregnancy/treatments",
+        appUserId,
+      }),
     ApiError,
   );
   assertEquals(error.status, 403);
@@ -180,14 +205,17 @@ Deno.test("pregnancy treatment authorization fails closed before canonical data 
 });
 
 Deno.test("pregnancy treatment context returns a truthful empty canonical state", async () => {
-  const handler = createPregnancyTreatmentRouteHandler("unused", dependencies({
-    listTreatmentPlans: async () => [],
-    listDoseOccurrences: async () => [{
-      id: "66666666-6666-4666-8666-666666666666",
-      treatmentPlanId: "99999999-9999-4999-8999-999999999999",
-      status: "scheduled",
-    }],
-  }));
+  const handler = createPregnancyTreatmentRouteHandler(
+    "unused",
+    dependencies({
+      listTreatmentPlans: async () => [],
+      listDoseOccurrences: async () => [{
+        id: "66666666-6666-4666-8666-666666666666",
+        treatmentPlanId: "99999999-9999-4999-8999-999999999999",
+        status: "scheduled",
+      }],
+    }),
+  );
 
   const response = await handler({
     request: request(),
@@ -200,18 +228,22 @@ Deno.test("pregnancy treatment context returns a truthful empty canonical state"
 });
 
 Deno.test("pregnancy treatment canonical dependency failures propagate", async () => {
-  const handler = createPregnancyTreatmentRouteHandler("unused", dependencies({
-    listTreatmentPlans: async () => {
-      throw new Error("canonical treatment store unavailable");
-    },
-  }));
+  const handler = createPregnancyTreatmentRouteHandler(
+    "unused",
+    dependencies({
+      listTreatmentPlans: async () => {
+        throw new Error("canonical treatment store unavailable");
+      },
+    }),
+  );
 
   const error = await assertRejects(
-    () => handler({
-      request: request(),
-      path: "/api/v1/cocoon/pregnancy/treatments",
-      appUserId,
-    }),
+    () =>
+      handler({
+        request: request(),
+        path: "/api/v1/cocoon/pregnancy/treatments",
+        appUserId,
+      }),
     Error,
   );
   assertEquals(error.message, "canonical treatment store unavailable");
