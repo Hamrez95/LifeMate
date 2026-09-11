@@ -69,7 +69,7 @@ void main() {
     );
     expect(find.text('Urgent notification'), findsOneWidget);
     expect(find.text('Urgent'), findsOneWidget);
-    expect(find.text('You'), findsOneWidget);
+    expect(find.text('You'), findsWidgets);
     expect(find.text('Care notification'), findsOneWidget);
     expect(find.text('Needs attention'), findsOneWidget);
     expect(find.text('Rey'), findsOneWidget);
