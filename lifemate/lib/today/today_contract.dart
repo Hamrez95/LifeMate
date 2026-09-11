@@ -94,7 +94,7 @@ class TodayItem {
 class TodaySnapshot {
   TodaySnapshot({
     required this.generatedAt,
-    required this.items,
+    required List<TodayItem> items,
     this.schemaVersion = todayContractVersion,
     this.freshness = TodayFreshness.live,
     this.completeness = TodayCompleteness.complete,
