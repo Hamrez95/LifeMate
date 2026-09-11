@@ -82,12 +82,18 @@ revoke all on function pregnancy.enforce_capture_episode_subject() from public;
 
 do $capture_triggers$
 declare table_name text;
+declare trigger_name text;
 begin
   foreach table_name in array array['daily_check_ins','symptom_reports','mood_entries'] loop
-    execute format('drop trigger if exists trg_%I_episode_subject on pregnancy.%I', table_name, table_name);
+    trigger_name := 'trg_' || table_name || '_episode_subject';
     execute format(
-      'create trigger trg_%I_episode_subject before insert or update on pregnancy.%I for each row execute function pregnancy.enforce_capture_episode_subject()',
-      table_name,
+      'drop trigger if exists %I on pregnancy.%I',
+      trigger_name,
+      table_name
+    );
+    execute format(
+      'create trigger %I before insert or update on pregnancy.%I for each row execute function pregnancy.enforce_capture_episode_subject()',
+      trigger_name,
       table_name
     );
   end loop;
