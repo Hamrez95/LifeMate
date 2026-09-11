@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:lifemate_client/lifemate_client.dart';
 
+import '../living_camp/camp_home.dart';
 import '../navigation/shell_navigation.dart';
 import '../profile/profile_you_screen.dart';
 
@@ -82,7 +83,7 @@ class _LifeMateShellState extends State<LifeMateShell> {
 
   Widget _buildDestination(ShellDestination destination) {
     return switch (destination) {
-      ShellDestination.home => _HomeFoundation(
+      ShellDestination.home => CampHome(
         isPersian: _isPersian,
         onOpenToday: () => _select(ShellDestination.today),
       ),
@@ -166,79 +167,6 @@ class _LifeMateShellState extends State<LifeMateShell> {
             ],
           ),
         ),
-      ),
-    );
-  }
-}
-
-class _HomeFoundation extends StatelessWidget {
-  const _HomeFoundation({required this.isPersian, required this.onOpenToday});
-
-  final bool isPersian;
-  final VoidCallback onOpenToday;
-
-  String t(String en, String fa) => isPersian ? fa : en;
-
-  @override
-  Widget build(BuildContext context) {
-    return SafeArea(
-      child: ListView(
-        padding: const EdgeInsetsDirectional.fromSTEB(24, 28, 24, 28),
-        children: [
-          Semantics(
-            header: true,
-            child: Text(
-              t('LifeMate Living Shell', 'پوسته زنده LifeMate'),
-              style: Theme.of(
-                context,
-              ).textTheme.headlineMedium?.copyWith(fontWeight: FontWeight.w800),
-            ),
-          ),
-          const SizedBox(height: 12),
-          Text(
-            t(
-              'The parent app foundation is active. The layered Living Camp renderer will replace this safe shell surface under #1075.',
-              'زیرساخت اپ مادر فعال است. رندر لایه‌ای Living Camp در #1075 جای این سطح امن اولیه را می‌گیرد.',
-            ),
-            style: Theme.of(context).textTheme.bodyLarge,
-          ),
-          const SizedBox(height: 24),
-          Card(
-            child: Padding(
-              padding: const EdgeInsets.all(20),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.stretch,
-                children: [
-                  Icon(
-                    Icons.cottage_outlined,
-                    size: 48,
-                    color: Theme.of(context).colorScheme.primary,
-                  ),
-                  const SizedBox(height: 16),
-                  Text(
-                    t('Central LifeMate home', 'خانه مرکزی LifeMate'),
-                    textAlign: TextAlign.center,
-                    style: Theme.of(context).textTheme.titleLarge,
-                  ),
-                  const SizedBox(height: 8),
-                  Text(
-                    t(
-                      'Today Peek Sheet is not implemented in this foundation task. Open the staged Today destination without inventing health data.',
-                      'Today Peek Sheet در این تسک زیرساختی پیاده‌سازی نمی‌شود. بدون ساختن داده سلامت جعلی می‌توان وارد مقصد آماده‌سازی‌شده امروز شد.',
-                    ),
-                    textAlign: TextAlign.center,
-                  ),
-                  const SizedBox(height: 16),
-                  FilledButton.icon(
-                    onPressed: onOpenToday,
-                    icon: const Icon(Icons.today_outlined),
-                    label: Text(t('Open Today', 'باز کردن امروز')),
-                  ),
-                ],
-              ),
-            ),
-          ),
-        ],
       ),
     );
   }
