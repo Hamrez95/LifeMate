@@ -51,7 +51,9 @@ ShellNavigationIntent? normalizeShellUri(Uri uri) {
   if (uri.queryParameters.keys.any(_blockedSensitiveQueryKeys.contains)) {
     return null;
   }
-  if (uri.queryParameters.keys.any((key) => !_allowedOpaqueQueryKeys.contains(key))) {
+  if (uri.queryParameters.keys.any(
+    (key) => !_allowedOpaqueQueryKeys.contains(key),
+  )) {
     return null;
   }
 
@@ -75,7 +77,9 @@ ShellNavigationIntent? normalizeShellUri(Uri uri) {
     );
   }
 
-  final segments = uri.pathSegments.where((segment) => segment.isNotEmpty).toList();
+  final segments = uri.pathSegments
+      .where((segment) => segment.isNotEmpty)
+      .toList();
   if (segments.length >= 2 && segments.first == 'apps') {
     final moduleId = segments[1].trim();
     if (!_isSafeStableId(moduleId)) return null;
@@ -110,18 +114,18 @@ bool _isSafeStableId(String value) {
 
 extension ShellDestinationPresentation on ShellDestination {
   IconData get icon => switch (this) {
-        ShellDestination.home => Icons.home_outlined,
-        ShellDestination.today => Icons.today_outlined,
-        ShellDestination.journey => Icons.route_outlined,
-        ShellDestination.circle => Icons.people_outline,
-        ShellDestination.you => Icons.person_outline,
-      };
+    ShellDestination.home => Icons.home_outlined,
+    ShellDestination.today => Icons.today_outlined,
+    ShellDestination.journey => Icons.route_outlined,
+    ShellDestination.circle => Icons.people_outline,
+    ShellDestination.you => Icons.person_outline,
+  };
 
   IconData get selectedIcon => switch (this) {
-        ShellDestination.home => Icons.home_rounded,
-        ShellDestination.today => Icons.today_rounded,
-        ShellDestination.journey => Icons.route_rounded,
-        ShellDestination.circle => Icons.people_rounded,
-        ShellDestination.you => Icons.person_rounded,
-      };
+    ShellDestination.home => Icons.home_rounded,
+    ShellDestination.today => Icons.today_rounded,
+    ShellDestination.journey => Icons.route_rounded,
+    ShellDestination.circle => Icons.people_rounded,
+    ShellDestination.you => Icons.person_rounded,
+  };
 }
