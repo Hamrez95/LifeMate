@@ -112,12 +112,15 @@ class ApiCampCompanionSelectionSource implements CampCompanionSelectionSource {
 
   _CircleAccess _access(Object? value) => switch (_text(value)) {
     'connected' => _CircleAccess.connected,
+    'access_limited' => _CircleAccess.limited,
     'permission_required' => _CircleAccess.permissionRequired,
     _ => _CircleAccess.unavailable,
   };
 
   String _accessLabel(_CircleAccess access) => switch (access) {
     _CircleAccess.connected => _isPersian ? 'متصل' : 'Connected',
+    _CircleAccess.limited =>
+      _isPersian ? 'دسترسی محدود' : 'Access limited',
     _CircleAccess.permissionRequired =>
       _isPersian ? 'نیاز به اجازه' : 'Permission required',
     _CircleAccess.unavailable =>
@@ -130,4 +133,4 @@ class ApiCampCompanionSelectionSource implements CampCompanionSelectionSource {
   }
 }
 
-enum _CircleAccess { connected, permissionRequired, unavailable }
+enum _CircleAccess { connected, limited, permissionRequired, unavailable }
