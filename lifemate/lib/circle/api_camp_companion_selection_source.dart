@@ -96,7 +96,8 @@ class ApiCampCompanionSelectionSource implements CampCompanionSelectionSource {
     final serverEligible = row['campPresentationEligible'] == true;
     final eligible = access == _CircleAccess.connected && serverEligible;
     final relationship = LifeMateRelationshipPresentationPolicy.fromRaw(
-      row['presentationType']?.toString() ?? row['relationshipType']?.toString(),
+      row['presentationType']?.toString() ??
+          row['relationshipType']?.toString(),
     );
 
     return CampCompanionCandidate(
