@@ -27,6 +27,11 @@ export type ResolvedAppIdentity<
   appUserId: string;
 };
 
+export type BootstrapIdentityStateRow = {
+  app_user_status: string;
+  account_status: string | null;
+};
+
 type TokenLookupRow = {
   account_id: string;
   account_status: string;
@@ -55,6 +60,41 @@ export function readIdentityLookupMode(
   throw new Error(
     "LIFEMATE_IDENTITY_LINK_LOOKUP_MODE must be legacy, prefer-token, or token-only.",
   );
+}
+
+/**
+ * Bounded compatibility lookup used only by bootstrap state protection.
+ * Keeping this raw-subject read inside the resolver preserves the retirement
+ * boundary while the bootstrap guard still needs to distinguish deleted and
+ * deletion-pending accounts before the idempotent onboarding path runs.
+ */
+export function createBootstrapIdentityStateLookup(databaseUrl: string) {
+  const sql = getLifeMateSql(databaseUrl);
+
+  async function findByAuthSubject(
+    authSubject: string,
+  ): Promise<BootstrapIdentityStateRow[]> {
+    return await sql<BootstrapIdentityStateRow[]>`
+      select
+        u.status as app_user_status,
+        a.status as account_status
+      from lifemate.app_users u
+      left join lateral (
+        select candidate.status
+        from identity.accounts candidate
+        where candidate.legacy_app_user_id=u.id
+           or (candidate.legacy_app_user_id is null and candidate.id=u.id)
+        order by case when candidate.legacy_app_user_id=u.id then 0 else 1 end,
+                 candidate.updated_at_utc desc,
+                 candidate.id
+        limit 1
+      ) a on true
+      where u.auth_subject=${authSubject}
+      limit 2
+    `;
+  }
+
+  return { findByAuthSubject };
 }
 
 export function createIdentityResolver(

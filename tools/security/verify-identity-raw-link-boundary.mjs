@@ -121,7 +121,10 @@ requireMarkers(
   [
     'createIdentityResolver',
     'createLegacyLifeMateDatabase',
-    'requireIdentity: identityResolver.requireIdentity',
+    'async function requireIdentity(',
+    'identityResolver.requireIdentity(auth)',
+    'privacyPreferences.requireRegistrationComplete(identity.appUserId)',
+    'requireIdentity,',
   ],
   'database compatibility facade',
 );
