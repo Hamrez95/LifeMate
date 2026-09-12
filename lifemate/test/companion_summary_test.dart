@@ -40,7 +40,10 @@ void main() {
     await tester.tap(find.byKey(const ValueKey('camp-summary-a')));
     await tester.pumpAndSettle();
 
-    expect(find.text('Preview summary — not live relationship or consent state'), findsOneWidget);
+    expect(
+      find.text('Preview summary — not live relationship or consent state'),
+      findsOneWidget,
+    );
     expect(find.text('Relationship'), findsOneWidget);
     expect(find.text('Circle access'), findsOneWidget);
     expect(find.text('Connected'), findsOneWidget);
@@ -137,10 +140,7 @@ void main() {
     await tester.pumpAndSettle();
 
     expect(find.text('Companion summary unavailable'), findsOneWidget);
-    expect(
-      find.textContaining('No cached details are shown.'),
-      findsOneWidget,
-    );
+    expect(find.textContaining('No cached details are shown.'), findsOneWidget);
   });
 
   testWidgets('Persian summary remains localized and RTL', (tester) async {
