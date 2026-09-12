@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:lifemate_client/lifemate_client.dart';
 
+import '../circle/api_camp_companion_selection_source.dart';
 import '../circle/camp_companion_selection.dart';
 import '../circle/camp_companion_selection_view.dart';
 import '../living_camp/camp_home.dart';
@@ -39,6 +40,8 @@ class LifeMateShell extends StatefulWidget {
 
 class _LifeMateShellState extends State<LifeMateShell> {
   late ShellDestination _destination = widget.initialDestination;
+  LifeMateApiClient? _defaultCampCompanionClient;
+  ApiCampCompanionSelectionSource? _defaultCampCompanionSource;
 
   bool get _isPersian => Localizations.localeOf(context).languageCode == 'fa';
 
@@ -51,9 +54,29 @@ class _LifeMateShellState extends State<LifeMateShell> {
   NotificationCenterSource get _notificationSource =>
       widget.notificationSource ?? const UnavailableNotificationCenterSource();
 
-  CampCompanionSelectionSource get _campCompanionSource =>
-      widget.campCompanionSource ??
-      const UnavailableCampCompanionSelectionSource();
+  CampCompanionSelectionSource get _campCompanionSource {
+    final injected = widget.campCompanionSource;
+    if (injected != null) return injected;
+
+    final apiClient = widget.apiClient;
+    if (apiClient == null) {
+      _defaultCampCompanionClient = null;
+      _defaultCampCompanionSource = null;
+      return const UnavailableCampCompanionSelectionSource();
+    }
+
+    if (!identical(_defaultCampCompanionClient, apiClient) ||
+        _defaultCampCompanionSource == null) {
+      _defaultCampCompanionClient = apiClient;
+      _defaultCampCompanionSource = ApiCampCompanionSelectionSource(
+        apiClient: apiClient,
+        isPersian: _isPersian,
+      );
+    } else {
+      _defaultCampCompanionSource!.updateLocale(isPersian: _isPersian);
+    }
+    return _defaultCampCompanionSource!;
+  }
 
   String _t(String en, String fa) => _isPersian ? fa : en;
 
