@@ -71,10 +71,18 @@ async function jsonObject(request: Request): Promise<Record<string, unknown>> {
   try {
     body = await request.json();
   } catch {
-    throw new ApiError(400, "invalid_request", "Request body must be valid JSON.");
+    throw new ApiError(
+      400,
+      "invalid_request",
+      "Request body must be valid JSON.",
+    );
   }
   if (!body || typeof body !== "object" || Array.isArray(body)) {
-    throw new ApiError(400, "invalid_request", "Request body must be an object.");
+    throw new ApiError(
+      400,
+      "invalid_request",
+      "Request body must be an object.",
+    );
   }
   return body as Record<string, unknown>;
 }
@@ -83,7 +91,12 @@ export async function parseBreakGlassCreateRequest(
   request: Request,
 ): Promise<BreakGlassCreateRequest> {
   const body = await jsonObject(request);
-  const allowed = new Set(["subjectPersonId", "capability", "ttlMinutes", "reason"]);
+  const allowed = new Set([
+    "subjectPersonId",
+    "capability",
+    "ttlMinutes",
+    "reason",
+  ]);
   if (Object.keys(body).some((key) => !allowed.has(key))) {
     throw new ApiError(
       400,
@@ -93,7 +106,10 @@ export async function parseBreakGlassCreateRequest(
   }
   const selected = capability(body.capability);
   return {
-    subjectPersonId: requireUuid(String(body.subjectPersonId ?? ""), "subjectPersonId"),
+    subjectPersonId: requireUuid(
+      String(body.subjectPersonId ?? ""),
+      "subjectPersonId",
+    ),
     capability: selected,
     ttlMinutes: ttl(body.ttlMinutes, selected),
     reason: reason(body.reason),
@@ -123,7 +139,9 @@ export async function parseBreakGlassActionRequest(
       "Request contains an unsupported field.",
     );
   }
-  if (!Number.isInteger(body.expectedVersion) || Number(body.expectedVersion) < 1) {
+  if (
+    !Number.isInteger(body.expectedVersion) || Number(body.expectedVersion) < 1
+  ) {
     throw new ApiError(
       400,
       "break_glass_version_invalid",

@@ -46,7 +46,9 @@ function mutationStatus(result: Record<string, unknown>): number {
 
 function scenarioIdFromPath(path: string): string | null | undefined {
   if (path === "/api/v1/finance/scenarios") return null;
-  const match = /^\/api\/v1\/finance\/scenarios\/([0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12})$/i.exec(path);
+  const match =
+    /^\/api\/v1\/finance\/scenarios\/([0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12})$/i
+      .exec(path);
   return match?.[1];
 }
 

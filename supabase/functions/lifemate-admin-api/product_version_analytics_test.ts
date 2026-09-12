@@ -12,14 +12,18 @@ import { ApiError } from "./validation.ts";
 Deno.test("product version adoption filters normalize safely", () => {
   assertEquals(
     parseProductVersionAdoptionQuery(
-      new URL("https://example.test/api/v1/analytics/product-version-adoption?product=WellMate&platform=Android"),
+      new URL(
+        "https://example.test/api/v1/analytics/product-version-adoption?product=WellMate&platform=Android",
+      ),
     ),
     { product: "wellmate", platform: "android" },
   );
 
   const error = assertThrows(() =>
     parseProductVersionAdoptionQuery(
-      new URL("https://example.test/api/v1/analytics/product-version-adoption?platform=device-fingerprint"),
+      new URL(
+        "https://example.test/api/v1/analytics/product-version-adoption?platform=device-fingerprint",
+      ),
     )
   );
   assertEquals(error instanceof ApiError, true);
@@ -90,15 +94,25 @@ Deno.test("update policy history stays read-only, permission-scoped, and bounded
   );
 
   assertEquals(
-    routes.includes('path === "/api/v1/platform/product-update-policies/history"'),
+    routes.includes(
+      'path === "/api/v1/platform/product-update-policies/history"',
+    ),
     true,
   );
   assertEquals(
-    routes.includes('requirePermission(admin, "analytics.product_versions.read")'),
+    routes.includes(
+      'requirePermission(admin, "analytics.product_versions.read")',
+    ),
     true,
   );
-  assertEquals(routes.includes('source: "platform.product_update_policy_history"'), true);
-  assertEquals(service.includes("from platform.product_update_policy_history"), true);
+  assertEquals(
+    routes.includes('source: "platform.product_update_policy_history"'),
+    true,
+  );
+  assertEquals(
+    service.includes("from platform.product_update_policy_history"),
+    true,
+  );
   assertEquals(service.includes("limit 250"), true);
   assertEquals(service.includes("updated_by_account_id"), false);
 });

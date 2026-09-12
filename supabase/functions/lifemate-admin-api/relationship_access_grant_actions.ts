@@ -15,15 +15,18 @@ export type AccessGrantActionRequest = {
   confirmation: "confirm-access-grant-change";
 };
 
-const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
+const UUID =
+  /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
 const SCOPE = /^[A-Za-z][A-Za-z0-9_.:-]{0,127}$/;
 
 export function matchAccessGrantActionPath(
   path: string,
 ): AccessGrantActionRoute | null {
-  const match = /^\/api\/v1\/relationships\/access-grants\/([^/]+)\/actions\/(extend|replace-scopes|revoke)$/.exec(
-    path,
-  );
+  const match =
+    /^\/api\/v1\/relationships\/access-grants\/([^/]+)\/actions\/(extend|replace-scopes|revoke)$/
+      .exec(
+        path,
+      );
   if (!match) return null;
   if (!UUID.test(match[1])) {
     throw new ApiError(
@@ -61,7 +64,10 @@ function exactObject(
 }
 
 function expectedVersion(value: unknown): number {
-  if (!Number.isInteger(value) || Number(value) < 1 || Number(value) > 2_147_483_647) {
+  if (
+    !Number.isInteger(value) || Number(value) < 1 ||
+    Number(value) > 2_147_483_647
+  ) {
     throw new ApiError(
       400,
       "access_grant_version_invalid",

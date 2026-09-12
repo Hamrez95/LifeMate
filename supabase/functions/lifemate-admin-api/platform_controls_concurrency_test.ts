@@ -11,8 +11,12 @@ Deno.test("active control rules re-check and lock their parent control", async (
   assertStringIncludes(sql, "for update");
   assertStringIncludes(sql, "platform_control_inactive");
   assertStringIncludes(sql, "before insert or update of status, control_key");
-  assertStringIncludes(sql, "execute function platform.enforce_active_rule_parent()");
+  assertStringIncludes(
+    sql,
+    "execute function platform.enforce_active_rule_parent()",
+  );
 
-  const parentCheck = /select c\.status[\s\S]*where c\.control_key = new\.control_key[\s\S]*for update[\s\S]*v_parent_status <> 'Active'/;
+  const parentCheck =
+    /select c\.status[\s\S]*where c\.control_key = new\.control_key[\s\S]*for update[\s\S]*v_parent_status <> 'Active'/;
   assert(parentCheck.test(sql));
 });

@@ -5,11 +5,14 @@ import {
 } from "./product_update_policy_mutation.ts";
 
 function request(body: Record<string, unknown>) {
-  return new Request("https://example.test/api/v1/platform/product-update-policies", {
-    method: "PUT",
-    headers: { "content-type": "application/json" },
-    body: JSON.stringify(body),
-  });
+  return new Request(
+    "https://example.test/api/v1/platform/product-update-policies",
+    {
+      method: "PUT",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify(body),
+    },
+  );
 }
 
 const valid = {
@@ -35,7 +38,8 @@ Deno.test("product update policy parser normalizes canonical payload", async () 
 
 Deno.test("force update rejects Routine reason", async () => {
   await assertRejects(
-    () => parseProductUpdatePolicyMutation(request({ ...valid, mode: "Force" })),
+    () =>
+      parseProductUpdatePolicyMutation(request({ ...valid, mode: "Force" })),
     Error,
     "Force update",
   );
@@ -43,12 +47,18 @@ Deno.test("force update rejects Routine reason", async () => {
 
 Deno.test("expectedVersion must be a non-negative integer", async () => {
   await assertRejects(
-    () => parseProductUpdatePolicyMutation(request({ ...valid, expectedVersion: -1 })),
+    () =>
+      parseProductUpdatePolicyMutation(
+        request({ ...valid, expectedVersion: -1 }),
+      ),
     Error,
     "expectedVersion",
   );
   await assertRejects(
-    () => parseProductUpdatePolicyMutation(request({ ...valid, expectedVersion: 1.5 })),
+    () =>
+      parseProductUpdatePolicyMutation(
+        request({ ...valid, expectedVersion: 1.5 }),
+      ),
     Error,
     "expectedVersion",
   );
@@ -59,6 +69,9 @@ Deno.test("request hash is stable and changes with policy version", async () => 
   const first = await hashProductUpdatePolicyMutation(parsed);
   const second = await hashProductUpdatePolicyMutation(parsed);
   assertEquals(first, second);
-  const changed = await hashProductUpdatePolicyMutation({ ...parsed, expectedVersion: 3 });
+  const changed = await hashProductUpdatePolicyMutation({
+    ...parsed,
+    expectedVersion: 3,
+  });
   assertEquals(first === changed, false);
 });

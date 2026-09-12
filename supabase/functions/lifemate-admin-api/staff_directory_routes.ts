@@ -21,16 +21,27 @@ import { ApiError } from "./validation.ts";
 
 export function createStaffDirectoryRouteHandler(databaseUrl: string) {
   const store = createStaffDirectoryStore(databaseUrl);
-  const preferencesRouteHandler = createCommandCenterPreferencesRouteHandler(databaseUrl);
-  const operationsSnapshotRouteHandler = createOperationsSnapshotRouteHandler(databaseUrl);
-  const platformControlRouteHandler = createPlatformControlRouteHandler(databaseUrl);
-  const privacyConsentRouteHandler = createPrivacyConsentRouteHandler(databaseUrl);
+  const preferencesRouteHandler = createCommandCenterPreferencesRouteHandler(
+    databaseUrl,
+  );
+  const operationsSnapshotRouteHandler = createOperationsSnapshotRouteHandler(
+    databaseUrl,
+  );
+  const platformControlRouteHandler = createPlatformControlRouteHandler(
+    databaseUrl,
+  );
+  const privacyConsentRouteHandler = createPrivacyConsentRouteHandler(
+    databaseUrl,
+  );
   const productVersionAnalyticsRouteHandler =
     createProductVersionAnalyticsRouteHandler(databaseUrl);
-  const relationshipAccessGrantRouteHandler = createRelationshipAccessGrantRouteHandler(databaseUrl);
+  const relationshipAccessGrantRouteHandler =
+    createRelationshipAccessGrantRouteHandler(databaseUrl);
   const supportConversationRouteHandler =
     createSupportConversationAdminRouteHandler(databaseUrl);
-  const researchDatasetRouteHandler = createResearchDatasetRouteHandler(databaseUrl);
+  const researchDatasetRouteHandler = createResearchDatasetRouteHandler(
+    databaseUrl,
+  );
 
   return async function staffDirectoryRouteHandler(input: {
     request: Request;
@@ -56,9 +67,13 @@ export function createStaffDirectoryRouteHandler(databaseUrl: string) {
     const productVersionAnalyticsResponse =
       await productVersionAnalyticsRouteHandler(input);
     if (productVersionAnalyticsResponse) return productVersionAnalyticsResponse;
-    const accessGrantResponse = await relationshipAccessGrantRouteHandler(input);
+    const accessGrantResponse = await relationshipAccessGrantRouteHandler(
+      input,
+    );
     if (accessGrantResponse) return accessGrantResponse;
-    const supportConversationResponse = await supportConversationRouteHandler(input);
+    const supportConversationResponse = await supportConversationRouteHandler(
+      input,
+    );
     if (supportConversationResponse) return supportConversationResponse;
     const researchDatasetResponse = await researchDatasetRouteHandler(input);
     if (researchDatasetResponse) return researchDatasetResponse;
@@ -100,7 +115,11 @@ export function createStaffDirectoryRouteHandler(databaseUrl: string) {
       requirePermission(admin, "security.staff.audit.read");
       const detail = await store.getDetail(targetAccountId);
       if (!detail) {
-        throw new ApiError(404, "staff_not_found", "Staff member was not found.");
+        throw new ApiError(
+          404,
+          "staff_not_found",
+          "Staff member was not found.",
+        );
       }
       await store.auditDetailRead(accountId, targetAccountId, correlationId);
       return json(

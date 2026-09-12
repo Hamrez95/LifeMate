@@ -8,11 +8,19 @@ import { ApiError } from "./validation.ts";
 
 function result(value: unknown): Record<string, unknown> {
   if (!value || typeof value !== "object" || Array.isArray(value)) {
-    throw new ApiError(503, "break_glass_unavailable", "Break-glass workflow result was unavailable.");
+    throw new ApiError(
+      503,
+      "break_glass_unavailable",
+      "Break-glass workflow result was unavailable.",
+    );
   }
   const parsed = value as Record<string, unknown>;
   if (!Number.isInteger(parsed.httpStatus) || typeof parsed.code !== "string") {
-    throw new ApiError(503, "break_glass_unavailable", "Break-glass workflow result was invalid.");
+    throw new ApiError(
+      503,
+      "break_glass_unavailable",
+      "Break-glass workflow result was invalid.",
+    );
   }
   return parsed;
 }
@@ -60,11 +68,21 @@ export function createBreakGlassStore(databaseUrl: string) {
         status: String(row.effective_status),
         ttlMinutes: Number(row.requested_ttl_minutes),
         requestedAtUtc: iso(row.requested_at_utc),
-        reviewedByAccountId: row.reviewed_by_account_id == null ? null : String(row.reviewed_by_account_id),
-        reviewedAtUtc: row.reviewed_at_utc == null ? null : iso(row.reviewed_at_utc),
-        expiresAtUtc: row.expires_at_utc == null ? null : iso(row.expires_at_utc),
-        revokedAtUtc: row.revoked_at_utc == null ? null : iso(row.revoked_at_utc),
-        reviewReason: row.review_reason == null ? null : String(row.review_reason),
+        reviewedByAccountId: row.reviewed_by_account_id == null
+          ? null
+          : String(row.reviewed_by_account_id),
+        reviewedAtUtc: row.reviewed_at_utc == null
+          ? null
+          : iso(row.reviewed_at_utc),
+        expiresAtUtc: row.expires_at_utc == null
+          ? null
+          : iso(row.expires_at_utc),
+        revokedAtUtc: row.revoked_at_utc == null
+          ? null
+          : iso(row.revoked_at_utc),
+        reviewReason: row.review_reason == null
+          ? null
+          : String(row.review_reason),
         version: Number(row.version),
       }));
     },

@@ -246,9 +246,14 @@ export const KPI_DEFINITIONS: readonly AnalyticsKpiDefinition[] = [
       "count(distinct cohort account whose same enrollment has last_active_at_utc >= enrolled_at_utc and <= cohort end)",
     numerator: "distinct activated accounts in the enrollment cohort",
     denominator: "activation_enrolled_accounts",
-    timeWindow: "app-enrollment cohort within selected date range, observed through selected end date",
+    timeWindow:
+      "app-enrollment cohort within selected date range, observed through selected end date",
     timezone: "Asia/Tehran",
-    exclusions: ["Deleted accounts", "Disabled applications", "Activity after selected end date"],
+    exclusions: [
+      "Deleted accounts",
+      "Disabled applications",
+      "Activity after selected end date",
+    ],
     eventSources: ["app_enrolled", "app_activation_observed"],
     freshnessRule:
       "Partial because last_active_at_utc is a current snapshot rather than canonical app-open history; small aggregates are suppressed.",
@@ -268,9 +273,14 @@ export const KPI_DEFINITIONS: readonly AnalyticsKpiDefinition[] = [
     formula: "activation_observed_accounts / activation_enrolled_accounts",
     numerator: "activation_observed_accounts",
     denominator: "activation_enrolled_accounts",
-    timeWindow: "same enrollment cohort and observation window as activation funnel",
+    timeWindow:
+      "same enrollment cohort and observation window as activation funnel",
     timezone: "Asia/Tehran",
-    exclusions: ["Suppressed small cohorts", "Deleted accounts", "Disabled applications"],
+    exclusions: [
+      "Suppressed small cohorts",
+      "Deleted accounts",
+      "Disabled applications",
+    ],
     eventSources: ["app_enrolled", "app_activation_observed"],
     freshnessRule:
       "Computed only by Core from the canonical funnel cohort; unavailable when either aggregate is suppressed.",

@@ -1,7 +1,4 @@
-import {
-  assertFalse,
-  assertStringIncludes,
-} from "jsr:@std/assert@1.0.14";
+import { assertFalse, assertStringIncludes } from "jsr:@std/assert@1.0.14";
 
 Deno.test("Admin support visible-message routes stay permissioned and audited", async () => {
   const routes = await Deno.readTextFile(
@@ -22,10 +19,14 @@ Deno.test("Admin support visible-message routes stay permissioned and audited", 
   assertStringIncludes(routes, "requireIdempotencyKey(request)");
   assertStringIncludes(migration, "admin.send_support_conversation_message");
   assertStringIncludes(migration, "support.conversation.message.sent");
-  assertStringIncludes(dispatcher, "supportConversationRouteHandler(input)");
+  assertStringIncludes(
+    dispatcher.replace(/\s+/g, "").replace(/,\)/g, ")"),
+    "supportConversationRouteHandler(input)",
+  );
 
   // Visible conversation messages are distinct from privacy-minimized internal
-  // notes. Do not log/persist message body inside Admin audit metadata.
+  // notes. Do not log/persist message body or an InternalNoteAdded event value
+  // inside the visible-message migration. Comments may document the separation.
   assertFalse(migration.includes("jsonb_build_object('body'"));
-  assertFalse(migration.includes("InternalNoteAdded"));
+  assertFalse(migration.includes("'InternalNoteAdded'"));
 });

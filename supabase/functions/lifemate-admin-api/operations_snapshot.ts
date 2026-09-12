@@ -45,7 +45,10 @@ export async function buildOperationsSnapshot(
   const monotonicNow = input.monotonicNow ?? (() => performance.now());
   const startedAt = monotonicNow();
   await input.checkDatabase();
-  const latencyMs = Math.max(0, Math.round((monotonicNow() - startedAt) * 10) / 10);
+  const latencyMs = Math.max(
+    0,
+    Math.round((monotonicNow() - startedAt) * 10) / 10,
+  );
   const checkedAtUtc = now().toISOString();
 
   return {

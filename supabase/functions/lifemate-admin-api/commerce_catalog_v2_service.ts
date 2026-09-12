@@ -76,15 +76,15 @@ export function createCommerceCatalogV2Store(databaseUrl: string) {
               version: Number(offer.version),
               price: offer.price_id
                 ? {
-                    id: String(offer.price_id),
-                    countryCode: offer.country_code == null
-                      ? null
-                      : String(offer.country_code),
-                    currency: String(offer.currency),
-                    storeProvider: String(offer.store_provider),
-                    amountMinor: String(offer.amount_minor),
-                    effectiveFromUtc: iso(offer.effective_from_utc),
-                  }
+                  id: String(offer.price_id),
+                  countryCode: offer.country_code == null
+                    ? null
+                    : String(offer.country_code),
+                  currency: String(offer.currency),
+                  storeProvider: String(offer.store_provider),
+                  amountMinor: String(offer.amount_minor),
+                  effectiveFromUtc: iso(offer.effective_from_utc),
+                }
                 : null,
             })),
           policies: policies
@@ -97,15 +97,19 @@ export function createCommerceCatalogV2Store(databaseUrl: string) {
             })),
         })),
         bundles: Object.values(
-          bundles.reduce<Record<string, {
-            id: string;
-            code: string;
-            name: string;
-            status: string;
-            giftEligible: boolean;
-            version: number;
-            items: Array<{ offerId: string; offerCode: string; productId: string }>;
-          }>>((acc, row) => {
+          bundles.reduce<
+            Record<string, {
+              id: string;
+              code: string;
+              name: string;
+              status: string;
+              giftEligible: boolean;
+              version: number;
+              items: Array<
+                { offerId: string; offerCode: string; productId: string }
+              >;
+            }>
+          >((acc, row) => {
             const id = String(row.id);
             acc[id] ??= {
               id,

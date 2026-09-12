@@ -40,7 +40,9 @@ Deno.test("marketing attribution parser rejects reversed date ranges", () => {
   let rejected = false;
   try {
     parseMarketingAttributionQuery(
-      new URL("https://example.test/api/v1/marketing/attribution?from=2026-08-26&to=2026-08-01"),
+      new URL(
+        "https://example.test/api/v1/marketing/attribution?from=2026-08-26&to=2026-08-01",
+      ),
     );
   } catch {
     rejected = true;

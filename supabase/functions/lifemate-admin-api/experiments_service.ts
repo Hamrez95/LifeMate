@@ -41,7 +41,9 @@ type ExposureRow = {
 
 function iso(value: Date | string | null): string | null {
   if (value == null) return null;
-  return value instanceof Date ? value.toISOString() : new Date(value).toISOString();
+  return value instanceof Date
+    ? value.toISOString()
+    : new Date(value).toISOString();
 }
 
 function assertMutationResult(value: unknown): Record<string, unknown> {
@@ -147,8 +149,13 @@ export function createExperimentStore(databaseUrl: string) {
         order by updated_at_utc desc,experiment_key
         limit 200
       `;
-      const variants = await loadVariants(sql, rows.map((row) => row.experiment_key));
-      return rows.map((row) => mapExperiment(row, variants.get(row.experiment_key) ?? []));
+      const variants = await loadVariants(
+        sql,
+        rows.map((row) => row.experiment_key),
+      );
+      return rows.map((row) =>
+        mapExperiment(row, variants.get(row.experiment_key) ?? [])
+      );
     },
 
     async get(key: string) {
@@ -168,7 +175,10 @@ export function createExperimentStore(databaseUrl: string) {
       return {
         ...mapExperiment(rows[0], variants.get(key) ?? []),
         exposureSummary: {
-          total: exposures.reduce((sum, row) => sum + Number(row.exposure_count), 0),
+          total: exposures.reduce(
+            (sum, row) => sum + Number(row.exposure_count),
+            0,
+          ),
           variants: exposures.map((row) => ({
             variantKey: row.variant_key,
             count: Number(row.exposure_count),
@@ -191,7 +201,9 @@ export function createExperimentStore(databaseUrl: string) {
           ${input.actorAccountId}::uuid,${p.experimentKey}::varchar,${p.name}::varchar,
           ${p.controlKey}::varchar,${p.surface}::varchar,${p.productCode}::varchar,
           ${p.segmentKey}::varchar,${p.segmentSnapshotId}::uuid,${p.primaryMetricCode}::varchar,
-          ${p.guardrailMetricCodes}::varchar[],${JSON.stringify(p.variants)}::jsonb,
+          ${p.guardrailMetricCodes}::varchar[],${
+        JSON.stringify(p.variants)
+      }::jsonb,
           ${p.startsAtUtc}::timestamptz,${p.endsAtUtc}::timestamptz,${p.reason}::varchar,
           ${input.correlationId}::uuid,${input.idempotencyKey}::varchar,${input.requestHash}::varchar
         ) as result

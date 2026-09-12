@@ -11,11 +11,22 @@ type Row = Record<string, unknown>;
 
 function result(value: unknown): Row {
   if (!value || typeof value !== "object" || Array.isArray(value)) {
-    throw new ApiError(503,"custom_role_workflow_unavailable","Custom role workflow result was unavailable.");
+    throw new ApiError(
+      503,
+      "custom_role_workflow_unavailable",
+      "Custom role workflow result was unavailable.",
+    );
   }
   const row = value as Row;
-  if (!Number.isInteger(row.httpStatus) || typeof row.code !== "string" || typeof row.replayed !== "boolean") {
-    throw new ApiError(503,"custom_role_workflow_unavailable","Custom role workflow result was invalid.");
+  if (
+    !Number.isInteger(row.httpStatus) || typeof row.code !== "string" ||
+    typeof row.replayed !== "boolean"
+  ) {
+    throw new ApiError(
+      503,
+      "custom_role_workflow_unavailable",
+      "Custom role workflow result was invalid.",
+    );
   }
   return row;
 }
@@ -43,34 +54,36 @@ export function createCustomRoleStore(databaseUrl: string) {
         order by p.domain,p.code
       `;
       return {
-        roles:roles.map((row) => ({
-          code:String(row.code),
-          displayName:String(row.display_name),
-          rank:Number(row.rank),
-          status:String(row.status),
-          version:Number(row.version),
-          permissions:Array.isArray(row.permissions) ? row.permissions.map(String) : [],
-          activeMemberCount:Number(row.active_member_count ?? 0),
-          createdAtUtc:new Date(String(row.created_at_utc)).toISOString(),
-          updatedAtUtc:new Date(String(row.updated_at_utc)).toISOString(),
+        roles: roles.map((row) => ({
+          code: String(row.code),
+          displayName: String(row.display_name),
+          rank: Number(row.rank),
+          status: String(row.status),
+          version: Number(row.version),
+          permissions: Array.isArray(row.permissions)
+            ? row.permissions.map(String)
+            : [],
+          activeMemberCount: Number(row.active_member_count ?? 0),
+          createdAtUtc: new Date(String(row.created_at_utc)).toISOString(),
+          updatedAtUtc: new Date(String(row.updated_at_utc)).toISOString(),
         })),
-        permissionCatalog:catalog.map((row) => ({
-          code:String(row.code),
-          domain:String(row.domain),
-          riskLevel:String(row.risk_level),
-          description:String(row.description),
-          delegable:Boolean(row.delegable),
+        permissionCatalog: catalog.map((row) => ({
+          code: String(row.code),
+          domain: String(row.domain),
+          riskLevel: String(row.risk_level),
+          description: String(row.description),
+          delegable: Boolean(row.delegable),
         })),
       };
     },
 
     async mutateRole(input: {
-      actorAccountId:string;
-      action:CustomRoleMutationAction;
-      payload:CustomRoleMutationRequest;
-      correlationId:string;
-      idempotencyKey:string;
-      requestHash:string;
+      actorAccountId: string;
+      action: CustomRoleMutationAction;
+      payload: CustomRoleMutationRequest;
+      correlationId: string;
+      idempotencyKey: string;
+      requestHash: string;
     }) {
       const rows = await sql`
         select admin.mutate_custom_role(
@@ -90,13 +103,13 @@ export function createCustomRoleStore(databaseUrl: string) {
     },
 
     async mutatePermission(input: {
-      actorAccountId:string;
-      roleCode:string;
-      action:CustomRolePermissionAction;
-      payload:CustomRolePermissionRequest;
-      correlationId:string;
-      idempotencyKey:string;
-      requestHash:string;
+      actorAccountId: string;
+      roleCode: string;
+      action: CustomRolePermissionAction;
+      payload: CustomRolePermissionRequest;
+      correlationId: string;
+      idempotencyKey: string;
+      requestHash: string;
     }) {
       const rows = await sql`
         select admin.mutate_custom_role_permission(

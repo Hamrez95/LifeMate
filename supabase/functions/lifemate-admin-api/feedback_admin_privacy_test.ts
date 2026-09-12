@@ -19,10 +19,15 @@ Deno.test("marketing and analytics get aggregate trends without raw feedback que
     "Aggregate feedback/NPS trends guarded by feedback.trends.read. No free-text payload is returned.",
   );
   assertStringIncludes(routes, 'path === "/api/v1/feedback/trends"');
-  assertStringIncludes(routes, 'requirePermission(admin, "feedback.trends.read")');
+  assertStringIncludes(
+    routes,
+    'requirePermission(admin, "feedback.trends.read")',
+  );
 
-  const revocation = /delete from admin\.role_permissions[\s\S]*permission_code = 'feedback\.read'[\s\S]*marketing','analytics/;
+  const revocation =
+    /delete from admin\.role_permissions[\s\S]*permission_code = 'feedback\.read'[\s\S]*marketing','analytics/;
   assert(revocation.test(sql));
-  const aggregateGrant = /insert into admin\.role_permissions[\s\S]*'feedback\.trends\.read'[\s\S]*marketing','analytics/;
+  const aggregateGrant =
+    /insert into admin\.role_permissions[\s\S]*'feedback\.trends\.read'[\s\S]*marketing','analytics/;
   assert(aggregateGrant.test(sql));
 });

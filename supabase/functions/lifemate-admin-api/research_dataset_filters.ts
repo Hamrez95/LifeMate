@@ -73,7 +73,11 @@ export function parseResearchDatasetFilters(
 
 function dateOnly(value: unknown, field: string): string {
   if (typeof value !== "string" || !/^\d{4}-\d{2}-\d{2}$/.test(value)) {
-    throw new ApiError(400, "research_filter_value_invalid", `${field} must be an ISO date.`);
+    throw new ApiError(
+      400,
+      "research_filter_value_invalid",
+      `${field} must be an ISO date.`,
+    );
   }
   const [yearText, monthText, dayText] = value.split("-");
   const year = Number(yearText);
@@ -86,36 +90,67 @@ function dateOnly(value: unknown, field: string): string {
     date.getUTCMonth() !== month - 1 ||
     date.getUTCDate() !== day
   ) {
-    throw new ApiError(400, "research_filter_value_invalid", `${field} must be an ISO date.`);
+    throw new ApiError(
+      400,
+      "research_filter_value_invalid",
+      `${field} must be an ISO date.`,
+    );
   }
   return value;
 }
 
 function boundedInteger(value: unknown, field: string): number {
   if (!Number.isInteger(value)) {
-    throw new ApiError(400, "research_filter_value_invalid", `${field} must be an integer.`);
+    throw new ApiError(
+      400,
+      "research_filter_value_invalid",
+      `${field} must be an integer.`,
+    );
   }
   const number = Number(value);
   if (field.startsWith("age") && (number < 0 || number > 130)) {
-    throw new ApiError(400, "research_filter_value_invalid", `${field} is outside the supported age range.`);
+    throw new ApiError(
+      400,
+      "research_filter_value_invalid",
+      `${field} is outside the supported age range.`,
+    );
   }
-  if ((field.startsWith("energy") || field.startsWith("pain")) && (number < 0 || number > 10)) {
-    throw new ApiError(400, "research_filter_value_invalid", `${field} is outside the supported scale.`);
+  if (
+    (field.startsWith("energy") || field.startsWith("pain")) &&
+    (number < 0 || number > 10)
+  ) {
+    throw new ApiError(
+      400,
+      "research_filter_value_invalid",
+      `${field} is outside the supported scale.`,
+    );
   }
   return number;
 }
 
 function stringSet(value: unknown, field: string): string[] {
   if (!Array.isArray(value) || value.length < 1 || value.length > 50) {
-    throw new ApiError(400, "research_filter_value_invalid", `${field} must contain 1 to 50 values.`);
+    throw new ApiError(
+      400,
+      "research_filter_value_invalid",
+      `${field} must contain 1 to 50 values.`,
+    );
   }
   const normalized = value.map((item) => {
     if (typeof item !== "string") {
-      throw new ApiError(400, "research_filter_value_invalid", `${field} values must be text.`);
+      throw new ApiError(
+        400,
+        "research_filter_value_invalid",
+        `${field} values must be text.`,
+      );
     }
     const text = item.trim();
     if (!text || text.length > 80 || /[\u0000-\u001f]/.test(text)) {
-      throw new ApiError(400, "research_filter_value_invalid", `${field} contains an invalid value.`);
+      throw new ApiError(
+        400,
+        "research_filter_value_invalid",
+        `${field} contains an invalid value.`,
+      );
     }
     return text;
   });
@@ -132,7 +167,11 @@ function validateRanges(filters: JsonObject) {
     const min = filters[minimum];
     const max = filters[maximum];
     if (typeof min === "number" && typeof max === "number" && min > max) {
-      throw new ApiError(400, "research_filter_range_invalid", `${minimum} cannot exceed ${maximum}.`);
+      throw new ApiError(
+        400,
+        "research_filter_range_invalid",
+        `${minimum} cannot exceed ${maximum}.`,
+      );
     }
   }
 
@@ -146,7 +185,11 @@ function validateRanges(filters: JsonObject) {
     const from = filters[fromKey];
     const to = filters[toKey];
     if (typeof from === "string" && typeof to === "string" && from > to) {
-      throw new ApiError(400, "research_filter_range_invalid", `${fromKey} cannot be after ${toKey}.`);
+      throw new ApiError(
+        400,
+        "research_filter_range_invalid",
+        `${fromKey} cannot be after ${toKey}.`,
+      );
     }
   }
 }

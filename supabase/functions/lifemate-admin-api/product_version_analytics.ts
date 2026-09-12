@@ -10,7 +10,8 @@ const platforms = new Set([
   "linux",
   "unknown",
 ]);
-const uuid = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
+const uuid =
+  /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
 
 export type ProductVersionAdoptionQuery = {
   product: string | null;
@@ -20,8 +21,10 @@ export type ProductVersionAdoptionQuery = {
 export function parseProductVersionAdoptionQuery(
   url: URL,
 ): ProductVersionAdoptionQuery {
-  const productRaw = url.searchParams.get("product")?.trim().toLowerCase() ?? "";
-  const platformRaw = url.searchParams.get("platform")?.trim().toLowerCase() ?? "";
+  const productRaw = url.searchParams.get("product")?.trim().toLowerCase() ??
+    "";
+  const platformRaw = url.searchParams.get("platform")?.trim().toLowerCase() ??
+    "";
   if (productRaw && !products.has(productRaw)) {
     throw new ApiError(400, "product_invalid", "product is invalid.");
   }

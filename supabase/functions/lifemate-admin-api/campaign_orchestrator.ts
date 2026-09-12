@@ -7,11 +7,19 @@ const currencyPattern = /^[A-Z]{3}$/;
 
 function text(value: unknown, field: string, max: number): string {
   if (typeof value !== "string") {
-    throw new ApiError(400, "campaign_execution_invalid", `${field} is invalid.`);
+    throw new ApiError(
+      400,
+      "campaign_execution_invalid",
+      `${field} is invalid.`,
+    );
   }
   const next = value.trim();
   if (!next || new TextEncoder().encode(next).byteLength > max) {
-    throw new ApiError(400, "campaign_execution_invalid", `${field} is invalid.`);
+    throw new ApiError(
+      400,
+      "campaign_execution_invalid",
+      `${field} is invalid.`,
+    );
   }
   return next;
 }
@@ -19,7 +27,11 @@ function text(value: unknown, field: string, max: number): string {
 function uuid(value: unknown, field: string): string {
   const next = text(value, field, 64).toLowerCase();
   if (!uuidPattern.test(next)) {
-    throw new ApiError(400, "campaign_execution_invalid", `${field} is invalid.`);
+    throw new ApiError(
+      400,
+      "campaign_execution_invalid",
+      `${field} is invalid.`,
+    );
   }
   return next;
 }
@@ -37,7 +49,10 @@ function positiveVersion(value: unknown): number {
 
 export function parsePrepareCampaignExecution(body: Record<string, unknown>) {
   const campaignId = uuid(body.campaignId, "campaignId");
-  const audienceSnapshotId = uuid(body.audienceSnapshotId, "audienceSnapshotId");
+  const audienceSnapshotId = uuid(
+    body.audienceSnapshotId,
+    "audienceSnapshotId",
+  );
   const campaignUpdatedAtUtc = text(
     body.campaignUpdatedAtUtc,
     "campaignUpdatedAtUtc",
@@ -51,13 +66,26 @@ export function parsePrepareCampaignExecution(body: Record<string, unknown>) {
       "campaignUpdatedAtUtc is invalid.",
     );
   }
-  if (!Array.isArray(body.channels) || body.channels.length < 1 || body.channels.length > 2) {
-    throw new ApiError(400, "campaign_channels_invalid", "channels is invalid.");
+  if (
+    !Array.isArray(body.channels) || body.channels.length < 1 ||
+    body.channels.length > 2
+  ) {
+    throw new ApiError(
+      400,
+      "campaign_channels_invalid",
+      "channels is invalid.",
+    );
   }
   const channels = body.channels.map((item) => text(item, "channel", 16));
-  if (channels.some((item) => item !== "SMS" && item !== "Push") ||
-      new Set(channels).size !== channels.length) {
-    throw new ApiError(400, "campaign_channels_invalid", "channels is invalid.");
+  if (
+    channels.some((item) => item !== "SMS" && item !== "Push") ||
+    new Set(channels).size !== channels.length
+  ) {
+    throw new ApiError(
+      400,
+      "campaign_channels_invalid",
+      "channels is invalid.",
+    );
   }
 
   let smsProvider: string | null = null;
@@ -65,7 +93,9 @@ export function parsePrepareCampaignExecution(body: Record<string, unknown>) {
   if (body.smsProvider != null || body.smsCurrency != null) {
     smsProvider = text(body.smsProvider, "smsProvider", 40).toLowerCase();
     smsCurrency = text(body.smsCurrency, "smsCurrency", 3).toUpperCase();
-    if (!providerPattern.test(smsProvider) || !currencyPattern.test(smsCurrency)) {
+    if (
+      !providerPattern.test(smsProvider) || !currencyPattern.test(smsCurrency)
+    ) {
       throw new ApiError(
         400,
         "campaign_sms_pricing_invalid",
@@ -109,7 +139,11 @@ export function parseScheduleExecution(
   const raw = text(body.scheduledAtUtc, "scheduledAtUtc", 64);
   const scheduled = new Date(raw);
   if (Number.isNaN(scheduled.getTime())) {
-    throw new ApiError(400, "campaign_schedule_invalid", "scheduledAtUtc is invalid.");
+    throw new ApiError(
+      400,
+      "campaign_schedule_invalid",
+      "scheduledAtUtc is invalid.",
+    );
   }
   return { ...common, scheduledAtUtc: scheduled.toISOString() };
 }
@@ -121,7 +155,11 @@ export function parseCancelExecution(
   const common = parseExecutionTransition(executionId, body);
   const reason = text(body.reason, "reason", 1000);
   if (reason.length < 10) {
-    throw new ApiError(400, "campaign_cancel_reason_invalid", "reason is too short.");
+    throw new ApiError(
+      400,
+      "campaign_cancel_reason_invalid",
+      "reason is too short.",
+    );
   }
   return { ...common, reason };
 }
