@@ -1,5 +1,6 @@
 import { assertEquals, assertThrows } from "jsr:@std/assert@1";
 import {
+  circleAccessPresentationValues,
   normalizeRelationshipPresentationPatch,
   normalizeRelationshipType,
   presentationUpdateColumns,
@@ -21,6 +22,10 @@ const row = () => ({
   relationship_type: "family",
   caregiver_relationship_type: "family",
   patient_relationship_type: "family",
+  status: "Active",
+  patient_consented_at_utc: new Date("2026-09-01T10:00:00Z"),
+  caregiver_consented_at_utc: new Date("2026-09-01T10:01:00Z"),
+  revoked_at_utc: null,
   can_view_women_calendar: false,
 });
 
@@ -68,6 +73,10 @@ Deno.test("caregiver sees caregiver-owned nickname with canonical relation", () 
   assertEquals(value.caregiverDisplayName, "Maryam");
   assertEquals(value.relationshipType, "family");
   assertEquals(value.presentationType, "family");
+  assertEquals(value.viewerRole, "caregiver");
+  assertEquals(value.counterpartDisplayName, "پسرم");
+  assertEquals(value.circleAccessPresentation, "connected");
+  assertEquals(value.campPresentationEligible, true);
   assertEquals(
     value.presentationCopyVersion,
     relationshipPresentationCopyVersion,
@@ -80,6 +89,47 @@ Deno.test("owner sees owner-owned caregiver nickname independently", () => {
   assertEquals(value.caregiverDisplayName, "مامان جون");
   assertEquals(value.caregiverOfficialDisplayName, "Maryam");
   assertEquals(value.relationshipType, "family");
+  assertEquals(value.viewerRole, "patient");
+  assertEquals(value.counterpartDisplayName, "مامان جون");
+  assertEquals(value.circleAccessPresentation, "connected");
+  assertEquals(value.campPresentationEligible, true);
+});
+
+Deno.test("missing mutual consent degrades to permission required", () => {
+  const pendingConsent = {
+    ...row(),
+    caregiver_consented_at_utc: null,
+  };
+  const value = presentRelationshipForViewer(pendingConsent, patientPersonId);
+  assertEquals(value.circleAccessPresentation, "permission_required");
+  assertEquals(value.campPresentationEligible, false);
+  assertEquals(
+    circleAccessPresentationValues.has(String(value.circleAccessPresentation)),
+    true,
+  );
+});
+
+Deno.test("revoked relationship is unavailable without exposing revocation detail", () => {
+  const revoked = {
+    ...row(),
+    status: "Revoked",
+    revoked_at_utc: new Date("2026-09-10T08:00:00Z"),
+  };
+  const value = presentRelationshipForViewer(revoked, caregiverPersonId);
+  assertEquals(value.circleAccessPresentation, "access_unavailable");
+  assertEquals(value.campPresentationEligible, false);
+  assertEquals(Object.hasOwn(value, "revocationReason"), false);
+});
+
+Deno.test("viewer outside relationship fails closed", () => {
+  const value = presentRelationshipForViewer(
+    row(),
+    "00000000-0000-4000-8000-000000000099",
+  );
+  assertEquals(value.viewerRole, "unknown");
+  assertEquals(value.counterpartDisplayName, null);
+  assertEquals(value.circleAccessPresentation, "access_unavailable");
+  assertEquals(value.campPresentationEligible, false);
 });
 
 Deno.test("caregiver alias mutation cannot overwrite canonical admin relationship type", () => {
