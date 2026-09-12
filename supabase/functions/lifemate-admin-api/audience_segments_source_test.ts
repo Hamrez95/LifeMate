@@ -7,14 +7,38 @@ async function source(path: string): Promise<string> {
 Deno.test("audience segment projection stays on canonical non-health sources", async () => {
   const text = await source("./audience_segments_service.ts");
   assertStringIncludes(text, "admin.user_directory_v2");
-  assertStringIncludes(text, "core.person_profiles");
+  assertStringIncludes(text, "audience.demographic_projection(now())");
   assertStringIncludes(text, "commerce.subscriptions");
   assertStringIncludes(text, "commerce.entitlements");
   assertStringIncludes(text, "commerce.features");
   assert(!text.includes("lifemate.user_profiles"));
+  assert(!text.includes("core.persons"));
+  assert(!text.includes("birth_date"));
   assert(!text.includes("health."));
   assert(!text.includes("women_health."));
   assert(!text.includes("medication."));
+});
+
+Deno.test("demographic projection migration exposes only derived audience fields", async () => {
+  const migration = await source(
+    "../../migrations/20260831011500_audience_demographic_projection.sql",
+  );
+  assertStringIncludes(migration, "security definer");
+  assertStringIncludes(migration, "set search_path = pg_catalog");
+  assertStringIncludes(
+    migration,
+    "grant execute on function audience.demographic_projection(timestamptz) to lifemate_admin_runtime",
+  );
+  assertStringIncludes(migration, "age_years integer");
+  assertStringIncludes(migration, "birthday_upcoming_days integer");
+  assertStringIncludes(migration, "gender_identity character varying");
+  assertStringIncludes(migration, "revoke all on function audience.demographic_projection(timestamptz) from authenticated");
+  const resultSignature = migration.slice(
+    migration.indexOf("returns table"),
+    migration.indexOf(")\nlanguage sql"),
+  );
+  assert(!resultSignature.includes("birth_date"));
+  assert(!resultSignature.match(/phone|email|contact/i));
 });
 
 Deno.test("missing engagement age stays unknown instead of becoming fabricated inactivity", async () => {
@@ -68,7 +92,6 @@ Deno.test("execution snapshots validate and persist under one database transacti
   assertStringIncludes(service, '"segment_version_conflict"');
   assertStringIncludes(service, '"segment_not_active"');
   assertStringIncludes(service, "matchingMembers(segment.ruleSet, tx)");
-  assertStringIncludes(service, "Admin pool is intentionally max=1");
 });
 
 Deno.test("audience segment workflow uses canonical idempotency and audit enum values", async () => {
