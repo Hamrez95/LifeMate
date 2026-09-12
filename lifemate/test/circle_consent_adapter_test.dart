@@ -54,50 +54,56 @@ void main() {
 
   tearDown(() => client.close());
 
-  test('normalized connected relationship is eligible without raw consent inference', () async {
-    rows = [relationship()];
-    final source = ApiCampCompanionSelectionSource(
-      apiClient: client,
-      isPersian: false,
-    );
+  test(
+    'normalized connected relationship is eligible without raw consent inference',
+    () async {
+      rows = [relationship()];
+      final source = ApiCampCompanionSelectionSource(
+        apiClient: client,
+        isPersian: false,
+      );
 
-    final snapshot = await source.load();
+      final snapshot = await source.load();
 
-    expect(snapshot.candidates, hasLength(1));
-    expect(snapshot.candidates.single.presentationId, 'care:r1');
-    expect(snapshot.candidates.single.displayName, 'Alex');
-    expect(snapshot.candidates.single.relationshipLabel, 'Family');
-    expect(snapshot.candidates.single.isEligible, isTrue);
-    expect(snapshot.candidates.single.ineligibleReason, isNull);
-  });
+      expect(snapshot.candidates, hasLength(1));
+      expect(snapshot.candidates.single.presentationId, 'care:r1');
+      expect(snapshot.candidates.single.displayName, 'Alex');
+      expect(snapshot.candidates.single.relationshipLabel, 'Family');
+      expect(snapshot.candidates.single.isEligible, isTrue);
+      expect(snapshot.candidates.single.ineligibleReason, isNull);
+    },
+  );
 
-  test('permission-required and revoked states remain visible but ineligible', () async {
-    rows = [
-      relationship(
-        id: 'pending',
-        access: 'permission_required',
-        eligible: false,
-      ),
-      relationship(
-        id: 'revoked',
-        name: 'Sam',
-        access: 'access_unavailable',
-        eligible: false,
-      ),
-    ];
-    final source = ApiCampCompanionSelectionSource(
-      apiClient: client,
-      isPersian: false,
-    );
+  test(
+    'permission-required and revoked states remain visible but ineligible',
+    () async {
+      rows = [
+        relationship(
+          id: 'pending',
+          access: 'permission_required',
+          eligible: false,
+        ),
+        relationship(
+          id: 'revoked',
+          name: 'Sam',
+          access: 'access_unavailable',
+          eligible: false,
+        ),
+      ];
+      final source = ApiCampCompanionSelectionSource(
+        apiClient: client,
+        isPersian: false,
+      );
 
-    final snapshot = await source.load();
+      final snapshot = await source.load();
 
-    expect(snapshot.candidates, hasLength(2));
-    expect(snapshot.candidates[0].isEligible, isFalse);
-    expect(snapshot.candidates[0].ineligibleReason, 'Permission required');
-    expect(snapshot.candidates[1].isEligible, isFalse);
-    expect(snapshot.candidates[1].ineligibleReason, 'Access unavailable');
-  });
+      expect(snapshot.candidates, hasLength(2));
+      expect(snapshot.candidates[0].isEligible, isFalse);
+      expect(snapshot.candidates[0].ineligibleReason, 'Permission required');
+      expect(snapshot.candidates[1].isEligible, isFalse);
+      expect(snapshot.candidates[1].ineligibleReason, 'Access unavailable');
+    },
+  );
 
   test('revocation or person switch removes stale Camp selection', () async {
     rows = [relationship()];
@@ -109,9 +115,7 @@ void main() {
     await source.setSelectedPresentationIds({'care:r1'});
     expect((await source.load()).selectedPresentationIds, {'care:r1'});
 
-    rows = [
-      relationship(access: 'access_unavailable', eligible: false),
-    ];
+    rows = [relationship(access: 'access_unavailable', eligible: false)];
     expect((await source.load()).selectedPresentationIds, isEmpty);
 
     rows = <Map<String, dynamic>>[];
@@ -132,42 +136,50 @@ void main() {
     );
   });
 
-  test('server eligibility and configured capacity are revalidated on mutation', () async {
-    rows = [relationship(id: 'a'), relationship(id: 'b', name: 'Sam')];
-    final source = ApiCampCompanionSelectionSource(
-      apiClient: client,
-      isPersian: false,
-      capacity: 1,
-    );
+  test(
+    'server eligibility and configured capacity are revalidated on mutation',
+    () async {
+      rows = [relationship(id: 'a'), relationship(id: 'b', name: 'Sam')];
+      final source = ApiCampCompanionSelectionSource(
+        apiClient: client,
+        isPersian: false,
+        capacity: 1,
+      );
 
-    await expectLater(
-      source.setSelectedPresentationIds({'care:a', 'care:b'}),
-      throwsA(isA<StateError>()),
-    );
-    await expectLater(
-      source.setSelectedPresentationIds({'care:foreign'}),
-      throwsA(isA<StateError>()),
-    );
-  });
+      await expectLater(
+        source.setSelectedPresentationIds({'care:a', 'care:b'}),
+        throwsA(isA<StateError>()),
+      );
+      await expectLater(
+        source.setSelectedPresentationIds({'care:foreign'}),
+        throwsA(isA<StateError>()),
+      );
+    },
+  );
 
-  test('relationship labels localize without changing stable presentation IDs', () async {
-    rows = [relationship(presentationType: 'partner')];
-    final source = ApiCampCompanionSelectionSource(
-      apiClient: client,
-      isPersian: true,
-    );
+  test(
+    'relationship labels localize without changing stable presentation IDs',
+    () async {
+      rows = [relationship(presentationType: 'partner')];
+      final source = ApiCampCompanionSelectionSource(
+        apiClient: client,
+        isPersian: true,
+      );
 
-    var snapshot = await source.load();
-    expect(snapshot.candidates.single.presentationId, 'care:r1');
-    expect(snapshot.candidates.single.relationshipLabel, 'پارتنر');
+      var snapshot = await source.load();
+      expect(snapshot.candidates.single.presentationId, 'care:r1');
+      expect(snapshot.candidates.single.relationshipLabel, 'پارتنر');
 
-    source.updateLocale(isPersian: false);
-    snapshot = await source.load();
-    expect(snapshot.candidates.single.presentationId, 'care:r1');
-    expect(snapshot.candidates.single.relationshipLabel, 'Partner');
-  });
+      source.updateLocale(isPersian: false);
+      snapshot = await source.load();
+      expect(snapshot.candidates.single.presentationId, 'care:r1');
+      expect(snapshot.candidates.single.relationshipLabel, 'Partner');
+    },
+  );
 
-  testWidgets('production shell mounts API-backed Circle source', (tester) async {
+  testWidgets('production shell mounts API-backed Circle source', (
+    tester,
+  ) async {
     rows = [relationship(name: 'Live Alex')];
 
     await tester.pumpWidget(
