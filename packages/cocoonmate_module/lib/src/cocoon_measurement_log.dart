@@ -265,15 +265,16 @@ class _MeasurementHero extends StatelessWidget {
         decoration: BoxDecoration(
           color: CocoonTheme.sage,
           borderRadius: BorderRadius.circular(26),
+          border:
+              Border.all(color: CocoonTheme.sageStrong.withValues(alpha: .2)),
+          boxShadow: CocoonElevation.subtle,
         ),
         child: Row(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            const CircleAvatar(
-              radius: 27,
-              backgroundColor: Colors.white,
-              child: Icon(Icons.monitor_weight_outlined,
-                  color: CocoonTheme.sageStrong),
+            CocoonBrandMark(
+              semanticLabel: fa ? 'کوکون‌میت' : 'CocoonMate',
+              size: 56,
             ),
             const SizedBox(width: 14),
             Expanded(
