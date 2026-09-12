@@ -78,6 +78,42 @@ class _CampCompanionSelectionViewState
     }
   }
 
+  Future<void> _openSummary(CampCompanionCandidate candidate) async {
+    CampCompanionCandidate? refreshedCandidate;
+    var selected = false;
+    var refreshFailed = false;
+
+    try {
+      final refreshed = await widget.source.load();
+      selected = refreshed.selectedPresentationIds.contains(
+        candidate.presentationId,
+      );
+      for (final item in refreshed.candidates) {
+        if (item.presentationId == candidate.presentationId) {
+          refreshedCandidate = item;
+          break;
+        }
+      }
+    } catch (_) {
+      refreshFailed = true;
+    }
+
+    if (!mounted) return;
+    await showModalBottomSheet<void>(
+      context: context,
+      isScrollControlled: true,
+      showDragHandle: true,
+      builder: (context) => _CompanionSummarySheet(
+        candidate: refreshedCandidate,
+        selected: selected,
+        refreshFailed: refreshFailed,
+        synthetic: widget.source.mode == CampCompanionSourceMode.synthetic,
+        isPersian: widget.isPersian,
+      ),
+    );
+    if (mounted) _reload();
+  }
+
   @override
   Widget build(BuildContext context) {
     return SafeArea(
@@ -193,7 +229,8 @@ class _CampCompanionSelectionViewState
                         ),
                         saving: _saving,
                         isPersian: widget.isPersian,
-                        onPressed: () => _toggle(value, candidate),
+                        onSummary: () => _openSummary(candidate),
+                        onToggle: () => _toggle(value, candidate),
                       ),
                   ],
                 );
@@ -212,20 +249,22 @@ class _CandidateTile extends StatelessWidget {
     required this.selected,
     required this.saving,
     required this.isPersian,
-    required this.onPressed,
+    required this.onSummary,
+    required this.onToggle,
   });
 
   final CampCompanionCandidate candidate;
   final bool selected;
   final bool saving;
   final bool isPersian;
-  final VoidCallback onPressed;
+  final VoidCallback onSummary;
+  final VoidCallback onToggle;
 
   String _t(String en, String fa) => isPersian ? fa : en;
 
   @override
   Widget build(BuildContext context) {
-    final enabled = candidate.isEligible && !saving;
+    final toggleEnabled = candidate.isEligible && !saving;
     final status = selected
         ? _t('Selected for Camp', 'برای کمپ انتخاب شده')
         : candidate.isEligible
@@ -237,14 +276,13 @@ class _CandidateTile extends StatelessWidget {
               );
 
     return Card(
+      key: ValueKey('camp-summary-${candidate.presentationId}'),
       child: Semantics(
-        button: candidate.isEligible,
-        enabled: enabled,
+        button: true,
         selected: selected,
         label:
-            '${candidate.displayName}, ${candidate.relationshipLabel}, $status',
+            '${candidate.displayName}, ${candidate.relationshipLabel}, $status. ${_t('Open companion summary', 'باز کردن خلاصه همراه')}',
         child: ListTile(
-          enabled: enabled,
           leading: CircleAvatar(
             child: Text(
               candidate.displayName.isEmpty
@@ -256,15 +294,230 @@ class _CandidateTile extends StatelessWidget {
           subtitle: Text('${candidate.relationshipLabel}\n$status'),
           isThreeLine: true,
           trailing: candidate.isEligible
-              ? Icon(
-                  selected ? Icons.check_circle_rounded : Icons.circle_outlined,
-                  semanticLabel: selected
-                      ? _t('Selected', 'انتخاب شده')
-                      : _t('Not selected', 'انتخاب نشده'),
+              ? IconButton(
+                  key: ValueKey('camp-toggle-${candidate.presentationId}'),
+                  tooltip: selected
+                      ? _t('Remove from Camp', 'حذف از کمپ')
+                      : _t('Add to Camp', 'افزودن به کمپ'),
+                  onPressed: toggleEnabled ? onToggle : null,
+                  icon: Icon(
+                    selected
+                        ? Icons.check_circle_rounded
+                        : Icons.add_circle_outline_rounded,
+                  ),
                 )
-              : const Icon(Icons.lock_outline_rounded),
-          onTap: enabled ? onPressed : null,
+              : Icon(
+                  Icons.lock_outline_rounded,
+                  semanticLabel: _t(
+                    'Camp presentation unavailable',
+                    'نمایش در کمپ در دسترس نیست',
+                  ),
+                ),
+          onTap: onSummary,
         ),
+      ),
+    );
+  }
+}
+
+class _CompanionSummarySheet extends StatelessWidget {
+  const _CompanionSummarySheet({
+    required this.candidate,
+    required this.selected,
+    required this.refreshFailed,
+    required this.synthetic,
+    required this.isPersian,
+  });
+
+  final CampCompanionCandidate? candidate;
+  final bool selected;
+  final bool refreshFailed;
+  final bool synthetic;
+  final bool isPersian;
+
+  String _t(String en, String fa) => isPersian ? fa : en;
+
+  @override
+  Widget build(BuildContext context) {
+    final current = candidate;
+    if (current == null) {
+      return SafeArea(
+        child: Padding(
+          padding: const EdgeInsetsDirectional.fromSTEB(24, 4, 24, 24),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              const Icon(Icons.lock_outline_rounded, size: 42),
+              const SizedBox(height: 12),
+              Text(
+                _t('Companion summary unavailable', 'خلاصه همراه در دسترس نیست'),
+                textAlign: TextAlign.center,
+                style: Theme.of(
+                  context,
+                ).textTheme.titleLarge?.copyWith(fontWeight: FontWeight.w800),
+              ),
+              const SizedBox(height: 8),
+              Text(
+                refreshFailed
+                    ? _t(
+                        'The current relationship and access state could not be refreshed. No cached details are shown.',
+                        'وضعیت فعلی رابطه و دسترسی قابل به‌روزرسانی نبود. هیچ جزئیات ذخیره‌شده‌ای نمایش داده نمی‌شود.',
+                      )
+                    : _t(
+                        'This person is no longer available in the current Circle context. The relationship, consent, or active Person may have changed.',
+                        'این شخص دیگر در Circle فعلی در دسترس نیست. ممکن است رابطه، رضایت یا Person فعال تغییر کرده باشد.',
+                      ),
+                textAlign: TextAlign.center,
+              ),
+              const SizedBox(height: 16),
+              FilledButton(
+                onPressed: () => Navigator.of(context).pop(),
+                child: Text(_t('Close', 'بستن')),
+              ),
+            ],
+          ),
+        ),
+      );
+    }
+
+    final accessLabel = current.isEligible
+        ? _t('Connected', 'متصل')
+        : current.ineligibleReason ??
+              _t('Access unavailable', 'دسترسی در دسترس نیست');
+    final campLabel = selected
+        ? _t('Shown in Camp', 'در کمپ نمایش داده می‌شود')
+        : current.isEligible
+        ? _t('Not shown in Camp', 'در کمپ نمایش داده نمی‌شود')
+        : _t('Camp presentation unavailable', 'نمایش در کمپ در دسترس نیست');
+
+    return SafeArea(
+      child: SingleChildScrollView(
+        padding: const EdgeInsetsDirectional.fromSTEB(24, 4, 24, 24),
+        child: Semantics(
+          container: true,
+          label: _t('Companion summary', 'خلاصه همراه'),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              Row(
+                children: [
+                  CircleAvatar(
+                    radius: 28,
+                    child: Text(
+                      current.displayName.isEmpty
+                          ? '?'
+                          : current.displayName.characters.first,
+                    ),
+                  ),
+                  const SizedBox(width: 14),
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          current.displayName,
+                          style: Theme.of(context).textTheme.titleLarge?.copyWith(
+                            fontWeight: FontWeight.w800,
+                          ),
+                        ),
+                        const SizedBox(height: 2),
+                        Text(current.relationshipLabel),
+                      ],
+                    ),
+                  ),
+                ],
+              ),
+              if (synthetic) ...[
+                const SizedBox(height: 16),
+                Text(
+                  _t(
+                    'Preview summary — not live relationship or consent state',
+                    'خلاصه نمایشی — وضعیت زنده رابطه یا رضایت نیست',
+                  ),
+                  style: Theme.of(context).textTheme.bodySmall,
+                ),
+              ],
+              const SizedBox(height: 20),
+              _SummaryRow(
+                icon: Icons.people_outline_rounded,
+                label: _t('Relationship', 'رابطه'),
+                value: current.relationshipLabel,
+              ),
+              _SummaryRow(
+                icon: current.isEligible
+                    ? Icons.verified_user_outlined
+                    : Icons.lock_outline_rounded,
+                label: _t('Circle access', 'دسترسی Circle'),
+                value: accessLabel,
+              ),
+              _SummaryRow(
+                icon: selected
+                    ? Icons.check_circle_outline_rounded
+                    : Icons.landscape_outlined,
+                label: _t('Living Camp', 'Living Camp'),
+                value: campLabel,
+              ),
+              const SizedBox(height: 16),
+              Semantics(
+                label: _t('Privacy note', 'یادداشت حریم خصوصی'),
+                child: Container(
+                  padding: const EdgeInsets.all(14),
+                  decoration: BoxDecoration(
+                    color: Theme.of(context).colorScheme.surfaceContainerLow,
+                    borderRadius: BorderRadius.circular(16),
+                  ),
+                  child: Text(
+                    _t(
+                      'This summary intentionally contains no health measurements, medications, contact details, consent events, or authorization details. Protected care information stays inside the relevant authorized module.',
+                      'این خلاصه عمداً شامل اندازه‌گیری‌های سلامت، داروها، اطلاعات تماس، رویدادهای رضایت یا جزئیات مجوز دسترسی نیست. اطلاعات محافظت‌شده مراقبتی فقط داخل ماژول مربوط و با مجوز مناسب نمایش داده می‌شود.',
+                    ),
+                  ),
+                ),
+              ),
+              const SizedBox(height: 20),
+              FilledButton(
+                onPressed: () => Navigator.of(context).pop(),
+                child: Text(_t('Done', 'تمام')),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+class _SummaryRow extends StatelessWidget {
+  const _SummaryRow({
+    required this.icon,
+    required this.label,
+    required this.value,
+  });
+
+  final IconData icon;
+  final String label;
+  final String value;
+
+  @override
+  Widget build(BuildContext context) {
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 12),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Icon(icon, size: 22),
+          const SizedBox(width: 12),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(label, style: Theme.of(context).textTheme.labelLarge),
+                const SizedBox(height: 2),
+                Text(value),
+              ],
+            ),
+          ),
+        ],
       ),
     );
   }
