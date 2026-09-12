@@ -41,11 +41,7 @@ export function createSupportConversationAdminStore(databaseUrl: string) {
           ${input.requestHash}::varchar
         ) as result
       `;
-      const value = rows[0]?.result;
-      if (!value || typeof value !== "object" || Array.isArray(value)) {
-        throw new Error("support_conversation_send_result_invalid");
-      }
-      return value as Record<string, unknown>;
+      return requiredResult(rows[0]?.result, "support_conversation_send_result_invalid");
     },
     async escalate(input: {
       actorAccountId: string;
@@ -53,17 +49,21 @@ export function createSupportConversationAdminStore(databaseUrl: string) {
       targetRoleCode: string;
       safeReason: string;
       correlationId: string;
+      idempotencyKey: string;
+      requestHash: string;
     }) {
       const rows = await sql`
-        select admin.create_support_escalation(
+        select admin.create_support_escalation_idempotent(
           ${input.actorAccountId}::uuid,
           ${input.ticketId}::uuid,
           ${input.targetRoleCode}::varchar,
           ${input.safeReason}::varchar,
-          ${input.correlationId}::uuid
-        ) as escalation_id
+          ${input.correlationId}::uuid,
+          ${input.idempotencyKey}::varchar,
+          ${input.requestHash}::varchar
+        ) as result
       `;
-      return { escalationId: String(rows[0]?.escalation_id) };
+      return requiredResult(rows[0]?.result, "support_escalation_result_invalid");
     },
     async linkReference(input: {
       actorAccountId: string;
@@ -71,17 +71,21 @@ export function createSupportConversationAdminStore(databaseUrl: string) {
       linkKind: string;
       referenceCode: string;
       correlationId: string;
+      idempotencyKey: string;
+      requestHash: string;
     }) {
       const rows = await sql`
-        select admin.link_support_ticket_reference(
+        select admin.link_support_ticket_reference_idempotent(
           ${input.actorAccountId}::uuid,
           ${input.ticketId}::uuid,
           ${input.linkKind}::varchar,
           ${input.referenceCode}::varchar,
-          ${input.correlationId}::uuid
-        ) as link_id
+          ${input.correlationId}::uuid,
+          ${input.idempotencyKey}::varchar,
+          ${input.requestHash}::varchar
+        ) as result
       `;
-      return { linkId: String(rows[0]?.link_id) };
+      return requiredResult(rows[0]?.result, "support_reference_result_invalid");
     },
     async listOperations(ticketId: string) {
       const escalations = await sql`
@@ -100,7 +104,10 @@ export function createSupportConversationAdminStore(databaseUrl: string) {
         order by created_at_utc desc,id desc
         limit 100
       `;
-      return { escalations, links };
+      return {
+        escalations: (escalations as unknown as Row[]).map(mapEscalation),
+        links: (links as unknown as Row[]).map(mapLink),
+      };
     },
   };
 }
@@ -125,6 +132,13 @@ async function listMessages(
   return (rows as unknown as Row[]).map(mapMessage);
 }
 
+function requiredResult(value: unknown, code: string): Record<string, unknown> {
+  if (!value || typeof value !== "object" || Array.isArray(value)) {
+    throw new Error(code);
+  }
+  return value as Record<string, unknown>;
+}
+
 function mapMessage(row: Row): AdminSupportConversationMessage {
   const senderKind = row.sender_kind;
   if (senderKind !== "User" && senderKind !== "Staff") {
@@ -139,6 +153,30 @@ function mapMessage(row: Row): AdminSupportConversationMessage {
       ? row.sender_display_name
       : null,
     body: String(row.body),
+    createdAtUtc: row.created_at_utc instanceof Date
+      ? row.created_at_utc.toISOString()
+      : String(row.created_at_utc),
+  };
+}
+
+function mapEscalation(row: Row) {
+  return {
+    escalationId: String(row.escalation_id),
+    status: String(row.status),
+    safeReason: String(row.safe_reason),
+    targetRoleCode: String(row.target_role_code),
+    targetRoleName: String(row.target_role_name),
+    createdAtUtc: row.created_at_utc instanceof Date
+      ? row.created_at_utc.toISOString()
+      : String(row.created_at_utc),
+  };
+}
+
+function mapLink(row: Row) {
+  return {
+    linkId: String(row.link_id),
+    linkKind: String(row.link_kind),
+    referenceCode: String(row.reference_code),
     createdAtUtc: row.created_at_utc instanceof Date
       ? row.created_at_utc.toISOString()
       : String(row.created_at_utc),
