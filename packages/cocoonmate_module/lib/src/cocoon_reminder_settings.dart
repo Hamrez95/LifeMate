@@ -320,18 +320,15 @@ class _ReminderHero extends StatelessWidget {
         decoration: BoxDecoration(
           color: CocoonTheme.lilac,
           borderRadius: BorderRadius.circular(28),
+          border: Border.all(color: CocoonTheme.coral.withValues(alpha: .18)),
+          boxShadow: CocoonElevation.subtle,
         ),
         child: Row(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            const CircleAvatar(
-              radius: 27,
-              backgroundColor: Colors.white,
-              child: Icon(
-                Icons.notifications_active_outlined,
-                color: CocoonTheme.coral,
-                size: 28,
-              ),
+            CocoonBrandMark(
+              semanticLabel: fa ? 'کوکون‌میت' : 'CocoonMate',
+              size: 56,
             ),
             const SizedBox(width: 15),
             Expanded(

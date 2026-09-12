@@ -287,14 +287,15 @@ class _SymptomHero extends StatelessWidget {
         decoration: BoxDecoration(
           color: CocoonTheme.lilac,
           borderRadius: BorderRadius.circular(26),
+          border: Border.all(color: CocoonTheme.coral.withValues(alpha: .18)),
+          boxShadow: CocoonElevation.subtle,
         ),
         child: Row(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            const CircleAvatar(
-              radius: 27,
-              backgroundColor: Colors.white,
-              child: Icon(Icons.healing_outlined, color: CocoonTheme.coral),
+            CocoonBrandMark(
+              semanticLabel: fa ? 'کوکون‌میت' : 'CocoonMate',
+              size: 56,
             ),
             const SizedBox(width: 14),
             Expanded(

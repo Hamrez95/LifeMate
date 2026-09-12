@@ -111,6 +111,8 @@ class _AppointmentHero extends StatelessWidget {
         decoration: BoxDecoration(
           color: CocoonTheme.lilac,
           borderRadius: BorderRadius.circular(28),
+          border: Border.all(color: CocoonTheme.coral.withValues(alpha: .18)),
+          boxShadow: CocoonElevation.subtle,
         ),
         child: LayoutBuilder(
           builder: (context, constraints) {
@@ -139,13 +141,25 @@ class _AppointmentHero extends StatelessWidget {
               icon: const Icon(Icons.add_rounded),
               label: Text(fa ? 'قرار جدید' : 'New'),
             );
+            final mark = CocoonBrandMark(
+              semanticLabel: fa ? 'کوکون‌میت' : 'CocoonMate',
+              size: 54,
+            );
             return compact
                 ? Column(
                     crossAxisAlignment: CrossAxisAlignment.stretch,
-                    children: [copy, const SizedBox(height: 18), action],
+                    children: [
+                      mark,
+                      const SizedBox(height: 16),
+                      copy,
+                      const SizedBox(height: 18),
+                      action
+                    ],
                   )
                 : Row(
                     children: [
+                      mark,
+                      const SizedBox(width: 14),
                       Expanded(child: copy),
                       const SizedBox(width: 14),
                       action,
@@ -183,6 +197,7 @@ class _AppointmentRow extends StatelessWidget {
               color: Colors.white,
               borderRadius: BorderRadius.circular(22),
               border: Border.all(color: CocoonTheme.line),
+              boxShadow: CocoonElevation.subtle,
             ),
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
@@ -223,24 +238,28 @@ class _AppointmentRow extends StatelessWidget {
                         ],
                       ),
                     ),
-                    const SizedBox(width: 8),
-                    Container(
-                      padding: const EdgeInsetsDirectional.symmetric(
-                        horizontal: 9,
-                        vertical: 5,
-                      ),
-                      decoration: BoxDecoration(
-                        color: status.$2,
-                        borderRadius: BorderRadius.circular(99),
-                      ),
-                      child: Text(
-                        status.$1,
-                        style: Theme.of(
-                          context,
-                        ).textTheme.labelMedium?.copyWith(color: status.$3),
-                      ),
-                    ),
                   ],
+                ),
+                const SizedBox(height: 10),
+                Align(
+                  alignment: AlignmentDirectional.centerStart,
+                  child: Container(
+                    padding: const EdgeInsetsDirectional.symmetric(
+                      horizontal: 9,
+                      vertical: 5,
+                    ),
+                    decoration: BoxDecoration(
+                      color: status.$2,
+                      borderRadius: BorderRadius.circular(99),
+                    ),
+                    child: Text(
+                      status.$1,
+                      style: Theme.of(context)
+                          .textTheme
+                          .labelMedium
+                          ?.copyWith(color: status.$3),
+                    ),
+                  ),
                 ),
                 if (item.provider != null || item.location != null) ...[
                   const SizedBox(height: 13),

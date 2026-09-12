@@ -440,6 +440,7 @@ class _DatingSourceTile extends StatelessWidget {
               color: selected ? CocoonTheme.coral : CocoonTheme.line,
               width: selected ? 1.5 : 1,
             ),
+            boxShadow: selected ? CocoonElevation.subtle : null,
           ),
           child: Row(
             children: [
@@ -530,6 +531,7 @@ class _PregnancyDetailsStep extends StatelessWidget {
                   border: Border.all(
                     color: date == null ? CocoonTheme.line : CocoonTheme.coral,
                   ),
+                  boxShadow: date == null ? null : CocoonElevation.subtle,
                 ),
                 child: Row(
                   children: [
@@ -662,6 +664,7 @@ class _ReviewStep extends StatelessWidget {
               color: Colors.white,
               borderRadius: BorderRadius.circular(26),
               border: Border.all(color: CocoonTheme.line),
+              boxShadow: CocoonElevation.subtle,
             ),
             child: Column(
               children: [
