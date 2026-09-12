@@ -399,26 +399,52 @@ class _RecordsRefreshNotice extends StatelessWidget {
             color: CocoonTheme.warm,
             borderRadius: BorderRadius.circular(18),
           ),
-          child: Row(
-            children: [
-              const Icon(Icons.sync_problem_outlined,
-                  color: CocoonTheme.gold, size: 21),
-              const SizedBox(width: 9),
-              Expanded(
-                child: Text(
-                  fa
-                      ? 'سوابق ذخیره‌شده نمایش داده می‌شود؛ به‌روزرسانی انجام نشد.'
-                      : 'Saved records are shown; refresh failed.',
-                  style: Theme.of(context).textTheme.labelMedium?.copyWith(
-                        color: CocoonTheme.ink,
-                      ),
-                ),
-              ),
-              TextButton(
+          child: LayoutBuilder(
+            builder: (context, constraints) {
+              final stack = constraints.maxWidth < 340 ||
+                  MediaQuery.textScalerOf(context).scale(14) > 18;
+              final message = Text(
+                fa
+                    ? 'سوابق ذخیره‌شده نمایش داده می‌شود؛ به‌روزرسانی انجام نشد.'
+                    : 'Saved records are shown; refresh failed.',
+                style: Theme.of(context).textTheme.labelMedium?.copyWith(
+                      color: CocoonTheme.ink,
+                    ),
+              );
+              final retry = TextButton(
                 onPressed: onRetry,
                 child: Text(fa ? 'تلاش دوباره' : 'Retry'),
-              ),
-            ],
+              );
+              if (stack) {
+                return Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Row(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        const Icon(Icons.sync_problem_outlined,
+                            color: CocoonTheme.gold, size: 21),
+                        const SizedBox(width: 9),
+                        Expanded(child: message),
+                      ],
+                    ),
+                    Align(
+                      alignment: AlignmentDirectional.centerStart,
+                      child: retry,
+                    ),
+                  ],
+                );
+              }
+              return Row(
+                children: [
+                  const Icon(Icons.sync_problem_outlined,
+                      color: CocoonTheme.gold, size: 21),
+                  const SizedBox(width: 9),
+                  Expanded(child: message),
+                  retry,
+                ],
+              );
+            },
           ),
         ),
       );

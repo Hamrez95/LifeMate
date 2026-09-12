@@ -149,4 +149,44 @@ void main() {
     expect(find.text('در انتظار همگام‌سازی'), findsOneWidget);
     expect(tester.takeException(), isNull);
   });
+
+  testWidgets('records timeline stays readable with cached long-form data',
+      (tester) async {
+    tester.view.physicalSize = const Size(320, 568);
+    tester.view.devicePixelRatio = 1;
+    addTearDown(tester.view.resetPhysicalSize);
+    addTearDown(tester.view.resetDevicePixelRatio);
+
+    await tester.pumpWidget(
+      _app(
+        CocoonRecordsScreen(
+          fa: true,
+          state: CocoonRecordsState.error,
+          items: const [
+            CocoonRecordViewData(
+              id: 'record-1',
+              title: 'نتیجه اندازه‌گیری فشار خون صبحگاهی',
+              dateLabel: '۲۲ شهریور، ساعت ۱۶:۳۰',
+              sectionLabel: 'امروز',
+              summary:
+                  'نسخه ذخیره‌شده از دستگاه؛ برای تأیید وضعیت آنلاین تلاش کن.',
+              kind: CocoonRecordKind.measurement,
+              syncState: CocoonRecordSyncState.cached,
+            ),
+          ],
+          onOpen: (_) {},
+          onRetry: () {},
+          onAdd: () {},
+        ),
+        mediaQuery: const MediaQueryData(
+          textScaler: TextScaler.linear(1.5),
+        ),
+      ),
+    );
+
+    expect(
+        find.text('سوابق ذخیره‌شده نمایش داده می‌شود؛ به‌روزرسانی انجام نشد.'),
+        findsOneWidget);
+    expect(tester.takeException(), isNull);
+  });
 }
