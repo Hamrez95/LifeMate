@@ -350,7 +350,10 @@ class _CompanionSummarySheet extends StatelessWidget {
               const Icon(Icons.lock_outline_rounded, size: 42),
               const SizedBox(height: 12),
               Text(
-                _t('Companion summary unavailable', 'خلاصه همراه در دسترس نیست'),
+                _t(
+                  'Companion summary unavailable',
+                  'خلاصه همراه در دسترس نیست',
+                ),
                 textAlign: TextAlign.center,
                 style: Theme.of(
                   context,
@@ -416,9 +419,8 @@ class _CompanionSummarySheet extends StatelessWidget {
                       children: [
                         Text(
                           current.displayName,
-                          style: Theme.of(context).textTheme.titleLarge?.copyWith(
-                            fontWeight: FontWeight.w800,
-                          ),
+                          style: Theme.of(context).textTheme.titleLarge
+                              ?.copyWith(fontWeight: FontWeight.w800),
                         ),
                         const SizedBox(height: 2),
                         Text(current.relationshipLabel),
