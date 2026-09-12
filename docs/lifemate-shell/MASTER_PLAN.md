@@ -436,3 +436,15 @@ Notion:
 - `LifeMate Impact — Real-World Causes & Community Contribution Decision Log`
 
 Whenever this file is read in a future session, verify current `main`, relevant issue/PR state, open Work handoffs and Supabase runtime facts before executing the next task.
+
+## 15. Global Markets & Localization cross-cutting foundation
+
+A dedicated global-expansion decision log and execution backlog now exist. This is an architecture/dependency reference, not a reason to stop the current Living Camp path.
+
+- **Notion canonical decision:** [LifeMate Global Markets & Localization — Product & Architecture Decision Log](https://app.notion.com/p/3d99ef2b1617814ebf33f168fabc7a55?pvs=204)
+- **Core Epic:** #1161; early refactor-prevention tasks: #1162 Market + Experience Preferences contract, #1163 first-launch selection contract, #1164 ecosystem locale/RTL/formatting contract.
+- **Before international commerce:** #1165 canonical offer ↔ storefront mapping/localized-price contract and #1166 market-aware legal/consent contract.
+- **Admin coordination:** lifemate-admin #332, downstream of Core contract; it reuses #226 and existing RBAC/AAL2/audit boundaries.
+- **Deferred marketplace:** #1167 only specifies privacy-first service-area/partner/refill extension points; no partner, pharmacy, data-residency or marketplace implementation is currently authorized.
+
+Global invariants: Account != Person; Locale != Market; Market != Billing Country/Storefront/Service Location/Data Region; digital IAP != physical marketplace; market capability != authorization. Flutter must render only resolved locale/market/capability/price/legal state and never hard-code country branches.
