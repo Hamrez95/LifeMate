@@ -10,12 +10,15 @@ type Row = Record<string, any>;
 const maxSpacingMinutes = 1440;
 const maxTimingNoteLength = 240;
 
-function requiredVersion(value: unknown): number {
+export function requiredMedicationScheduleVersion(value: unknown): number {
   if (value === 0 || value === "0") return 0;
   return requiredPositiveInt(value, "version");
 }
 
-function requiredBoolean(value: unknown, field: string): boolean {
+export function requiredMedicationScheduleBoolean(
+  value: unknown,
+  field: string,
+): boolean {
   if (value !== true && value !== false) {
     throw new ApiError(
       400,
@@ -26,7 +29,10 @@ function requiredBoolean(value: unknown, field: string): boolean {
   return value;
 }
 
-function optionalLocalTime(value: unknown, field: string): string | null {
+export function optionalMedicationScheduleLocalTime(
+  value: unknown,
+  field: string,
+): string | null {
   const normalized = normalizeOptional(value);
   if (normalized == null) return null;
   if (!/^(?:[01]\d|2[0-3]):[0-5]\d(?::[0-5]\d)?$/.test(normalized)) {
@@ -39,7 +45,10 @@ function optionalLocalTime(value: unknown, field: string): string | null {
   return normalized.length === 5 ? `${normalized}:00` : normalized;
 }
 
-function requiredSpacing(value: unknown, field: string): number {
+export function requiredMedicationScheduleSpacing(
+  value: unknown,
+  field: string,
+): number {
   const parsed = typeof value === "number" ? value : Number(value);
   if (!Number.isInteger(parsed) || parsed < 0 || parsed > maxSpacingMinutes) {
     throw new ApiError(
@@ -51,7 +60,9 @@ function requiredSpacing(value: unknown, field: string): number {
   return parsed;
 }
 
-function optionalTimingNote(value: unknown): string | null {
+export function optionalMedicationScheduleTimingNote(
+  value: unknown,
+): string | null {
   const normalized = normalizeOptional(value);
   if (normalized == null) return null;
   if (normalized.length > maxTimingNoteLength) {
@@ -159,17 +170,17 @@ export function createMedicationScheduleSettingsStore(databaseUrl: string) {
     appUserId: string,
     body: Record<string, unknown>,
   ): Promise<Record<string, unknown>> {
-    const expectedVersion = requiredVersion(body.version);
+    const expectedVersion = requiredMedicationScheduleVersion(body.version);
     const timeZone = await requireIanaTimeZone(body.timeZone);
-    const enabled = requiredBoolean(
+    const enabled = requiredMedicationScheduleBoolean(
       body.sleepWindowEnabled,
       "sleep_window_enabled",
     );
-    const start = optionalLocalTime(
+    const start = optionalMedicationScheduleLocalTime(
       body.sleepStartLocalTime,
       "sleep_start_local_time",
     );
-    const end = optionalLocalTime(
+    const end = optionalMedicationScheduleLocalTime(
       body.sleepEndLocalTime,
       "sleep_end_local_time",
     );
@@ -287,25 +298,28 @@ export function createMedicationScheduleSettingsStore(databaseUrl: string) {
     treatmentPlanId: string,
     body: Record<string, unknown>,
   ): Promise<Record<string, unknown>> {
-    const expectedVersion = requiredVersion(body.version);
+    const expectedVersion = requiredMedicationScheduleVersion(body.version);
     const expectedPlanVersion = requiredPositiveInt(
       body.treatmentPlanVersion,
       "treatmentPlanVersion",
     );
-    const nearby = requiredBoolean(
+    const nearby = requiredMedicationScheduleBoolean(
       body.nearbyGroupingEnabled,
       "nearby_grouping_enabled",
     );
-    const locked = requiredBoolean(body.timingLocked, "timing_locked");
-    const before = requiredSpacing(
+    const locked = requiredMedicationScheduleBoolean(
+      body.timingLocked,
+      "timing_locked",
+    );
+    const before = requiredMedicationScheduleSpacing(
       body.manualSpacingBeforeMinutes,
       "manual_spacing_before_minutes",
     );
-    const after = requiredSpacing(
+    const after = requiredMedicationScheduleSpacing(
       body.manualSpacingAfterMinutes,
       "manual_spacing_after_minutes",
     );
-    const note = optionalTimingNote(body.timingNote);
+    const note = optionalMedicationScheduleTimingNote(body.timingNote);
     const personId = await requireSelfPerson(appUserId);
 
     const changed = await sql.begin(async (tx: any) => {
