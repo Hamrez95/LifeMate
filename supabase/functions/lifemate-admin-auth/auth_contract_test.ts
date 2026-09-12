@@ -8,17 +8,22 @@ const runtime = await Deno.readTextFile(
 Deno.test("username auth keeps password handling in Supabase Auth", () => {
   assert(index.includes("signInWithPassword"));
   assert(index.includes("adminAuth.auth.admin"));
-  assert(index.includes(".createUser({"));
   assert(index.includes("updateUserById"));
-  assert(index.includes("email_confirm: true"));
   assert(!index.includes("encrypted_" + "password"));
   assert(!index.includes("insert into auth." + "users"));
 });
 
-Deno.test("self signup remains pending and grants no role in edge code", () => {
-  assert(index.includes('status: "pending_role_assignment"'));
-  assert(index.includes("register_pending_workforce_account"));
-  assert(!index.includes("insert into admin." + "member_roles"));
+Deno.test("public workforce auth is invite-only and cannot self-register", () => {
+  assert(!index.includes('payload.action === "signup"'));
+  assert(!index.includes("register_pending_workforce_account"));
+  assert(!index.includes(".createUser({"));
+  assert(!index.includes('status: "pending_role_assignment"'));
+});
+
+Deno.test("all authorized workforce identities including Founder require MFA", () => {
+  assert(index.includes('return "mfa_required"'));
+  assert(!index.includes("founder_compat"));
+  assert(index.includes("Every authorized"));
 });
 
 Deno.test("Founder activation requires a one-time hashed token", () => {
