@@ -19,6 +19,12 @@ export const relationshipPresentationTypes = new Set([
   "unknown",
 ]);
 
+export const circleAccessPresentationValues = new Set([
+  "connected",
+  "permission_required",
+  "access_unavailable",
+]);
+
 export type RelationshipPresentationPatch = {
   relationshipType: string;
   displayName: string | null;
@@ -127,6 +133,25 @@ export function presentRelationshipForViewer(
         ? row.caregiver_relationship_type
         : row.patient_relationship_type),
   );
+  const viewerRole = viewerIsCaregiver
+    ? "caregiver"
+    : viewerIsPatient
+    ? "patient"
+    : "unknown";
+  const counterpartDisplayName = viewerIsCaregiver
+    ? caregiverPatientAlias ?? patientOfficial
+    : viewerIsPatient
+    ? patientCaregiverAlias ?? caregiverOfficial
+    : null;
+  const status = String(row.status ?? "").trim().toLowerCase();
+  const revoked = status === "revoked" || row.revoked_at_utc != null;
+  const mutuallyConsented = row.patient_consented_at_utc != null &&
+    row.caregiver_consented_at_utc != null;
+  const circleAccessPresentation = viewerRole === "unknown" || revoked
+    ? "access_unavailable"
+    : status !== "active" || !mutuallyConsented
+    ? "permission_required"
+    : "connected";
 
   return {
     patientDisplayName: viewerIsCaregiver
@@ -140,6 +165,10 @@ export function presentRelationshipForViewer(
     relationshipType: canonicalType,
     presentationType: canonicalType,
     presentationCopyVersion: relationshipPresentationCopyVersion,
+    viewerRole,
+    counterpartDisplayName,
+    circleAccessPresentation,
+    campPresentationEligible: circleAccessPresentation === "connected",
   };
 }
 
