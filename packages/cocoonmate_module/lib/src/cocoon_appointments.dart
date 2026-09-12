@@ -238,24 +238,28 @@ class _AppointmentRow extends StatelessWidget {
                         ],
                       ),
                     ),
-                    const SizedBox(width: 8),
-                    Container(
-                      padding: const EdgeInsetsDirectional.symmetric(
-                        horizontal: 9,
-                        vertical: 5,
-                      ),
-                      decoration: BoxDecoration(
-                        color: status.$2,
-                        borderRadius: BorderRadius.circular(99),
-                      ),
-                      child: Text(
-                        status.$1,
-                        style: Theme.of(
-                          context,
-                        ).textTheme.labelMedium?.copyWith(color: status.$3),
-                      ),
-                    ),
                   ],
+                ),
+                const SizedBox(height: 10),
+                Align(
+                  alignment: AlignmentDirectional.centerStart,
+                  child: Container(
+                    padding: const EdgeInsetsDirectional.symmetric(
+                      horizontal: 9,
+                      vertical: 5,
+                    ),
+                    decoration: BoxDecoration(
+                      color: status.$2,
+                      borderRadius: BorderRadius.circular(99),
+                    ),
+                    child: Text(
+                      status.$1,
+                      style: Theme.of(context)
+                          .textTheme
+                          .labelMedium
+                          ?.copyWith(color: status.$3),
+                    ),
+                  ),
                 ),
                 if (item.provider != null || item.location != null) ...[
                   const SizedBox(height: 13),

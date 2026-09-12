@@ -113,4 +113,40 @@ void main() {
       }
     },
   );
+
+  testWidgets('care-plan surfaces tolerate a small Persian large-text view',
+      (tester) async {
+    tester.view.physicalSize = const Size(320, 568);
+    tester.view.devicePixelRatio = 1;
+    addTearDown(tester.view.resetPhysicalSize);
+    addTearDown(tester.view.resetDevicePixelRatio);
+
+    await tester.pumpWidget(
+      _app(
+        CocoonAppointmentsScreen(
+          fa: true,
+          items: const [
+            CocoonAppointmentViewData(
+              id: 'visit-1',
+              title: 'ویزیت ماما',
+              dateLabel: '۲۲ شهریور',
+              timeLabel: '۱۶:۳۰',
+              status: CocoonAppointmentStatus.pendingSync,
+              provider: 'کلینیک نمونه',
+            ),
+          ],
+          onAdd: () {},
+          onOpen: (_) {},
+          onRetry: () {},
+        ),
+        mediaQuery: const MediaQueryData(
+          textScaler: TextScaler.linear(1.5),
+        ),
+      ),
+    );
+
+    expect(find.text('ویزیت ماما'), findsOneWidget);
+    expect(find.text('در انتظار همگام‌سازی'), findsOneWidget);
+    expect(tester.takeException(), isNull);
+  });
 }
