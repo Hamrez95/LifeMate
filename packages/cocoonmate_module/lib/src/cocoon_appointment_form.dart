@@ -317,12 +317,27 @@ class _FormIntroduction extends StatelessWidget {
         decoration: BoxDecoration(
           color: CocoonTheme.sage,
           borderRadius: BorderRadius.circular(22),
+          border:
+              Border.all(color: CocoonTheme.sageStrong.withValues(alpha: .2)),
+          boxShadow: CocoonElevation.subtle,
         ),
-        child: Text(
-          fa
-              ? 'فقط اطلاعات لازم را وارد کن؛ جزئیات اختیاری را هر زمان می‌توانی کامل کنی.'
-              : 'Add only what you need. Optional details can be completed later.',
-          style: Theme.of(context).textTheme.bodyMedium,
+        child: Row(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            CocoonBrandMark(
+              semanticLabel: fa ? 'کوکون‌میت' : 'CocoonMate',
+              size: 44,
+            ),
+            const SizedBox(width: 12),
+            Expanded(
+              child: Text(
+                fa
+                    ? 'فقط اطلاعات لازم را وارد کن؛ جزئیات اختیاری را هر زمان می‌توانی کامل کنی.'
+                    : 'Add only what you need. Optional details can be completed later.',
+                style: Theme.of(context).textTheme.bodyMedium,
+              ),
+            ),
+          ],
         ),
       );
 }

@@ -60,25 +60,38 @@ class CocoonAppointmentDetailScreen extends StatelessWidget {
                 decoration: BoxDecoration(
                   color: CocoonTheme.warm,
                   borderRadius: BorderRadius.circular(28),
+                  border: Border.all(
+                      color: CocoonTheme.coral.withValues(alpha: .2)),
+                  boxShadow: CocoonElevation.subtle,
                 ),
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    Container(
-                      padding: const EdgeInsetsDirectional.symmetric(
-                        horizontal: 10,
-                        vertical: 6,
-                      ),
-                      decoration: BoxDecoration(
-                        color: status.$2,
-                        borderRadius: BorderRadius.circular(99),
-                      ),
-                      child: Text(
-                        status.$1,
-                        style: Theme.of(
-                          context,
-                        ).textTheme.labelMedium?.copyWith(color: status.$3),
-                      ),
+                    Row(
+                      children: [
+                        Container(
+                          padding: const EdgeInsetsDirectional.symmetric(
+                            horizontal: 10,
+                            vertical: 6,
+                          ),
+                          decoration: BoxDecoration(
+                            color: status.$2,
+                            borderRadius: BorderRadius.circular(99),
+                          ),
+                          child: Text(
+                            status.$1,
+                            style: Theme.of(context)
+                                .textTheme
+                                .labelMedium
+                                ?.copyWith(color: status.$3),
+                          ),
+                        ),
+                        const Spacer(),
+                        CocoonBrandMark(
+                          semanticLabel: fa ? 'کوکون‌میت' : 'CocoonMate',
+                          size: 40,
+                        ),
+                      ],
                     ),
                     const SizedBox(height: 18),
                     Text(
