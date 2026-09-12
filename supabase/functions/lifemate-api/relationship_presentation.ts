@@ -21,6 +21,7 @@ export const relationshipPresentationTypes = new Set([
 
 export const circleAccessPresentationValues = new Set([
   "connected",
+  "access_limited",
   "permission_required",
   "access_unavailable",
 ]);
