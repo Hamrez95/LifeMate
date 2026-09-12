@@ -119,8 +119,7 @@ class ApiCampCompanionSelectionSource implements CampCompanionSelectionSource {
 
   String _accessLabel(_CircleAccess access) => switch (access) {
     _CircleAccess.connected => _isPersian ? 'متصل' : 'Connected',
-    _CircleAccess.limited =>
-      _isPersian ? 'دسترسی محدود' : 'Access limited',
+    _CircleAccess.limited => _isPersian ? 'دسترسی محدود' : 'Access limited',
     _CircleAccess.permissionRequired =>
       _isPersian ? 'نیاز به اجازه' : 'Permission required',
     _CircleAccess.unavailable =>
