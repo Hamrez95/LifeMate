@@ -168,6 +168,10 @@ class _EducationArticle extends StatelessWidget {
                   decoration: BoxDecoration(
                     color: CocoonTheme.lilac,
                     borderRadius: BorderRadius.circular(30),
+                    border: Border.all(
+                      color: CocoonTheme.coral.withValues(alpha: .18),
+                    ),
+                    boxShadow: CocoonElevation.subtle,
                   ),
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
@@ -192,9 +196,9 @@ class _EducationArticle extends StatelessWidget {
                             ),
                           ),
                           const Spacer(),
-                          const Icon(
-                            Icons.auto_stories_outlined,
-                            color: CocoonTheme.coral,
+                          CocoonBrandMark(
+                            semanticLabel: fa ? 'کوکون‌میت' : 'CocoonMate',
+                            size: 42,
                           ),
                         ],
                       ),
