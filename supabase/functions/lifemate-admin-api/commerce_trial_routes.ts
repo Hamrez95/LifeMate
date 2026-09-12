@@ -4,6 +4,7 @@ import {
   parseConfigureCommercePlanFeaturePayload,
 } from "./commerce_plan_features.ts";
 import { createCommercePlanFeatureStore } from "./commerce_plan_features_service.ts";
+import { createCommerceSubscriptionAuditStore } from "./commerce_subscription_audit_service.ts";
 import {
   hashConfigureCommerceTrialRequest,
   matchCommerceTrialPolicyPath,
@@ -15,7 +16,12 @@ import {
   requirePermission,
 } from "./authorization.ts";
 import { json } from "./http.ts";
-import { ApiError, requireIdempotencyKey } from "./validation.ts";
+import {
+  ApiError,
+  boundedAdminPage,
+  boundedAdminPageSize,
+  requireIdempotencyKey,
+} from "./validation.ts";
 
 function checkedStatus(result: Record<string, unknown>, workflow: string): number {
   const httpStatus = Number(result.httpStatus);
@@ -32,6 +38,7 @@ function checkedStatus(result: Record<string, unknown>, workflow: string): numbe
 export function createCommerceTrialRouteHandler(databaseUrl: string) {
   const trialStore = createCommerceTrialStore(databaseUrl);
   const planFeatureStore = createCommercePlanFeatureStore(databaseUrl);
+  const subscriptionAuditStore = createCommerceSubscriptionAuditStore(databaseUrl);
 
   return async function commerceTrialRouteHandler(input: {
     request: Request;
@@ -42,6 +49,29 @@ export function createCommerceTrialRouteHandler(databaseUrl: string) {
     origin: string | null;
   }): Promise<Response | null> {
     const { request, path, accountId, admin, correlationId, origin } = input;
+
+    if (
+      request.method === "GET" &&
+      (path === "/api/v1/commerce/conversions" || path === "/api/v1/commerce/gifts")
+    ) {
+      requirePermission(admin, "commerce.read");
+      const url = new URL(request.url);
+      const query = {
+        page: boundedAdminPage(url.searchParams.get("page")),
+        pageSize: boundedAdminPageSize(url.searchParams.get("pageSize"), 25),
+      };
+      const data = path.endsWith("/conversions")
+        ? await subscriptionAuditStore.conversions(query)
+        : await subscriptionAuditStore.gifts(query);
+      return json(
+        {
+          ...data,
+          freshness: { status: "fresh", asOfUtc: new Date().toISOString() },
+        },
+        200,
+        origin,
+      );
+    }
 
     const planFeaturePlanId = matchCommercePlanFeaturesPath(path);
     if (planFeaturePlanId) {
@@ -70,7 +100,9 @@ export function createCommerceTrialRouteHandler(databaseUrl: string) {
         throw new ApiError(
           httpStatus,
           String(result.code),
-          typeof result.message === "string" ? result.message : "Plan feature update was not completed.",
+          typeof result.message === "string"
+            ? result.message
+            : "Plan feature update was not completed.",
         );
       }
       return json({
