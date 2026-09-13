@@ -1,7 +1,4 @@
-import {
-  assertEquals,
-  assertRejects,
-} from "jsr:@std/assert@1.0.14";
+import { assertEquals, assertRejects } from "jsr:@std/assert@1.0.14";
 import postgres from "postgres";
 import { closeLifeMateSqlClientsForTest } from "./database_client.ts";
 import { createMutationIdempotencyStore } from "./idempotency.ts";
@@ -160,8 +157,14 @@ Deno.test({
       );
 
       const [first, second] = await Promise.all([
-        store.createTreatment(appUserId, treatmentBody(medicationName, "one tablet")),
-        store.createTreatment(appUserId, treatmentBody(medicationName, "half tablet")),
+        store.createTreatment(
+          appUserId,
+          treatmentBody(medicationName, "one tablet"),
+        ),
+        store.createTreatment(
+          appUserId,
+          treatmentBody(medicationName, "half tablet"),
+        ),
       ]);
 
       assertEquals(String(first.id) === String(second.id), false);
@@ -238,7 +241,9 @@ Deno.test({
           treatmentBody(`quota-contender-b-${crypto.randomUUID()}`),
         ),
       ]);
-      const fulfilled = results.filter((result) => result.status === "fulfilled");
+      const fulfilled = results.filter((result) =>
+        result.status === "fulfilled"
+      );
       const rejected = results.filter((result) => result.status === "rejected");
       assertEquals(fulfilled.length, 1);
       assertEquals(rejected.length, 1);
@@ -412,7 +417,10 @@ Deno.test({
       releasePersisted();
       const firstResponse = await first;
       assertEquals(firstResponse.status, 201);
-      const firstPayload = await firstResponse.json() as Record<string, unknown>;
+      const firstPayload = await firstResponse.json() as Record<
+        string,
+        unknown
+      >;
 
       // Model an ambiguous client/network outcome: the successful first response
       // is considered lost by the caller, which retries the identical request.
@@ -455,8 +463,27 @@ Deno.test({
         from lifemate.treatment_plans
         where patient_person_id=${personId}::uuid
       `;
+      const scheduleCount = await fixtureSql`
+        select count(*)::integer as count
+        from lifemate.treatment_schedules
+        where treatment_plan_id in (
+          select id from lifemate.treatment_plans
+          where patient_person_id=${personId}::uuid
+        )
+      `;
+      const auditCounts = await fixtureSql`
+        select action,count(*)::integer as count
+        from lifemate.audit_logs
+        where actor_user_id=${appUserId}::uuid
+          and action in ('medication.created','treatment_plan.created')
+        group by action
+        order by action
+      `;
       assertEquals(medicationCount[0].count, 1);
       assertEquals(planCount[0].count, 1);
+      assertEquals(scheduleCount[0].count, 1);
+      assertEquals(auditCounts.length, 2);
+      assertEquals(auditCounts.every((row) => Number(row.count) === 1), true);
     } finally {
       releasePersisted();
       await closeLifeMateSqlClientsForTest().catch(() => undefined);
