@@ -120,6 +120,53 @@ void main() {
     );
   });
 
+  test('atomic treatment create preserves quota code and correlation id', () async {
+    final api = LifeMateTreatmentCreateApi(
+      baseUri: Uri.parse('https://api.example.test'),
+      accessToken: () => 'access-token',
+      httpClient: MockClient((request) async {
+        return http.Response(
+          jsonEncode(<String, dynamic>{
+            'code': 'premium_required_quota_reached',
+            'detail': 'Medication quota reached.',
+            'correlationId': 'corr-treatment-quota-43',
+          }),
+          403,
+          headers: const {'content-type': 'application/json'},
+        );
+      }),
+    );
+    addTearDown(api.close);
+
+    await expectLater(
+      api.createTreatment(
+        clientRequestId: 'atomic-treatment-quota-1',
+        medicationName: 'Quota Example',
+        form: 'tablet',
+        doseText: '1 tablet',
+        startDate: DateTime(2026, 9, 11),
+        timeZone: 'Asia/Tehran',
+        schedules: const <Map<String, String>>[
+          <String, String>{'dayOfWeek': 'friday', 'localTime': '09:00'},
+        ],
+      ),
+      throwsA(
+        isA<LifeMateApiException>()
+            .having((error) => error.statusCode, 'statusCode', 403)
+            .having(
+              (error) => error.code,
+              'code',
+              'premium_required_quota_reached',
+            )
+            .having(
+              (error) => error.correlationId,
+              'correlationId',
+              'corr-treatment-quota-43',
+            ),
+      ),
+    );
+  });
+
   test('atomic treatment create requires a recurrence anchor', () async {
     final api = LifeMateTreatmentCreateApi(
       baseUri: Uri.parse('https://api.example.test'),
