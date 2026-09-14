@@ -45,7 +45,6 @@ jobs:
           --health-retries 10
     env:
       TEST_DATABASE_URL: postgres://postgres:postgres@127.0.0.1:5432/lifemate_local_pressure
-      RUNTIME_DATABASE_URL: postgres://lifemate_edge_runtime:ci-local-runtime-password-0123456789abcdef@127.0.0.1:5432/lifemate_local_pressure
     steps:
       - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd
         with:
@@ -61,12 +60,14 @@ jobs:
         run: |
           set -euo pipefail
           psql "$TEST_DATABASE_URL" --set=ON_ERROR_STOP=1 \
+            --file=supabase/bootstrap/test_provider_compatibility_roles.sql
+          psql "$TEST_DATABASE_URL" --set=ON_ERROR_STOP=1 \
             --file=supabase/bootstrap/legacy_lifemate_baseline.sql
           while IFS= read -r migration; do
             psql "$TEST_DATABASE_URL" --set=ON_ERROR_STOP=1 --file="$migration"
           done < <(find supabase/migrations -maxdepth 1 -type f -name '*.sql' | sort)
 
-          runtime_password='ci-local-runtime-password-0123456789abcdef'
+          runtime_password="$(openssl rand -hex 24)"
           psql "$TEST_DATABASE_URL" --set=ON_ERROR_STOP=1 \
             --set=runtime_password="$runtime_password" <<'SQL'
           alter role lifemate_edge_runtime password :'runtime_password';
@@ -78,6 +79,7 @@ jobs:
             end if;
           end $$;
           SQL
+          echo "RUNTIME_DATABASE_URL=postgres://lifemate_edge_runtime:${runtime_password}@127.0.0.1:5432/lifemate_local_pressure" >> "$GITHUB_ENV"
 
       - name: Run real API lock-pressure and recovery smoke
         shell: bash
