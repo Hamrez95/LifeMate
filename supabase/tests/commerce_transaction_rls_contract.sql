@@ -74,8 +74,12 @@ begin
     end if;
 
     foreach v_role in array array['anon','authenticated','service_role'] loop
-      if to_regrole(v_role) is not null and has_table_privilege(
-        v_role, format('commerce.%I', v_table), 'SELECT,INSERT,UPDATE,DELETE,TRUNCATE'
+      if to_regrole(v_role) is not null and (
+        has_table_privilege(v_role, format('commerce.%I', v_table), 'SELECT')
+        or has_table_privilege(v_role, format('commerce.%I', v_table), 'INSERT')
+        or has_table_privilege(v_role, format('commerce.%I', v_table), 'UPDATE')
+        or has_table_privilege(v_role, format('commerce.%I', v_table), 'DELETE')
+        or has_table_privilege(v_role, format('commerce.%I', v_table), 'TRUNCATE')
       ) then
         raise exception '% retained direct privileges on commerce.%', v_role, v_table;
       end if;
