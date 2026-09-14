@@ -1,0 +1,25 @@
+{
+  "contractVersion": 1,
+  "sceneId": "lifemate_living_camp",
+  "sceneVersion": "1.0.0-stage-1",
+  "logicalSize": { "width": 1000, "height": 2000 },
+  "certifiedAspectRatio": { "min": 0.41, "max": 0.60 },
+  "safeRect": { "left": 110, "top": 140, "width": 780, "height": 1720 },
+  "layers": [
+    {
+      "assetId": "base.background.day",
+      "z": 0,
+      "path": "raster/base/camp_background_day.webp",
+      "appliesTo": ["day", "night_base"],
+      "bounds": { "left": 0, "top": 0, "width": 1000, "height": 2000 }
+    }
+  ],
+  "zones": [
+    { "zoneId": "lifemate_home", "fallbackStage": "stage_1", "visuals": [{ "assetId": "zone.lifemate_home.stage_1.default.day", "stage": "stage_1", "variant": "default", "path": "raster/zones/lifemate_home/stage_1/default_day.webp" }] },
+    { "zoneId": "wellmate", "fallbackStage": "stage_1", "visuals": [{ "assetId": "zone.wellmate.stage_1.default.day", "stage": "stage_1", "variant": "default", "path": "raster/zones/wellmate/stage_1/default_day.webp" }] },
+    { "zoneId": "caremate", "fallbackStage": "stage_1", "visuals": [{ "assetId": "zone.caremate.stage_1.default.day", "stage": "stage_1", "variant": "default", "path": "raster/zones/caremate/stage_1/default_day.webp" }] },
+    { "zoneId": "reproductive_context", "fallbackStage": "stage_1", "visuals": [{ "assetId": "zone.reproductive_context.stage_1.default.day", "stage": "stage_1", "variant": "default", "path": "raster/zones/reproductive_context/stage_1/default_day.webp" }] },
+    { "zoneId": "fitmate", "fallbackStage": "stage_1", "visuals": [{ "assetId": "zone.fitmate.stage_1.under_construction.day", "stage": "stage_1", "variant": "under_construction", "path": "raster/zones/fitmate/stage_1/under_construction_day.webp" }] }
+  ],
+  "actors": []
+}
