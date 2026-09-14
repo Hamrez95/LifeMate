@@ -49,6 +49,30 @@ void main() {
     );
     expect(tester.takeException(), isNull);
   });
+
+  testWidgets('Health Record presents an English LTR empty state', (tester) async {
+    await tester.pumpWidget(
+      Provider<LifeMateApiClient>.value(
+        value: _EmptyHealthRecordApi(),
+        child: const MaterialApp(
+          locale: Locale('en'),
+          home: Directionality(
+            textDirection: TextDirection.ltr,
+            child: HealthRecordScreen(),
+          ),
+        ),
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    expect(find.text('Health record'), findsOneWidget);
+    expect(find.text('Your health record is empty'), findsOneWidget);
+    expect(
+      find.text('Your documents are private. A file opens only when you choose it.'),
+      findsOneWidget,
+    );
+    expect(tester.takeException(), isNull);
+  });
 }
 
 class _HealthRecordApi extends LifeMateApiClient {
@@ -98,4 +122,16 @@ class _HealthRecordApi extends LifeMateApiClient {
       nextCursor: null,
     );
   }
+}
+
+class _EmptyHealthRecordApi extends _HealthRecordApi {
+  @override
+  Future<LifeMateHealthDocumentPage> getHealthDocumentPage({
+    LifeMateHealthDocumentCategory? category,
+    String? sourceProduct,
+    DateTime? fromDate,
+    DateTime? toDate,
+    String? cursor,
+    int limit = 25,
+  }) async => const LifeMateHealthDocumentPage(items: [], nextCursor: null);
 }
