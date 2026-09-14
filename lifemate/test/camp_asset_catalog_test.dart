@@ -11,8 +11,10 @@ void main() {
       'fitmate',
     };
 
-    expect(CampAssetCatalog.zones.map((asset) => asset.zoneId).toSet(),
-        containsAll(requiredZones));
+    expect(
+      CampAssetCatalog.zones.map((asset) => asset.zoneId).toSet(),
+      containsAll(requiredZones),
+    );
     for (final zoneId in requiredZones) {
       expect(CampAssetCatalog.resolve(zoneId: zoneId).stage, 'stage_1');
     }

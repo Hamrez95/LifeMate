@@ -168,11 +168,7 @@ class CampHome extends StatelessWidget {
     );
   }
 
-  CampZoneDefinition _zone(
-    String id,
-    CampRect bounds,
-    String label,
-  ) {
+  CampZoneDefinition _zone(String id, CampRect bounds, String label) {
     return CampZoneDefinition(
       zoneId: id,
       bounds: bounds,

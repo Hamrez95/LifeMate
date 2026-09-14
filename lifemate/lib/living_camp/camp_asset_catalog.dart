@@ -42,14 +42,16 @@ class CampAssetCatalog {
       zoneId: 'wellmate',
       stage: 'stage_1',
       variant: 'default',
-      path: 'assets/living_camp/v1/raster/zones/wellmate/stage_1/default_day.webp',
+      path:
+          'assets/living_camp/v1/raster/zones/wellmate/stage_1/default_day.webp',
     ),
     CampRasterAsset(
       assetId: 'zone.caremate.stage_1.default.day',
       zoneId: 'caremate',
       stage: 'stage_1',
       variant: 'default',
-      path: 'assets/living_camp/v1/raster/zones/caremate/stage_1/default_day.webp',
+      path:
+          'assets/living_camp/v1/raster/zones/caremate/stage_1/default_day.webp',
     ),
     CampRasterAsset(
       assetId: 'zone.reproductive_context.stage_1.default.day',
