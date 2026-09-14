@@ -196,13 +196,13 @@ class _RecordHeader extends StatelessWidget {
           color: AppColors.darkBlue,
         ),
         const SizedBox(width: 6),
-        const Expanded(
+        Expanded(
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               Text(
-                'پرونده سلامت',
-                style: TextStyle(
+                _healthRecordText(context, fa: 'پرونده سلامت', en: 'Health record'),
+                style: const TextStyle(
                   fontSize: 23,
                   fontWeight: FontWeight.w900,
                   color: AppColors.darkBlue,
@@ -210,8 +210,12 @@ class _RecordHeader extends StatelessWidget {
               ),
               SizedBox(height: 2),
               Text(
-                'مدارک درمانی شما، یک‌جا و خصوصی',
-                style: TextStyle(color: AppColors.textSecondary),
+                _healthRecordText(
+                  context,
+                  fa: 'مدارک درمانی شما، یک‌جا و خصوصی',
+                  en: 'Your treatment documents, together and private',
+                ),
+                style: const TextStyle(color: AppColors.textSecondary),
               ),
             ],
           ),
@@ -322,7 +326,7 @@ class _CategoryFilter extends StatelessWidget {
           for (final category in categories) ...[
             ChoiceChip(
               key: ValueKey<String>('health-record-filter-${category?.wireValue ?? 'all'}'),
-              label: Text(_documentCategoryLabel(category)),
+              label: Text(_documentCategoryLabel(context, category)),
               selected: selected == category,
               onSelected: (_) => onSelected(category),
               selectedColor: AppColors.primary.withValues(alpha: 0.18),
@@ -362,7 +366,7 @@ class _HealthDocumentTile extends StatelessWidget {
     final color = _documentCategoryColor(document.category);
     return Semantics(
       button: true,
-      label: _documentCategoryLabel(document.category),
+      label: _documentCategoryLabel(context, document.category),
       child: Material(
         color: Colors.white,
         borderRadius: BorderRadius.circular(22),
@@ -389,7 +393,7 @@ class _HealthDocumentTile extends StatelessWidget {
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
                       Text(
-                        _documentCategoryLabel(document.category),
+                        _documentCategoryLabel(context, document.category),
                         style: const TextStyle(
                           color: AppColors.darkBlue,
                           fontWeight: FontWeight.w900,
@@ -468,12 +472,20 @@ class _DocumentErrorState extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) => _StateCard(
-    icon: Icons.cloud_off_rounded,
-    title: 'پرونده در دسترس نیست',
-    subtitle: 'اتصال را بررسی کنید و دوباره تلاش کنید.',
-    actionLabel: 'تلاش دوباره',
-    onAction: onRetry,
-  );
+        icon: Icons.cloud_off_rounded,
+        title: _healthRecordText(
+          context,
+          fa: 'پرونده در دسترس نیست',
+          en: 'Health record is unavailable',
+        ),
+        subtitle: _healthRecordText(
+          context,
+          fa: 'اتصال را بررسی کنید و دوباره تلاش کنید.',
+          en: 'Check your connection and try again.',
+        ),
+        actionLabel: _healthRecordText(context, fa: 'تلاش دوباره', en: 'Try again'),
+        onAction: onRetry,
+      );
 }
 
 class _DocumentEmptyState extends StatelessWidget {
@@ -483,12 +495,18 @@ class _DocumentEmptyState extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) => _StateCard(
-    icon: filtered ? Icons.filter_alt_off_rounded : Icons.folder_open_rounded,
-    title: filtered ? 'مدرکی در این دسته نیست' : 'پرونده شما هنوز خالی است',
-    subtitle: filtered
-        ? 'دسته دیگری را انتخاب کنید.'
-        : 'نسخه، آزمایش و تصویرهای پزشکی را هنگام ثبت درمان یا ویزیت ضمیمه کنید.',
-  );
+        icon: filtered ? Icons.filter_alt_off_rounded : Icons.folder_open_rounded,
+        title: filtered
+            ? _healthRecordText(context, fa: 'مدرکی در این دسته نیست', en: 'No documents in this category')
+            : _healthRecordText(context, fa: 'پرونده شما هنوز خالی است', en: 'Your health record is empty'),
+        subtitle: filtered
+            ? _healthRecordText(context, fa: 'دسته دیگری را انتخاب کنید.', en: 'Choose another category.')
+            : _healthRecordText(
+                context,
+                fa: 'نسخه، آزمایش و تصویرهای پزشکی را هنگام ثبت درمان یا ویزیت ضمیمه کنید.',
+                en: 'Attach prescriptions, lab results and medical images while recording a treatment or visit.',
+              ),
+      );
 }
 
 class _StateCard extends StatelessWidget {
@@ -546,15 +564,19 @@ class _PrivacyNote extends StatelessWidget {
         color: AppColors.primary.withValues(alpha: 0.08),
         borderRadius: BorderRadius.circular(18),
       ),
-      child: const Row(
+      child: Row(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Icon(Icons.verified_user_rounded, color: AppColors.primary, size: 20),
-          SizedBox(width: 9),
+          const Icon(Icons.verified_user_rounded, color: AppColors.primary, size: 20),
+          const SizedBox(width: 9),
           Expanded(
             child: Text(
-              'مدارک شما خصوصی‌اند. فایل فقط وقتی باز می‌شود که خودتان آن را انتخاب کنید.',
-              style: TextStyle(
+              _healthRecordText(
+                context,
+                fa: 'مدارک شما خصوصی‌اند. فایل فقط وقتی باز می‌شود که خودتان آن را انتخاب کنید.',
+                en: 'Your documents are private. A file opens only when you choose it.',
+              ),
+              style: const TextStyle(
                 color: AppColors.textSecondary,
                 fontSize: 12,
                 fontWeight: FontWeight.w700,
@@ -568,18 +590,34 @@ class _PrivacyNote extends StatelessWidget {
   }
 }
 
-String _documentCategoryLabel(LifeMateHealthDocumentCategory? category) =>
-    switch (category) {
-      null => 'همه',
-      LifeMateHealthDocumentCategory.prescription => 'نسخه',
-      LifeMateHealthDocumentCategory.labResult => 'آزمایش',
-      LifeMateHealthDocumentCategory.imaging => 'تصویربرداری',
-      LifeMateHealthDocumentCategory.visit => 'ویزیت',
-      LifeMateHealthDocumentCategory.injection => 'تزریق',
-      LifeMateHealthDocumentCategory.discharge => 'ترخیص',
-      LifeMateHealthDocumentCategory.vaccination => 'واکسن',
-      LifeMateHealthDocumentCategory.other => 'سایر',
-    };
+String _documentCategoryLabel(
+  BuildContext context,
+  LifeMateHealthDocumentCategory? category,
+) => switch (category) {
+  null => _healthRecordText(context, fa: 'همه', en: 'All'),
+  LifeMateHealthDocumentCategory.prescription =>
+    _healthRecordText(context, fa: 'نسخه', en: 'Prescription'),
+  LifeMateHealthDocumentCategory.labResult =>
+    _healthRecordText(context, fa: 'آزمایش', en: 'Lab result'),
+  LifeMateHealthDocumentCategory.imaging =>
+    _healthRecordText(context, fa: 'تصویربرداری', en: 'Imaging'),
+  LifeMateHealthDocumentCategory.visit =>
+    _healthRecordText(context, fa: 'ویزیت', en: 'Visit'),
+  LifeMateHealthDocumentCategory.injection =>
+    _healthRecordText(context, fa: 'تزریق', en: 'Injection'),
+  LifeMateHealthDocumentCategory.discharge =>
+    _healthRecordText(context, fa: 'ترخیص', en: 'Discharge'),
+  LifeMateHealthDocumentCategory.vaccination =>
+    _healthRecordText(context, fa: 'واکسن', en: 'Vaccination'),
+  LifeMateHealthDocumentCategory.other =>
+    _healthRecordText(context, fa: 'سایر', en: 'Other'),
+};
+
+String _healthRecordText(
+  BuildContext context, {
+  required String fa,
+  required String en,
+}) => Localizations.localeOf(context).languageCode == 'fa' ? fa : en;
 
 IconData _documentIcon(LifeMateHealthDocument document) =>
     switch (document.category) {
