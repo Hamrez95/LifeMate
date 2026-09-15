@@ -111,7 +111,8 @@ final class CocoonGate3ReadModelLoader {
 CocoonCalendarItem _calendarItem(CocoonPregnancyCalendarItem source) {
   final event = source.careEvent;
   final title =
-      _string(event['title']) ?? _calendarClassificationLabel(source.classification);
+      _string(event['title']) ??
+      _calendarClassificationLabel(source.classification);
   final date =
       _string(event['scheduledLocalDate']) ?? _string(event['localDate']) ?? '';
   final time = _string(event['scheduledLocalTime']);
@@ -163,8 +164,9 @@ String _recordTitle(CocoonPregnancyRecordItem source) {
     'check_ins' => 'Daily check-in',
     'symptoms' => _humanCode(_string(summary['symptomCode']) ?? source.type),
     'moods' => 'Mood',
-    'measurements' =>
-      _measurementLabel(_string(summary['observationType']) ?? source.type),
+    'measurements' => _measurementLabel(
+      _string(summary['observationType']) ?? source.type,
+    ),
     'appointments' => _humanCode(
       _string(summary['pregnancyClassification']) ?? source.type,
     ),
