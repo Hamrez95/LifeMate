@@ -2,7 +2,10 @@ import 'package:cocoonmate_module/cocoonmate_module.dart';
 import 'package:lifemate_client/lifemate_client.dart';
 
 typedef CocoonGate3ReadLoader =
-    Future<CocoonGate3ReadModels> Function({required DateTime now});
+    Future<CocoonGate3ReadModels> Function({
+      required DateTime now,
+      required bool fa,
+    });
 
 /// Presentation projection for the Gate-3 daily-use surfaces.
 ///
@@ -44,7 +47,13 @@ final class CocoonGate3ReadModelLoader {
   final CocoonPregnancyCalendarApiClient _calendar;
   final CocoonPregnancyRecordsApiClient _records;
 
-  Future<CocoonGate3ReadModels> load({required DateTime now}) async {
+  Future<CocoonGate3ReadModels> load({
+    required DateTime now,
+    required bool fa,
+  }) async {
+    // Locale-specific copy remains presentation-owned. The seam is retained so
+    // the host contract does not churn when localized read-model labels move to
+    // the module catalog.
     final localToday = DateTime(now.year, now.month, now.day);
     final calendarTo = localToday.add(const Duration(days: 30));
     final recordsFrom = localToday.subtract(const Duration(days: 90));
