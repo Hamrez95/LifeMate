@@ -80,10 +80,13 @@ async function proveFreshRegistration(authKind: "phone" | "email") {
   const bridge = createIdentityBridge(databaseUrl!);
 
   try {
+    const legalAcceptances = await currentLegalAcceptances(db, auth);
+
     await db.bootstrapUser(auth, {
       displayName: `Original ${authKind}`,
       locale: "en",
       timeZone: "UTC",
+      legalAcceptances,
     });
 
     const originalUsers = await admin`
@@ -132,6 +135,7 @@ async function proveFreshRegistration(authKind: "phone" | "email") {
           displayName: "must not reactivate pending deletion",
           locale: "en",
           timeZone: "UTC",
+          legalAcceptances,
         }),
       409,
       "account_deletion_pending",
@@ -192,6 +196,7 @@ async function proveFreshRegistration(authKind: "phone" | "email") {
       displayName: `Fresh ${authKind}`,
       locale: "en",
       timeZone: "UTC",
+      legalAcceptances,
     });
 
     const freshUsers = await admin`
@@ -244,6 +249,7 @@ async function proveFreshRegistration(authKind: "phone" | "email") {
       displayName: "must keep fresh profile",
       locale: "fa",
       timeZone: "Asia/Tehran",
+      legalAcceptances,
     });
     const repeatedProfile = repeated.profile as Record<string, unknown>;
     assertEquals(repeatedProfile.displayName, `Fresh ${authKind}`);
@@ -270,6 +276,30 @@ async function proveFreshRegistration(authKind: "phone" | "email") {
   } finally {
     await admin.end({ timeout: 5 }).catch(() => undefined);
   }
+}
+
+async function currentLegalAcceptances(
+  db: ReturnType<typeof createLifeMateDatabase>,
+  auth: AuthUser,
+): Promise<{ documentId: string; documentHash: string }[]> {
+  const preflight = await db.bootstrapUser(auth, {
+    registrationPreflight: true,
+  });
+  const registration = preflight.registration as
+    | Record<string, unknown>
+    | undefined;
+  const documents = registration?.requiredDocuments;
+  assert(Array.isArray(documents));
+  return documents.map((value) => {
+    assert(value && typeof value === "object" && !Array.isArray(value));
+    const document = value as Record<string, unknown>;
+    assert(typeof document.id === "string");
+    assert(typeof document.documentHash === "string");
+    return {
+      documentId: document.id,
+      documentHash: document.documentHash,
+    };
+  });
 }
 
 async function expectApiError(
