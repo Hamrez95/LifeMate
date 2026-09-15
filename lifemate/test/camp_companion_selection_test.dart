@@ -66,7 +66,7 @@ void main() {
     );
     expect(find.text('0 of 1 selected'), findsOneWidget);
 
-    await tester.tap(find.text('Alex'));
+    await tester.tap(find.byKey(const ValueKey('camp-toggle-a')));
     await tester.pumpAndSettle();
     expect(find.text('1 of 1 selected'), findsOneWidget);
     expect(
@@ -76,10 +76,10 @@ void main() {
       findsOneWidget,
     );
 
-    final sam = find.text('Sam');
-    await tester.ensureVisible(sam);
+    final samToggle = find.byKey(const ValueKey('camp-toggle-b'));
+    await tester.ensureVisible(samToggle);
     await tester.pumpAndSettle();
-    await tester.tap(sam);
+    await tester.tap(samToggle);
     await tester.pump();
 
     final snapshot = await source.load();
@@ -102,8 +102,7 @@ void main() {
     await tester.pumpAndSettle();
 
     expect(find.textContaining('Permission required'), findsOneWidget);
-    await tester.tap(find.text('Taylor'), warnIfMissed: false);
-    await tester.pumpAndSettle();
+    expect(find.byKey(const ValueKey('camp-toggle-blocked')), findsNothing);
     expect((await source.load()).selectedPresentationIds, isEmpty);
   });
 
