@@ -2,10 +2,7 @@ import 'package:cocoonmate_module/cocoonmate_module.dart';
 import 'package:lifemate_client/lifemate_client.dart';
 
 typedef CocoonGate3ReadLoader =
-    Future<CocoonGate3ReadModels> Function({
-      required DateTime now,
-      required bool fa,
-    });
+    Future<CocoonGate3ReadModels> Function({required DateTime now});
 
 /// Presentation projection for the Gate-3 daily-use surfaces.
 ///
@@ -47,10 +44,7 @@ final class CocoonGate3ReadModelLoader {
   final CocoonPregnancyCalendarApiClient _calendar;
   final CocoonPregnancyRecordsApiClient _records;
 
-  Future<CocoonGate3ReadModels> load({
-    required DateTime now,
-    required bool fa,
-  }) async {
+  Future<CocoonGate3ReadModels> load({required DateTime now}) async {
     final localToday = DateTime(now.year, now.month, now.day);
     final calendarTo = localToday.add(const Duration(days: 30));
     final recordsFrom = localToday.subtract(const Duration(days: 90));
@@ -70,9 +64,7 @@ final class CocoonGate3ReadModelLoader {
     List<CocoonCalendarItem> calendarItems = const [];
     try {
       final page = await calendarFuture;
-      calendarItems = page.items
-          .map((item) => _calendarItem(item, fa: fa))
-          .toList(growable: false);
+      calendarItems = page.items.map(_calendarItem).toList(growable: false);
       calendarState = calendarItems.isEmpty
           ? CocoonCalendarLoadState.empty
           : CocoonCalendarLoadState.populated;
@@ -84,9 +76,7 @@ final class CocoonGate3ReadModelLoader {
     List<CocoonRecordViewData> records = const [];
     try {
       final page = await recordsFuture;
-      records = page.items
-          .map((item) => _recordItem(item, fa: fa))
-          .toList(growable: false);
+      records = page.items.map(_recordItem).toList(growable: false);
       recordsState = records.isEmpty
           ? CocoonRecordsState.empty
           : CocoonRecordsState.ready;
@@ -109,14 +99,10 @@ final class CocoonGate3ReadModelLoader {
   }
 }
 
-CocoonCalendarItem _calendarItem(
-  CocoonPregnancyCalendarItem source, {
-  required bool fa,
-}) {
+CocoonCalendarItem _calendarItem(CocoonPregnancyCalendarItem source) {
   final event = source.careEvent;
   final title =
-      _string(event['title']) ??
-      _calendarClassificationLabel(source.classification, fa: fa);
+      _string(event['title']) ?? _calendarClassificationLabel(source.classification);
   final date =
       _string(event['scheduledLocalDate']) ?? _string(event['localDate']) ?? '';
   final time = _string(event['scheduledLocalTime']);
@@ -136,11 +122,8 @@ CocoonCalendarItem _calendarItem(
   );
 }
 
-CocoonRecordViewData _recordItem(
-  CocoonPregnancyRecordItem source, {
-  required bool fa,
-}) {
-  final title = _recordTitle(source, fa: fa);
+CocoonRecordViewData _recordItem(CocoonPregnancyRecordItem source) {
+  final title = _recordTitle(source);
   final summary = _recordSummary(source);
   return CocoonRecordViewData(
     id: source.id,
@@ -164,24 +147,20 @@ CocoonRecordKind _recordKind(String category) => switch (category) {
   _ => CocoonRecordKind.document,
 };
 
-String _recordTitle(CocoonPregnancyRecordItem source, {required bool fa}) {
+String _recordTitle(CocoonPregnancyRecordItem source) {
   final summary = source.summary;
   return switch (source.category) {
-    'pregnancy' => fa ? 'شروع بارداری' : 'Pregnancy started',
-    'check_ins' => fa ? 'حال روزانه' : 'Daily check-in',
+    'pregnancy' => 'Pregnancy started',
+    'check_ins' => 'Daily check-in',
     'symptoms' => _humanCode(_string(summary['symptomCode']) ?? source.type),
-    'moods' => fa ? 'حال روحی' : 'Mood',
-    'measurements' => _measurementLabel(
-      _string(summary['observationType']) ?? source.type,
-      fa: fa,
-    ),
+    'moods' => 'Mood',
+    'measurements' =>
+      _measurementLabel(_string(summary['observationType']) ?? source.type),
     'appointments' => _humanCode(
       _string(summary['pregnancyClassification']) ?? source.type,
     ),
     'medications' =>
-      source.type == 'dose_occurrence'
-          ? (fa ? 'نوبت دارو' : 'Medication dose')
-          : (fa ? 'برنامه درمانی' : 'Treatment plan'),
+      source.type == 'dose_occurrence' ? 'Medication dose' : 'Treatment plan',
     _ => _humanCode(source.type),
   };
 }
@@ -224,26 +203,22 @@ void _addCode(List<String> values, Object? raw) {
   if (value != null) values.add(_humanCode(value));
 }
 
-String _measurementLabel(String raw, {required bool fa}) => switch (raw) {
-  'weight' => fa ? 'وزن' : 'Weight',
-  'blood_pressure' => fa ? 'فشار خون' : 'Blood pressure',
-  'blood_glucose' => fa ? 'قند خون' : 'Blood glucose',
+String _measurementLabel(String raw) => switch (raw) {
+  'weight' => 'Weight',
+  'blood_pressure' => 'Blood pressure',
+  'blood_glucose' => 'Blood glucose',
   _ => _humanCode(raw),
 };
 
 String _calendarClassificationLabel(
-  CocoonPregnancyCalendarClassification value, {
-  required bool fa,
-}) => switch (value) {
-  CocoonPregnancyCalendarClassification.prenatal =>
-    fa ? 'ویزیت بارداری' : 'Prenatal appointment',
-  CocoonPregnancyCalendarClassification.ultrasound =>
-    fa ? 'سونوگرافی' : 'Ultrasound',
-  CocoonPregnancyCalendarClassification.checkup => fa ? 'معاینه' : 'Check-up',
-  CocoonPregnancyCalendarClassification.labTest => fa ? 'آزمایش' : 'Lab test',
-  CocoonPregnancyCalendarClassification.injection => fa ? 'تزریق' : 'Injection',
-  CocoonPregnancyCalendarClassification.other =>
-    fa ? 'رویداد مراقبتی' : 'Care event',
+  CocoonPregnancyCalendarClassification value,
+) => switch (value) {
+  CocoonPregnancyCalendarClassification.prenatal => 'Prenatal appointment',
+  CocoonPregnancyCalendarClassification.ultrasound => 'Ultrasound',
+  CocoonPregnancyCalendarClassification.checkup => 'Check-up',
+  CocoonPregnancyCalendarClassification.labTest => 'Lab test',
+  CocoonPregnancyCalendarClassification.injection => 'Injection',
+  CocoonPregnancyCalendarClassification.other => 'Care event',
 };
 
 String _humanCode(String value) {
