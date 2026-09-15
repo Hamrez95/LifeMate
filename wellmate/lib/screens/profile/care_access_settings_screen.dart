@@ -27,9 +27,11 @@ class _CareAccessSettingsScreenState extends State<CareAccessSettingsScreen> {
   bool _loading = true;
   bool _savingWomenCalendar = false;
   bool _savingHealthRecord = false;
+  bool _savingHealthDocuments = false;
   bool _womenCalendarEnabled = false;
   bool _canViewWomenCalendar = false;
   bool _canManageHealthRecord = false;
+  bool _canViewHealthDocuments = false;
   String? _error;
 
   String get _relationshipId => widget.relationship['id'].toString();
@@ -90,15 +92,35 @@ class _CareAccessSettingsScreenState extends State<CareAccessSettingsScreen> {
       );
     }
 
-    if (mounted) {
-      setState(() {
-        _error = errorMessage;
-        _loading = false;
-      });
-    }
+    try {
+  final permission = await context
+      .read<LifeMateApiClient>()
+      .getHealthDocumentSharingPermission(
+        relationshipId: _relationshipId,
+      );
+  if (mounted) {
+    setState(() {
+      _canViewHealthDocuments =
+          permission['canViewDocuments'] == true;
+    });
   }
+} catch (error) {
+  debugPrint('Care document sharing permission load failed: $error');
+  errorMessage ??= LifeMateRuntimeLocale.select(
+    fa: 'وضعیت اشتراک مدارک پرونده سلامت دریافت نشد.',
+    en: 'Health Record document sharing status could not be loaded.',
+  );
+}
 
-  Future<void> _setWomenCalendarAccess(bool value) async {
+if (mounted) {
+  setState(() {
+    _error = errorMessage;
+    _loading = false;
+  });
+}
+        }
+
+        Future<void> _setWomenCalendarAccess(bool value) async {
     if (_savingWomenCalendar) return;
     setState(() => _savingWomenCalendar = true);
     try {
@@ -172,6 +194,95 @@ class _CareAccessSettingsScreenState extends State<CareAccessSettingsScreen> {
       if (mounted) setState(() => _savingWomenCalendar = false);
     }
   }
+
+  Future<void> _setHealthDocumentAccess(bool value) async {
+  if (_savingHealthDocuments) return;
+  if (value) {
+    final accepted = await showDialog<bool>(
+      context: context,
+      barrierDismissible: false,
+      builder: (dialogContext) => AlertDialog(
+        title: Text(LifeMateRuntimeLocale.select(
+          fa: 'اشتراک مدارک پرونده سلامت',
+          en: 'Share Health Record documents',
+        )),
+        content: Text(LifeMateRuntimeLocale.select(
+          fa: 'این مراقب فقط می‌تواند مدارک را مشاهده و دانلود کند. اجازه افزودن، ویرایش یا حذف مدرک داده نمی‌شود و هر زمان بخواهید می‌توانید این دسترسی را لغو کنید.',
+          en: 'This caregiver can only view and download documents. They cannot add, edit or delete documents, and you can revoke access at any time.',
+        )),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(dialogContext).pop(false),
+            child: Text(LifeMateRuntimeLocale.select(
+              fa: 'انصراف',
+              en: 'Cancel',
+            )),
+          ),
+          FilledButton(
+            onPressed: () => Navigator.of(dialogContext).pop(true),
+            child: Text(LifeMateRuntimeLocale.select(
+              fa: 'تأیید و اشتراک',
+              en: 'Confirm sharing',
+            )),
+          ),
+        ],
+      ),
+    );
+    if (accepted != true || !mounted) return;
+  }
+
+  setState(() => _savingHealthDocuments = true);
+  try {
+    final updated = await context
+        .read<LifeMateApiClient>()
+        .updateHealthDocumentSharingPermission(
+          relationshipId: _relationshipId,
+          enabled: value,
+          confirmConsent: value,
+        );
+    if (!mounted) return;
+    setState(() {
+      _canViewHealthDocuments = updated['canViewDocuments'] == true;
+    });
+    LifeMateNotice.show(
+      context,
+      type: LifeMateNoticeType.success,
+      title: LifeMateRuntimeLocale.select(
+        fa: value ? 'اشتراک مدارک فعال شد' : 'اشتراک مدارک لغو شد',
+        en: value ? 'Document sharing enabled' : 'Document sharing revoked',
+      ),
+      message: LifeMateRuntimeLocale.select(
+        fa: value
+            ? 'این مراقب اکنون دسترسی فقط‌خواندنی به مدارک دارد.'
+            : 'صدور دسترسی جدید به مدارک برای این مراقب فوراً متوقف شد.',
+        en: value
+            ? 'This caregiver now has read-only document access.'
+            : 'New document access for this caregiver has been stopped immediately.',
+      ),
+    );
+  } on LifeMateApiException catch (error) {
+    if (!mounted) return;
+    LifeMateNotice.show(
+      context,
+      type: LifeMateNoticeType.error,
+      title: LifeMateRuntimeLocale.select(
+        fa: 'تغییر اشتراک انجام نشد',
+        en: 'Sharing change failed',
+      ),
+      message: error.code == 'health_document_sharing_consent_required'
+          ? LifeMateRuntimeLocale.select(
+              fa: 'برای اشتراک مدارک، تأیید صریح شما لازم است.',
+              en: 'Your explicit consent is required to share documents.',
+            )
+          : LifeMateRuntimeLocale.select(
+              fa: 'اشتراک مدارک ذخیره نشد. دوباره تلاش کنید.',
+              en: 'Document sharing was not saved. Try again.',
+            ),
+    );
+  } finally {
+    if (mounted) setState(() => _savingHealthDocuments = false);
+  }
+}
 
   Future<void> _setHealthRecordAccess(bool value) async {
     if (_savingHealthRecord) return;
@@ -423,8 +534,28 @@ class _CareAccessSettingsScreenState extends State<CareAccessSettingsScreen> {
               ),
             ],
             SizedBox(height: 12),
-            _PermissionCard(
-              key: ValueKey('care-permission-health-record'),
+  _PermissionCard(
+    key: ValueKey('care-permission-health-documents'),
+    icon: Icons.description_rounded,
+    accent: Color(0xFF397B70),
+    softColor: Color(0xFFEAF7F2),
+    title: LifeMateRuntimeLocale.select(
+      fa: 'مدارک پرونده سلامت',
+      en: 'Health Record documents',
+    ),
+    subtitle: LifeMateRuntimeLocale.select(
+      fa: 'فقط مشاهده و دانلود مدارک؛ بدون اجازه افزودن، ویرایش یا حذف.',
+      en: 'View and download only; no permission to add, edit or delete documents.',
+    ),
+    value: _canViewHealthDocuments,
+    enabled: !_loading && !_savingHealthDocuments,
+    onChanged: _setHealthDocumentAccess,
+    loading: _savingHealthDocuments,
+    isSensitive: true,
+  ),
+  SizedBox(height: 12),
+  _PermissionCard(
+    key: ValueKey('care-permission-health-record'),
               icon: Icons.folder_shared_rounded,
               accent: Color(0xFF6C74D9),
               softColor: Color(0xFFF0F1FF),
