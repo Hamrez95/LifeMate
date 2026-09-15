@@ -14,6 +14,7 @@ class CocoonGate3MutationResult {
 
 typedef CocoonGate3RequestIdFactory = String Function();
 typedef CocoonGate3Clock = DateTime Function();
+typedef CocoonGate3Close = void Function();
 typedef CocoonGate3CheckInOnlineSubmit = Future<void> Function({
   required String clientRequestId,
   required DateTime observedAtUtc,
@@ -63,13 +64,15 @@ final class CocoonGate3MutationAdapter {
     required CocoonGate3MeasurementOfflineEnqueue enqueueMeasurementOffline,
     CocoonGate3RequestIdFactory? requestIdFactory,
     CocoonGate3Clock? clock,
+    CocoonGate3Close? close,
   }) : _submitCheckInOnline = submitCheckInOnline,
        _enqueueCheckInOffline = enqueueCheckInOffline,
        _submitMeasurementOnline = submitMeasurementOnline,
        _enqueueMeasurementOffline = enqueueMeasurementOffline,
        _requestIdFactory =
            requestIdFactory ?? LifeMateApiClient.createClientRequestId,
-       _clock = clock ?? DateTime.now {
+       _clock = clock ?? DateTime.now,
+       _close = close {
     if (timeZone.trim().isEmpty) {
       throw ArgumentError.value(timeZone, 'timeZone', 'must not be empty.');
     }
@@ -159,6 +162,10 @@ final class CocoonGate3MutationAdapter {
         observedAtUtc: observedAtUtc,
         observedLocalDate: observedLocalDate,
       ),
+      close: () {
+        daily.close();
+        measurements.close();
+      },
     );
   }
 
@@ -169,17 +176,19 @@ final class CocoonGate3MutationAdapter {
   final CocoonGate3MeasurementOfflineEnqueue _enqueueMeasurementOffline;
   final CocoonGate3RequestIdFactory _requestIdFactory;
   final CocoonGate3Clock _clock;
+  final CocoonGate3Close? _close;
 
   Future<CocoonGate3MutationResult> submitCheckIn({
     required CocoonPregnancyFeeling feeling,
     required CocoonPregnancyEnergy energy,
   }) async {
     final requestId = _newRequestId();
-    final observedAtUtc = _clock().toUtc();
+    final observedLocal = _clock();
+    final observedAtUtc = observedLocal.toUtc();
     final localDate = DateTime(
-      observedAtUtc.year,
-      observedAtUtc.month,
-      observedAtUtc.day,
+      observedLocal.year,
+      observedLocal.month,
+      observedLocal.day,
     );
     try {
       await _submitCheckInOnline(
@@ -217,11 +226,12 @@ final class CocoonGate3MutationAdapter {
     String? note,
   }) async {
     final requestId = _newRequestId();
-    final observedAtUtc = _clock().toUtc();
+    final observedLocal = _clock();
+    final observedAtUtc = observedLocal.toUtc();
     final localDate = DateTime(
-      observedAtUtc.year,
-      observedAtUtc.month,
-      observedAtUtc.day,
+      observedLocal.year,
+      observedLocal.month,
+      observedLocal.day,
     );
     try {
       await _submitMeasurementOnline(
@@ -255,6 +265,8 @@ final class CocoonGate3MutationAdapter {
       );
     }
   }
+
+  void close() => _close?.call();
 
   String _newRequestId() {
     final value = _requestIdFactory().trim();
