@@ -182,6 +182,14 @@ Deno.test({
           'caregiver-consent-v1',now(),true,false,now(),now()
         )
       `;
+      await fixtureSql`
+        insert into lifemate.women_companion_privacy_scopes(
+          relationship_id,view_period_timing,view_phase_summary,
+          view_shared_wellbeing,updated_by_user_id
+        ) values (
+          ${relationshipId}::uuid,true,true,true,${patient.appUserId}::uuid
+        )
+      `;
       const relationship = await fixtureSql`
         select patient_person_id::text,caregiver_person_id::text
         from lifemate.care_relationships
@@ -257,9 +265,11 @@ Deno.test({
       );
 
       await fixtureSql`
-        update lifemate.care_relationships
-        set can_view_women_calendar=false,updated_at_utc=now()
-        where id=${relationshipId}::uuid
+        update lifemate.women_companion_privacy_scopes
+        set view_period_timing=false,view_phase_summary=false,
+            view_shared_wellbeing=false,version=version+1,
+            updated_at_utc=now()
+        where relationship_id=${relationshipId}::uuid
       `;
       await assertApiError(
         () => women.getCareSummary(caregiver.appUserId, patient.appUserId),
@@ -267,9 +277,11 @@ Deno.test({
         "women_calendar_access_denied",
       );
       await fixtureSql`
-        update lifemate.care_relationships
-        set can_view_women_calendar=true,updated_at_utc=now()
-        where id=${relationshipId}::uuid
+        update lifemate.women_companion_privacy_scopes
+        set view_period_timing=true,view_phase_summary=true,
+            view_shared_wellbeing=true,version=version+1,
+            updated_at_utc=now()
+        where relationship_id=${relationshipId}::uuid
       `;
 
       const action = await women.recordCareSupportAction(
@@ -339,6 +351,10 @@ Deno.test({
           where id=${supportActionId}::uuid
         `.catch(() => undefined);
       }
+      await fixtureSql`
+        delete from consent.consent_records
+        where scope_key=${`care_relationship:${relationshipId}`}
+      `.catch(() => undefined);
       await fixtureSql`
         delete from lifemate.care_relationships where id=${relationshipId}::uuid
       `.catch(() => undefined);
