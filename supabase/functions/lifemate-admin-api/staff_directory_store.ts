@@ -10,7 +10,9 @@ export type StaffDirectoryItem = {
   effectivePermissionCount: number;
   createdAtUtc: string;
   lastAccessChangeAtUtc: string | null;
-  lastAdminActivity: { action: string; result: string; occurredAtUtc: string } | null;
+  lastAdminActivity:
+    | { action: string; result: string; occurredAtUtc: string }
+    | null;
   mfaPosture: "unknown";
 };
 
@@ -22,7 +24,9 @@ export type StaffDetail = StaffDirectoryItem & {
     expiresAtUtc: string | null;
     revokedAtUtc: string | null;
   }>;
-  effectivePermissions: Array<{ code: string; domain: string; riskLevel: string }>;
+  effectivePermissions: Array<
+    { code: string; domain: string; riskLevel: string }
+  >;
   activity: Array<{
     id: string;
     action: string;
@@ -35,7 +39,9 @@ export type StaffDetail = StaffDirectoryItem & {
 type Row = Record<string, unknown>;
 
 function iso(value: unknown): string {
-  return value instanceof Date ? value.toISOString() : new Date(String(value)).toISOString();
+  return value instanceof Date
+    ? value.toISOString()
+    : new Date(String(value)).toISOString();
 }
 function nullableIso(value: unknown): string | null {
   return value == null ? null : iso(value);
@@ -43,7 +49,9 @@ function nullableIso(value: unknown): string | null {
 function nullableString(value: unknown): string | null {
   return typeof value === "string" ? value : null;
 }
-function parseRoles(value: unknown): Array<{ code: string; displayName: string }> {
+function parseRoles(
+  value: unknown,
+): Array<{ code: string; displayName: string }> {
   if (!Array.isArray(value)) return [];
   return value.flatMap((entry) => {
     if (!entry || typeof entry !== "object") return [];
@@ -63,18 +71,19 @@ function mapDirectoryItem(row: Row): StaffDirectoryItem {
     effectivePermissionCount: Number(row.effective_permission_count ?? 0),
     createdAtUtc: iso(row.created_at_utc),
     lastAccessChangeAtUtc: nullableIso(row.last_access_change_at_utc),
-    lastAdminActivity: row.last_activity_action == null
-      ? null
-      : {
-        action: String(row.last_activity_action),
-        result: String(row.last_activity_result),
-        occurredAtUtc: iso(row.last_activity_at_utc),
-      },
+    lastAdminActivity: row.last_activity_action == null ? null : {
+      action: String(row.last_activity_action),
+      result: String(row.last_activity_result),
+      occurredAtUtc: iso(row.last_activity_at_utc),
+    },
     mfaPosture: "unknown",
   };
 }
 
-export async function listStaffDirectory(sql: AdminSql, query: StaffDirectoryQuery) {
+export async function listStaffDirectory(
+  sql: AdminSql,
+  query: StaffDirectoryQuery,
+) {
   const cursorCreated = query.cursor?.createdAtUtc ?? null;
   const cursorAccount = query.cursor?.accountId ?? null;
   const rows = await sql`
@@ -139,7 +148,10 @@ export async function listStaffDirectory(sql: AdminSql, query: StaffDirectoryQue
   return (rows as unknown as Row[]).map(mapDirectoryItem);
 }
 
-export async function getStaffDetail(sql: AdminSql, accountId: string): Promise<StaffDetail | null> {
+export async function getStaffDetail(
+  sql: AdminSql,
+  accountId: string,
+): Promise<StaffDetail | null> {
   const baseRows = await sql`
     select m.account_id, sp.username, sp.display_name, m.status as membership_status,
            m.created_at_utc,
@@ -193,19 +205,33 @@ export async function getStaffDetail(sql: AdminSql, accountId: string): Promise<
   return {
     ...mapDirectoryItem(base),
     roleHistory: (roleRows as unknown as Row[]).map((row) => ({
-      roleCode: String(row.role_code), roleDisplayName: String(row.role_display_name),
-      startsAtUtc: iso(row.starts_at_utc), expiresAtUtc: nullableIso(row.expires_at_utc), revokedAtUtc: nullableIso(row.revoked_at_utc),
+      roleCode: String(row.role_code),
+      roleDisplayName: String(row.role_display_name),
+      startsAtUtc: iso(row.starts_at_utc),
+      expiresAtUtc: nullableIso(row.expires_at_utc),
+      revokedAtUtc: nullableIso(row.revoked_at_utc),
     })),
     effectivePermissions: (permissionRows as unknown as Row[]).map((row) => ({
-      code: String(row.code), domain: String(row.domain), riskLevel: String(row.risk_level),
+      code: String(row.code),
+      domain: String(row.domain),
+      riskLevel: String(row.risk_level),
     })),
     activity: (activityRows as unknown as Row[]).map((row) => ({
-      id: String(row.id), action: String(row.action), result: String(row.result), resourceType: String(row.resource_type), occurredAtUtc: iso(row.occurred_at_utc),
+      id: String(row.id),
+      action: String(row.action),
+      result: String(row.result),
+      resourceType: String(row.resource_type),
+      occurredAtUtc: iso(row.occurred_at_utc),
     })),
   };
 }
 
-export async function auditStaffDetailRead(sql: AdminSql, actorAccountId: string, targetAccountId: string, correlationId: string) {
+export async function auditStaffDetailRead(
+  sql: AdminSql,
+  actorAccountId: string,
+  targetAccountId: string,
+  correlationId: string,
+) {
   await sql`insert into admin.audit_events(actor_account_id,action,resource_type,resource_id,result,reason,correlation_id,elevated_access,metadata_json)
     values(${actorAccountId}::uuid,'staff.detail.read','admin_member',${targetAccountId},'Allowed','Canonical staff detail read',${correlationId}::uuid,false,'{}'::jsonb)`;
 }
