@@ -6,6 +6,17 @@ insert into lifemate.app_users(id,auth_subject,status,created_at_utc,updated_at_
 ('71000000-0000-0000-0000-000000000002','context-subject-b','Active',now(),now()),
 ('71000000-0000-0000-0000-000000000003','context-subject-c','Active',now(),now());
 
+-- This contract proves relationship-specific consent isolation, not freemium
+-- quota behavior. Keep the production quota trigger active, but raise only this
+-- transaction-local fixture's owner caregiver allowance so two independently
+-- consented relationships can coexist for the negative/positive assertions.
+update commerce.catalog_policies cp
+set value_json='2'::jsonb
+from commerce.products p
+where p.id=cp.product_id
+  and p.code='wellmate-caremate'
+  and cp.policy_key='free.owner_caregivers.max';
+
 insert into lifemate.care_relationships(
   id,patient_user_id,caregiver_user_id,status,
   patient_consent_version,patient_consented_at_utc,
