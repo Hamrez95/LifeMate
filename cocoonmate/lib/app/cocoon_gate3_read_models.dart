@@ -140,7 +140,7 @@ CocoonRecordViewData _recordItem(
   required bool fa,
 }) {
   final title = _recordTitle(source, fa: fa);
-  final summary = _recordSummary(source, fa: fa);
+  final summary = _recordSummary(source);
   return CocoonRecordViewData(
     id: source.id,
     title: title,
@@ -183,27 +183,33 @@ String _recordTitle(CocoonPregnancyRecordItem source, {required bool fa}) {
   };
 }
 
-String? _recordSummary(CocoonPregnancyRecordItem source, {required bool fa}) {
+String? _recordSummary(CocoonPregnancyRecordItem source) {
   final summary = source.summary;
   final values = <String>[];
   switch (source.category) {
     case 'check_ins':
       _addCode(values, summary['feeling']);
       _addCode(values, summary['energy']);
+      break;
     case 'symptoms':
       _addCode(values, summary['intensity']);
+      break;
     case 'moods':
       _addCode(values, summary['moodCode']);
+      break;
     case 'appointments':
       _addCode(values, summary['status']);
+      break;
     case 'medications':
       _addCode(values, summary['status']);
+      break;
     case 'measurements':
       // Values intentionally stay in the canonical detail surface; the Records
       // list only identifies the measurement kind to avoid excess health text.
       break;
     case 'pregnancy':
       _addCode(values, summary['status']);
+      break;
     default:
       break;
   }
