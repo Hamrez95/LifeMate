@@ -6,11 +6,11 @@
 
 ## 0. Reconciliation snapshot
 
-Last reconciled: **2026-09-12**
+Last reconciled: **2026-09-15**
 
 Current verified `main` at this reconciliation point:
 
-`a0d862f1fa1460f1b52f94c3dadbb092853fd84b`
+`52da008d6a1e244dda567304de56495422706f2c`
 
 Current implementation facts:
 - top-level `lifemate/` parent Flutter application exists and is independently buildable;
