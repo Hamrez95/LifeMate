@@ -18,11 +18,12 @@ Current implementation facts:
 - Living Camp contracts #1070, #1071 and #1072 are merged;
 - Living Camp 2.5D renderer #1075 is merged and mounted as Shell Home;
 - Living Camp runtime/accessibility/navigation tasks #1077 and #1078 are merged;
-- #1073 and #1074 remain OPEN Work-preferred visual/Rive production tasks;
+- #1073 Stage-1 layered Camp art package is merged on `main` via PR #1188;
+- #1074 remains the only OPEN Work-preferred visual/Rive production task;
 - #1076 remains genuinely blocked by the reusable Rive avatar output from #1074;
-- #1079 remains the representative-art/Rive performance/battery/accessibility Go/No-Go gate and must not close before #1073/#1074/#1076 are genuinely integrated;
+- #1079 remains the representative-art/Rive performance/battery/accessibility Go/No-Go gate and must not close before #1074/#1076 are genuinely integrated with the merged #1073 art;
 - Today/Alerts lane #1087–#1090 is merged;
-- Circle lane #1091–#1093 is merged; #1094 remains OPEN with implementation PR #1157 still open and must be finished/revalidated before it is treated as complete;
+- Circle lane #1091–#1094 is merged; #1094 shipped via PR #1157 with privacy-safe companion-summary coverage;
 - Global Markets & Localization canonical decision/backlog exists: Core Epic #1161, Admin Epic `Hamrez95/lifemate-admin#332`, P0/P1/P2 contract→runtime chain #1162–#1177, and separate Commerce security task #1176.
 
 Existing platform precedents remain authoritative:
@@ -268,17 +269,16 @@ Completed/merged:
 - #1078 — accessible WellMate hotspot + immediate canonical route transition
 
 Pending Work:
-- #1073 — layered master Camp asset package — Work-preferred
 - #1074 — first reusable Rive avatar — Work-preferred
 
 Dependency behavior while Work is pending:
-- #1076 — **blocked by #1074** because the Home → WellMate → Home PoC requires the real reusable Rive actor; #1073 supplies representative environment art.
-- #1079 — final performance/battery/accessibility Go/No-Go requires representative integrated #1073/#1074 art/Rive plus completed #1076 behavior.
+- #1076 — **blocked by #1074** because the Home → WellMate → Home PoC requires the real reusable Rive actor; representative environment art is already available from #1073.
+- #1079 — final performance/battery/accessibility Go/No-Go requires representative integrated #1074/#1076 behavior with the merged #1073 art.
 
 Recommended P0 continuation:
-1. keep #1073/#1074 in the Work queue and LIVE verify any returned output;
+1. keep #1074 in the Work queue and LIVE verify any returned output;
 2. when #1074 returns, integrate it and execute #1076;
-3. when #1073/#1074/#1076 are representative in runtime, execute #1079;
+3. when #1074/#1076 are representative in runtime alongside the merged #1073 art, execute #1079;
 4. only then unlock Living Camp MVP expansion #1082–#1086.
 
 ### P1 — Living Camp MVP
@@ -311,7 +311,7 @@ Completed/merged:
 3. #1093 — consent-aware adapter
 
 Current:
-4. #1094 — limited privacy-safe summary/presentation — **OPEN**, implementation PR #1157 is OPEN and must be revalidated/merged before completion.
+4. #1094 — limited privacy-safe summary/presentation — merged via PR #1157.
 
 Relationship, consent, authorization and visual selection stay separate.
 
@@ -328,16 +328,6 @@ Journey is a meaningful life-stage narrative, not another dashboard.
 ## 8. Pending Work Handoffs
 
 This is the canonical recoverable Work queue. Every item remains OPEN until Work output is merged and LIVE verified.
-
-### #1073 — READY FOR WORK
-- **Title:** Produce layered master Camp asset package
-- **Priority:** P0
-- **Dependency order:** after #1070/#1071/#1072; renderer #1075 is already merged
-- **Status:** `WORK HANDOFF — READY`; Issue OPEN
-- **Why Work:** original visual/environment asset production, layered day/night package, zone art, runtime exports
-- **Work prompt:** stored in GitHub Issue #1073 comment headed `WORK HANDOFF — READY`
-- **Can continue in parallel:** unrelated Shell/Global/contract work not requiring final Camp art
-- **True downstream blockers:** representative visual portion of #1079 and any acceptance that explicitly requires final layered Camp art
 
 ### #1074 — READY FOR WORK
 - **Title:** Produce first reusable Rive avatar for PoC
@@ -415,8 +405,8 @@ Impact Grove/cause vessels, if built later, are read-only presentation of canoni
 
 At this reconciliation point:
 
-1. **Finish the existing Circle #1094 / PR #1157 before creating a duplicate implementation branch.** Re-run CI against current main, fix owned failures, exact-diff review, merge if green, verify #1094 closed, and update its completion evidence.
-2. In parallel, Work-preferred Living Camp #1073/#1074 may continue because they do not conflict with #1094 or Global contract work.
+1. **Keep #1074 in the Work queue and do not fake-complete Rive authoring.** When its real actor output returns, integrate it and execute #1076.
+2. The next Living Camp gate is #1079 only after #1074 and #1076 are representative with the merged #1073 assets.
 3. For Global Markets, the earliest architectural implementation chain is #1162 → #1169, followed by #1163/#1164 → #1170/#1171. Do not let Admin #334 treat #1162 contract-only completion as a production read model.
 4. Reconcile LIVE again after each merge; do not infer priority from issue number.
 
