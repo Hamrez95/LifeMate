@@ -124,11 +124,11 @@ CocoonBootstrapSnapshot _snapshot({bool activePregnancy = true}) {
   return CocoonBootstrapSnapshot.fromJson({
     'contractVersion': 1,
     'subject': {'personId': personId},
-    'enrollmentState': activePregnancy ? 'active' : 'not_enrolled',
+    'enrollmentState': 'active',
     'entitlementState': {'state': 'active'},
     'applicationState': {
       'availability': 'available',
-      'enrollmentState': activePregnancy ? 'active' : 'not_enrolled',
+      'enrollmentState': 'active',
     },
     'commerceEligibility': {
       'state': 'entitled',
