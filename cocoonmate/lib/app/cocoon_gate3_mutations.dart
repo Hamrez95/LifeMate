@@ -15,40 +15,44 @@ class CocoonGate3MutationResult {
 typedef CocoonGate3RequestIdFactory = String Function();
 typedef CocoonGate3Clock = DateTime Function();
 typedef CocoonGate3Close = void Function();
-typedef CocoonGate3CheckInOnlineSubmit = Future<void> Function({
-  required String clientRequestId,
-  required DateTime observedAtUtc,
-  required String localDate,
-  required String timeZone,
-  required CocoonPregnancyFeeling feeling,
-  required CocoonPregnancyEnergy energy,
-});
-typedef CocoonGate3CheckInOfflineEnqueue = Future<void> Function({
-  required String clientRequestId,
-  required DateTime observedAtUtc,
-  required DateTime localDate,
-  required String feeling,
-  required String energy,
-});
-typedef CocoonGate3MeasurementOnlineSubmit = Future<void> Function({
-  required String clientRequestId,
-  required CocoonPregnancyMeasurementType type,
-  required double valuePrimary,
-  double? valueSecondary,
-  String? note,
-  required DateTime observedAtUtc,
-  required DateTime observedLocalDate,
-  required String timeZone,
-});
-typedef CocoonGate3MeasurementOfflineEnqueue = Future<void> Function({
-  required String clientRequestId,
-  required String observationType,
-  required double valuePrimary,
-  double? valueSecondary,
-  String? note,
-  required DateTime observedAtUtc,
-  required DateTime observedLocalDate,
-});
+typedef CocoonGate3CheckInOnlineSubmit =
+    Future<void> Function({
+      required String clientRequestId,
+      required DateTime observedAtUtc,
+      required String localDate,
+      required String timeZone,
+      required CocoonPregnancyFeeling feeling,
+      required CocoonPregnancyEnergy energy,
+    });
+typedef CocoonGate3CheckInOfflineEnqueue =
+    Future<void> Function({
+      required String clientRequestId,
+      required DateTime observedAtUtc,
+      required DateTime localDate,
+      required String feeling,
+      required String energy,
+    });
+typedef CocoonGate3MeasurementOnlineSubmit =
+    Future<void> Function({
+      required String clientRequestId,
+      required CocoonPregnancyMeasurementType type,
+      required double valuePrimary,
+      double? valueSecondary,
+      String? note,
+      required DateTime observedAtUtc,
+      required DateTime observedLocalDate,
+      required String timeZone,
+    });
+typedef CocoonGate3MeasurementOfflineEnqueue =
+    Future<void> Function({
+      required String clientRequestId,
+      required String observationType,
+      required double valuePrimary,
+      double? valueSecondary,
+      String? note,
+      required DateTime observedAtUtc,
+      required DateTime observedLocalDate,
+    });
 
 /// Gate-3 mutation bridge for canonical pregnancy captures.
 ///
@@ -94,74 +98,78 @@ final class CocoonGate3MutationAdapter {
     );
     return CocoonGate3MutationAdapter(
       timeZone: timeZone,
-      submitCheckInOnline: ({
-        required clientRequestId,
-        required observedAtUtc,
-        required localDate,
-        required timeZone,
-        required feeling,
-        required energy,
-      }) async {
-        await daily.createCheckIn(
-          clientRequestId: clientRequestId,
-          observedAtUtc: observedAtUtc,
-          localDate: localDate,
-          timeZone: timeZone,
-          feeling: feeling,
-          energy: energy,
-        );
-      },
-      enqueueCheckInOffline: ({
-        required clientRequestId,
-        required observedAtUtc,
-        required localDate,
-        required feeling,
-        required energy,
-      }) => offlineOwner.enqueueDailyCheckIn(
-        clientRequestId: clientRequestId,
-        observedAtUtc: observedAtUtc,
-        localDate: localDate,
-        feeling: feeling,
-        energy: energy,
-      ),
-      submitMeasurementOnline: ({
-        required clientRequestId,
-        required type,
-        required valuePrimary,
-        valueSecondary,
-        note,
-        required observedAtUtc,
-        required observedLocalDate,
-        required timeZone,
-      }) async {
-        await measurements.create(
-          clientRequestId: clientRequestId,
-          type: type,
-          valuePrimary: valuePrimary,
-          valueSecondary: valueSecondary,
-          note: note,
-          observedAtUtc: observedAtUtc,
-          observedLocalDate: observedLocalDate,
-          timeZone: timeZone,
-        );
-      },
-      enqueueMeasurementOffline: ({
-        required clientRequestId,
-        required observationType,
-        required valuePrimary,
-        valueSecondary,
-        note,
-        required observedAtUtc,
-        required observedLocalDate,
-      }) => offlineOwner.enqueueMeasurement(
-        clientRequestId: clientRequestId,
-        observationType: observationType,
-        valuePrimary: valuePrimary,
-        valueSecondary: valueSecondary,
-        note: note,
-        observedAtUtc: observedAtUtc,
-        observedLocalDate: observedLocalDate,
-      ),
+      submitCheckInOnline:
+          ({
+            required clientRequestId,
+            required observedAtUtc,
+            required localDate,
+            required timeZone,
+            required feeling,
+            required energy,
+          }) async {
+            await daily.createCheckIn(
+              clientRequestId: clientRequestId,
+              observedAtUtc: observedAtUtc,
+              localDate: localDate,
+              timeZone: timeZone,
+              feeling: feeling,
+              energy: energy,
+            );
+          },
+      enqueueCheckInOffline:
+          ({
+            required clientRequestId,
+            required observedAtUtc,
+            required localDate,
+            required feeling,
+            required energy,
+          }) => offlineOwner.enqueueDailyCheckIn(
+            clientRequestId: clientRequestId,
+            observedAtUtc: observedAtUtc,
+            localDate: localDate,
+            feeling: feeling,
+            energy: energy,
+          ),
+      submitMeasurementOnline:
+          ({
+            required clientRequestId,
+            required type,
+            required valuePrimary,
+            valueSecondary,
+            note,
+            required observedAtUtc,
+            required observedLocalDate,
+            required timeZone,
+          }) async {
+            await measurements.create(
+              clientRequestId: clientRequestId,
+              type: type,
+              valuePrimary: valuePrimary,
+              valueSecondary: valueSecondary,
+              note: note,
+              observedAtUtc: observedAtUtc,
+              observedLocalDate: observedLocalDate,
+              timeZone: timeZone,
+            );
+          },
+      enqueueMeasurementOffline:
+          ({
+            required clientRequestId,
+            required observationType,
+            required valuePrimary,
+            valueSecondary,
+            note,
+            required observedAtUtc,
+            required observedLocalDate,
+          }) => offlineOwner.enqueueMeasurement(
+            clientRequestId: clientRequestId,
+            observationType: observationType,
+            valuePrimary: valuePrimary,
+            valueSecondary: valueSecondary,
+            note: note,
+            observedAtUtc: observedAtUtc,
+            observedLocalDate: observedLocalDate,
+          ),
       close: () {
         daily.close();
         measurements.close();
