@@ -29,3 +29,5 @@ flutter:
     - assets/living_camp/v1/raster/zones/caremate/stage_1/default_day.webp
     - assets/living_camp/v1/raster/zones/reproductive_context/stage_1/default_day.webp
     - assets/living_camp/v1/raster/zones/fitmate/stage_1/under_construction_day.webp
+    - assets/living_camp/v1/raster/actors/adult_female_idle.png
+    - assets/living_camp/v1/raster/actors/adult_male_idle.png
