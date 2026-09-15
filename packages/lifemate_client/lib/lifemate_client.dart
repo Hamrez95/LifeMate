@@ -27,6 +27,7 @@ export 'src/cocoon_pregnancy_offline_content.dart';
 export 'src/cocoon_pregnancy_offline_dating.dart';
 export 'src/cocoon_pregnancy_offline_owner.dart';
 export 'src/cocoon_pregnancy_offline_snapshot.dart';
+export 'src/cocoon_pregnancy_records_api.dart';
 export 'src/cocoon_pregnancy_treatments_api.dart';
 export 'src/companion_care.dart';
 export 'src/companion_care_api.dart';
