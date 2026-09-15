@@ -121,9 +121,15 @@ jobs:
         run: |
           set -euo pipefail
           deno fmt --check \
+            bootstrap_account_state.ts \
+            identity_resolver.ts \
             account_lifecycle_integration_test.ts \
             account_reregistration_integration_test.ts \
             data_export_integration_test.ts
+          deno check \
+            bootstrap_account_state.ts \
+            identity_resolver.ts \
+            account_reregistration_integration_test.ts
           deno test --no-check --allow-env --allow-net=localhost:5432,127.0.0.1:5432 \
             account_lifecycle_integration_test.ts \
             account_reregistration_integration_test.ts \
