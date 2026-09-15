@@ -21,5 +21,26 @@
     { "zoneId": "reproductive_context", "fallbackStage": "stage_1", "visuals": [{ "assetId": "zone.reproductive_context.stage_1.default.day", "stage": "stage_1", "variant": "default", "path": "raster/zones/reproductive_context/stage_1/default_day.webp" }] },
     { "zoneId": "fitmate", "fallbackStage": "stage_1", "visuals": [{ "assetId": "zone.fitmate.stage_1.under_construction.day", "stage": "stage_1", "variant": "under_construction", "path": "raster/zones/fitmate/stage_1/under_construction_day.webp" }] }
   ],
-  "actors": []
+  "actors": [
+    {
+      "actorId": "main_avatar_fallback",
+      "kind": "raster_fallback",
+      "path": "raster/actors/adult_male_idle.png",
+      "family": "adult_masculine",
+      "supportedActions": ["idle"],
+      "fallbackAction": "idle",
+      "reducedMotion": "stable_pose",
+      "replacementContract": "docs/lifemate-shell/RIVE_AVATAR_CONTRACT.md"
+    },
+    {
+      "actorId": "adult_feminine_fallback",
+      "kind": "raster_fallback",
+      "path": "raster/actors/adult_female_idle.png",
+      "family": "adult_feminine",
+      "supportedActions": ["idle"],
+      "fallbackAction": "idle",
+      "reducedMotion": "stable_pose",
+      "replacementContract": "docs/lifemate-shell/RIVE_AVATAR_CONTRACT.md"
+    }
+  ]
 }
