@@ -8,6 +8,7 @@ void main() {
   testWidgets('Health Record lists private documents and filters by category', (
     tester,
   ) async {
+    LifeMateRuntimeLocale.setLanguageCode('fa');
     await tester.pumpWidget(
       Provider<LifeMateApiClient>.value(
         value: _HealthRecordApi(),
@@ -51,6 +52,8 @@ void main() {
   });
 
   testWidgets('Health Record presents an English LTR empty state', (tester) async {
+    LifeMateRuntimeLocale.setLanguageCode('en');
+    addTearDown(() => LifeMateRuntimeLocale.setLanguageCode('fa'));
     await tester.pumpWidget(
       Provider<LifeMateApiClient>.value(
         value: _EmptyHealthRecordApi(),
