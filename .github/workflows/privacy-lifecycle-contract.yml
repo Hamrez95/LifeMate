@@ -10,6 +10,9 @@ on:
       - 'packages/lifemate_ui/lib/src/shared_profile_screen.dart'
       - 'supabase/functions/lifemate-api/account_lifecycle.ts'
       - 'supabase/functions/lifemate-api/account_lifecycle_integration_test.ts'
+      - 'supabase/functions/lifemate-api/account_reregistration_integration_test.ts'
+      - 'supabase/functions/lifemate-api/bootstrap_account_state.ts'
+      - 'supabase/functions/lifemate-api/identity_resolver.ts'
       - 'supabase/functions/lifemate-api/data_export.ts'
       - 'supabase/functions/lifemate-api/data_export_integration_test.ts'
       - 'supabase/functions/lifemate-api/http.ts'
@@ -28,6 +31,9 @@ on:
       - 'packages/lifemate_ui/lib/src/shared_profile_screen.dart'
       - 'supabase/functions/lifemate-api/account_lifecycle.ts'
       - 'supabase/functions/lifemate-api/account_lifecycle_integration_test.ts'
+      - 'supabase/functions/lifemate-api/account_reregistration_integration_test.ts'
+      - 'supabase/functions/lifemate-api/bootstrap_account_state.ts'
+      - 'supabase/functions/lifemate-api/identity_resolver.ts'
       - 'supabase/functions/lifemate-api/data_export.ts'
       - 'supabase/functions/lifemate-api/data_export_integration_test.ts'
       - 'supabase/functions/lifemate-api/http.ts'
@@ -109,12 +115,16 @@ jobs:
             psql "$TEST_DATABASE_URL" --set=ON_ERROR_STOP=1 --file="$migration"
           done < <(find supabase/migrations -maxdepth 1 -type f -name '*.sql' | sort)
 
-      - name: Prove mapped deletion request and portable export exclusions
+      - name: Prove deletion lifecycle, fresh re-registration, and portable export exclusions
         working-directory: supabase/functions/lifemate-api
         shell: bash
         run: |
           set -euo pipefail
-          deno fmt --check account_lifecycle_integration_test.ts data_export_integration_test.ts
+          deno fmt --check \
+            account_lifecycle_integration_test.ts \
+            account_reregistration_integration_test.ts \
+            data_export_integration_test.ts
           deno test --no-check --allow-env --allow-net=localhost:5432,127.0.0.1:5432 \
             account_lifecycle_integration_test.ts \
+            account_reregistration_integration_test.ts \
             data_export_integration_test.ts
