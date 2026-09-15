@@ -1,10 +1,11 @@
 import 'package:cocoonmate_module/cocoonmate_module.dart';
 import 'package:lifemate_client/lifemate_client.dart';
 
-typedef CocoonGate3ReadLoader = Future<CocoonGate3ReadModels> Function({
-  required DateTime now,
-  required bool fa,
-});
+typedef CocoonGate3ReadLoader =
+    Future<CocoonGate3ReadModels> Function({
+      required DateTime now,
+      required bool fa,
+    });
 
 /// Presentation projection for the Gate-3 daily-use surfaces.
 ///
@@ -113,11 +114,11 @@ CocoonCalendarItem _calendarItem(
   required bool fa,
 }) {
   final event = source.careEvent;
-  final title = _string(event['title']) ??
+  final title =
+      _string(event['title']) ??
       _calendarClassificationLabel(source.classification, fa: fa);
-  final date = _string(event['scheduledLocalDate']) ??
-      _string(event['localDate']) ??
-      '';
+  final date =
+      _string(event['scheduledLocalDate']) ?? _string(event['localDate']) ?? '';
   final time = _string(event['scheduledLocalTime']);
   final supportingParts = <String>[
     if (_string(event['providerName']) case final value?) value,
@@ -156,8 +157,10 @@ CocoonRecordKind _recordKind(String category) => switch (category) {
   'appointments' => CocoonRecordKind.appointment,
   'measurements' => CocoonRecordKind.measurement,
   'medications' => CocoonRecordKind.medication,
-  'pregnancy' || 'check_ins' || 'symptoms' || 'moods' =>
-    CocoonRecordKind.checkIn,
+  'pregnancy' ||
+  'check_ins' ||
+  'symptoms' ||
+  'moods' => CocoonRecordKind.checkIn,
   _ => CocoonRecordKind.document,
 };
 
@@ -166,19 +169,19 @@ String _recordTitle(CocoonPregnancyRecordItem source, {required bool fa}) {
   return switch (source.category) {
     'pregnancy' => fa ? 'شروع بارداری' : 'Pregnancy started',
     'check_ins' => fa ? 'حال روزانه' : 'Daily check-in',
-    'symptoms' =>
-      _humanCode(_string(summary['symptomCode']) ?? source.type),
+    'symptoms' => _humanCode(_string(summary['symptomCode']) ?? source.type),
     'moods' => fa ? 'حال روحی' : 'Mood',
     'measurements' => _measurementLabel(
-        _string(summary['observationType']) ?? source.type,
-        fa: fa,
-      ),
+      _string(summary['observationType']) ?? source.type,
+      fa: fa,
+    ),
     'appointments' => _humanCode(
-        _string(summary['pregnancyClassification']) ?? source.type,
-      ),
-    'medications' => source.type == 'dose_occurrence'
-        ? (fa ? 'نوبت دارو' : 'Medication dose')
-        : (fa ? 'برنامه درمانی' : 'Treatment plan'),
+      _string(summary['pregnancyClassification']) ?? source.type,
+    ),
+    'medications' =>
+      source.type == 'dose_occurrence'
+          ? (fa ? 'نوبت دارو' : 'Medication dose')
+          : (fa ? 'برنامه درمانی' : 'Treatment plan'),
     _ => _humanCode(source.type),
   };
 }
@@ -236,12 +239,9 @@ String _calendarClassificationLabel(
     fa ? 'ویزیت بارداری' : 'Prenatal appointment',
   CocoonPregnancyCalendarClassification.ultrasound =>
     fa ? 'سونوگرافی' : 'Ultrasound',
-  CocoonPregnancyCalendarClassification.checkup =>
-    fa ? 'معاینه' : 'Check-up',
-  CocoonPregnancyCalendarClassification.labTest =>
-    fa ? 'آزمایش' : 'Lab test',
-  CocoonPregnancyCalendarClassification.injection =>
-    fa ? 'تزریق' : 'Injection',
+  CocoonPregnancyCalendarClassification.checkup => fa ? 'معاینه' : 'Check-up',
+  CocoonPregnancyCalendarClassification.labTest => fa ? 'آزمایش' : 'Lab test',
+  CocoonPregnancyCalendarClassification.injection => fa ? 'تزریق' : 'Injection',
   CocoonPregnancyCalendarClassification.other =>
     fa ? 'رویداد مراقبتی' : 'Care event',
 };
