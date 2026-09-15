@@ -409,7 +409,9 @@ export function createIdentityResolver(
     }
   }
 
-  async function assertLegacyBootstrapAllowed(authSubject: string): Promise<void> {
+  async function assertLegacyBootstrapAllowed(
+    authSubject: string,
+  ): Promise<void> {
     const rows = await sql()<LegacyBootstrapStateRow[]>`
       select
         u.status as app_user_status,
