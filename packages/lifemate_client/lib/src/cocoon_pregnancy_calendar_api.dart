@@ -128,7 +128,8 @@ class CocoonPregnancyCalendarApiClient {
 
   /// Creates a shared canonical care event and links it to the active pregnancy.
   /// `careEvent` must contain the canonical care-event `clientRequestId`; the
-  /// same payload may then be retried without creating a second appointment.
+  /// same identifier is used for the HTTP idempotency contract so retries
+  /// converge on the original mutation instead of creating a second event.
   Future<Map<String, dynamic>> createEvent({
     required Map<String, dynamic> careEvent,
     required CocoonPregnancyCalendarClassification classification,
@@ -144,6 +145,7 @@ class CocoonPregnancyCalendarApiClient {
     return _object(
       'POST',
       '/api/v1/cocoon/pregnancy/calendar/events',
+      idempotencyKey: clientRequestId,
       body: {
         'careEvent': careEvent,
         'classification': classification.wireValue,
@@ -152,9 +154,18 @@ class CocoonPregnancyCalendarApiClient {
   }
 
   Future<Map<String, dynamic>> linkExisting({
+    required String clientRequestId,
     required String careEventId,
     required CocoonPregnancyCalendarClassification classification,
   }) {
+    final requestId = clientRequestId.trim();
+    if (requestId.isEmpty) {
+      throw ArgumentError.value(
+        clientRequestId,
+        'clientRequestId',
+        'Canonical link mutations require a stable client request id.',
+      );
+    }
     final normalizedId = careEventId.trim();
     if (normalizedId.isEmpty) {
       throw ArgumentError.value(careEventId, 'careEventId', 'must not be empty.');
@@ -162,6 +173,7 @@ class CocoonPregnancyCalendarApiClient {
     return _object(
       'POST',
       '/api/v1/cocoon/pregnancy/calendar/links',
+      idempotencyKey: requestId,
       body: {
         'careEventId': normalizedId,
         'classification': classification.wireValue,
@@ -174,6 +186,7 @@ class CocoonPregnancyCalendarApiClient {
     String path, {
     Map<String, String>? query,
     Map<String, dynamic>? body,
+    String? idempotencyKey,
   }) async {
     final token = _accessToken();
     if (token == null || token.isEmpty) {
@@ -189,6 +202,7 @@ class CocoonPregnancyCalendarApiClient {
       'Accept': 'application/json',
       'Authorization': 'Bearer $token',
       if (body != null) 'Content-Type': 'application/json',
+      if (idempotencyKey != null) 'Idempotency-Key': idempotencyKey,
     };
 
     late http.Response response;

@@ -7,6 +7,8 @@ import 'package:lifemate_client/src/cocoon_pregnancy_calendar_api.dart';
 import 'package:lifemate_client/src/lifemate_api_client.dart';
 
 void main() {
+  const requestId = '123e4567-e89b-42d3-a456-426614174000';
+
   test('calendar list uses authorized canonical Cocoon route', () async {
     late http.Request captured;
     final api = CocoonPregnancyCalendarApiClient(
@@ -44,6 +46,7 @@ void main() {
     expect(captured.url.queryParameters['fromDate'], '2026-09-01');
     expect(captured.url.queryParameters['toDate'], '2026-09-30');
     expect(captured.headers['authorization'], 'Bearer token');
+    expect(captured.headers.containsKey('Idempotency-Key'), isFalse);
     expect(page.episodeId, 'episode-1');
     expect(page.items.single.id, 'series-1');
     expect(
@@ -73,6 +76,63 @@ void main() {
     );
     await Future<void>.delayed(Duration.zero);
     expect(called, isFalse);
+    api.close();
+  });
+
+  test('create binds canonical care-event request id to HTTP idempotency', () async {
+    late http.Request captured;
+    final api = CocoonPregnancyCalendarApiClient(
+      baseUri: Uri.parse('https://example.test'),
+      accessToken: () => 'token',
+      httpClient: MockClient((request) async {
+        captured = request;
+        return http.Response(jsonEncode({'contractVersion': 1}), 201);
+      }),
+    );
+
+    await api.createEvent(
+      careEvent: const {
+        'clientRequestId': requestId,
+        'title': 'appointment',
+      },
+      classification: CocoonPregnancyCalendarClassification.prenatal,
+    );
+
+    expect(captured.method, 'POST');
+    expect(captured.url.path, '/api/v1/cocoon/pregnancy/calendar/events');
+    expect(captured.headers['Idempotency-Key'], requestId);
+    final body = jsonDecode(captured.body) as Map<String, dynamic>;
+    expect(
+      (body['careEvent'] as Map<String, dynamic>)['clientRequestId'],
+      requestId,
+    );
+    api.close();
+  });
+
+  test('link existing requires and sends its stable idempotency key', () async {
+    late http.Request captured;
+    final api = CocoonPregnancyCalendarApiClient(
+      baseUri: Uri.parse('https://example.test'),
+      accessToken: () => 'token',
+      httpClient: MockClient((request) async {
+        captured = request;
+        return http.Response(jsonEncode({'contractVersion': 1}), 200);
+      }),
+    );
+
+    await api.linkExisting(
+      clientRequestId: requestId,
+      careEventId: 'event-1',
+      classification: CocoonPregnancyCalendarClassification.ultrasound,
+    );
+
+    expect(captured.method, 'POST');
+    expect(captured.url.path, '/api/v1/cocoon/pregnancy/calendar/links');
+    expect(captured.headers['Idempotency-Key'], requestId);
+    expect(jsonDecode(captured.body), {
+      'careEventId': 'event-1',
+      'classification': 'ultrasound',
+    });
     api.close();
   });
 
