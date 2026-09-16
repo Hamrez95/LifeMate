@@ -22,6 +22,7 @@ export 'src/cocoon_pregnancy.dart';
 export 'src/cocoon_pregnancy_api.dart';
 export 'src/cocoon_pregnancy_calendar_api.dart';
 export 'src/cocoon_pregnancy_daily_api.dart';
+export 'src/cocoon_pregnancy_gate3_mutations.dart';
 export 'src/cocoon_pregnancy_measurements_api.dart';
 export 'src/cocoon_pregnancy_offline_content.dart';
 export 'src/cocoon_pregnancy_offline_dating.dart';
