@@ -53,6 +53,21 @@ typedef CocoonGate3MeasurementOfflineEnqueue =
       required DateTime observedAtUtc,
       required DateTime observedLocalDate,
     });
+typedef CocoonGate3MoodOnlineSubmit =
+    Future<void> Function({
+      required String clientRequestId,
+      required DateTime observedAtUtc,
+      required String localDate,
+      required String timeZone,
+      required CocoonPregnancyMood mood,
+    });
+typedef CocoonGate3MoodOfflineEnqueue =
+    Future<void> Function({
+      required String clientRequestId,
+      required DateTime observedAtUtc,
+      required DateTime localDate,
+      required String moodCode,
+    });
 
 /// Gate-3 mutation bridge for canonical pregnancy captures.
 ///
@@ -66,6 +81,8 @@ final class CocoonGate3MutationAdapter {
     required CocoonGate3CheckInOfflineEnqueue enqueueCheckInOffline,
     required CocoonGate3MeasurementOnlineSubmit submitMeasurementOnline,
     required CocoonGate3MeasurementOfflineEnqueue enqueueMeasurementOffline,
+    CocoonGate3MoodOnlineSubmit? submitMoodOnline,
+    CocoonGate3MoodOfflineEnqueue? enqueueMoodOffline,
     CocoonGate3RequestIdFactory? requestIdFactory,
     CocoonGate3Clock? clock,
     CocoonGate3Close? close,
@@ -73,12 +90,19 @@ final class CocoonGate3MutationAdapter {
        _enqueueCheckInOffline = enqueueCheckInOffline,
        _submitMeasurementOnline = submitMeasurementOnline,
        _enqueueMeasurementOffline = enqueueMeasurementOffline,
+       _submitMoodOnline = submitMoodOnline,
+       _enqueueMoodOffline = enqueueMoodOffline,
        _requestIdFactory =
            requestIdFactory ?? LifeMateApiClient.createClientRequestId,
        _clock = clock ?? DateTime.now,
        _close = close {
     if (timeZone.trim().isEmpty) {
       throw ArgumentError.value(timeZone, 'timeZone', 'must not be empty.');
+    }
+    if ((submitMoodOnline == null) != (enqueueMoodOffline == null)) {
+      throw ArgumentError(
+        'Mood online and offline mutation handlers must be configured together.',
+      );
     }
   }
 
@@ -170,6 +194,34 @@ final class CocoonGate3MutationAdapter {
             observedAtUtc: observedAtUtc,
             observedLocalDate: observedLocalDate,
           ),
+      submitMoodOnline:
+          ({
+            required clientRequestId,
+            required observedAtUtc,
+            required localDate,
+            required timeZone,
+            required mood,
+          }) async {
+            await daily.createMood(
+              clientRequestId: clientRequestId,
+              observedAtUtc: observedAtUtc,
+              localDate: localDate,
+              timeZone: timeZone,
+              mood: mood,
+            );
+          },
+      enqueueMoodOffline:
+          ({
+            required clientRequestId,
+            required observedAtUtc,
+            required localDate,
+            required moodCode,
+          }) => offlineOwner.enqueueMood(
+            clientRequestId: clientRequestId,
+            observedAtUtc: observedAtUtc,
+            localDate: localDate,
+            moodCode: moodCode,
+          ),
       close: () {
         daily.close();
         measurements.close();
@@ -182,6 +234,8 @@ final class CocoonGate3MutationAdapter {
   final CocoonGate3CheckInOfflineEnqueue _enqueueCheckInOffline;
   final CocoonGate3MeasurementOnlineSubmit _submitMeasurementOnline;
   final CocoonGate3MeasurementOfflineEnqueue _enqueueMeasurementOffline;
+  final CocoonGate3MoodOnlineSubmit? _submitMoodOnline;
+  final CocoonGate3MoodOfflineEnqueue? _enqueueMoodOffline;
   final CocoonGate3RequestIdFactory _requestIdFactory;
   final CocoonGate3Clock _clock;
   final CocoonGate3Close? _close;
@@ -266,6 +320,50 @@ final class CocoonGate3MutationAdapter {
         note: note,
         observedAtUtc: observedAtUtc,
         observedLocalDate: localDate,
+      );
+      return CocoonGate3MutationResult(
+        clientRequestId: requestId,
+        disposition: CocoonGate3MutationDisposition.queued,
+      );
+    }
+  }
+
+  Future<CocoonGate3MutationResult> submitMood({
+    required CocoonPregnancyMood mood,
+  }) async {
+    final online = _submitMoodOnline;
+    final offline = _enqueueMoodOffline;
+    if (online == null || offline == null) {
+      throw StateError('Mood mutation is not configured.');
+    }
+
+    final requestId = _newRequestId();
+    final observedLocal = _clock();
+    final observedAtUtc = observedLocal.toUtc();
+    final localDate = DateTime(
+      observedLocal.year,
+      observedLocal.month,
+      observedLocal.day,
+    );
+    try {
+      await online(
+        clientRequestId: requestId,
+        observedAtUtc: observedAtUtc,
+        localDate: _date(localDate),
+        timeZone: timeZone,
+        mood: mood,
+      );
+      return CocoonGate3MutationResult(
+        clientRequestId: requestId,
+        disposition: CocoonGate3MutationDisposition.confirmed,
+      );
+    } on LifeMateApiException catch (error) {
+      if (error.statusCode != 0) rethrow;
+      await offline(
+        clientRequestId: requestId,
+        observedAtUtc: observedAtUtc,
+        localDate: localDate,
+        moodCode: mood.wireValue,
       );
       return CocoonGate3MutationResult(
         clientRequestId: requestId,
