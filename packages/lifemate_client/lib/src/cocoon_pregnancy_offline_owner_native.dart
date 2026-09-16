@@ -2,10 +2,12 @@ import 'package:lifemate_core/lifemate_core.dart';
 
 import 'capabilities.dart';
 import 'cocoon_pregnancy.dart';
+import 'cocoon_pregnancy_daily_api.dart' show CocoonApprovedSymptomCatalog;
 import 'cocoon_pregnancy_offline_snapshot_native.dart';
 import 'lifemate_api_client.dart' show AccessTokenProvider;
 import 'offline_identity_adoption_native.dart';
 import 'offline_mutation_queue.dart' show LifeMateMutationStorage;
+import 'offline_sync_result.dart';
 import 'shared_offline_runtime_native.dart';
 
 typedef CocoonCanonicalIdentityResolver =
@@ -107,10 +109,187 @@ final class CocoonPregnancyOfflineOwnerCoordinator {
     );
   }
 
+  /// Accepts an owner-entered pregnancy check-in into the canonical protected
+  /// Account + Person outbox. The returned acknowledgement is local-only; UI
+  /// must keep it pending until a later authoritative server refresh confirms it.
+  Future<void> enqueueDailyCheckIn({
+    required String clientRequestId,
+    required DateTime observedAtUtc,
+    required DateTime localDate,
+    required String feeling,
+    required String energy,
+    DateTime? createdAtUtc,
+  }) => _withOutbox<void>((outbox, namespace) async {
+    await LifeMateOfflinePregnancyDailyMutation.enqueueCheckIn(
+      outbox: outbox,
+      namespace: namespace,
+      mutationId: clientRequestId,
+      observedAtUtc: observedAtUtc,
+      localDate: localDate,
+      timeZone: timeZone,
+      feeling: feeling,
+      energy: energy,
+      createdAtUtc: createdAtUtc,
+    );
+  });
+
+  Future<void> enqueueSymptom({
+    required String clientRequestId,
+    required DateTime observedAtUtc,
+    required DateTime localDate,
+    required String symptomCode,
+    required String intensity,
+    required CocoonApprovedSymptomCatalog approvedCatalog,
+    String? note,
+    DateTime? createdAtUtc,
+  }) => _withOutbox<void>((outbox, namespace) async {
+    if (!approvedCatalog.allows(symptomCode)) {
+      throw ArgumentError.value(
+        symptomCode,
+        'symptomCode',
+        'is not present in the approved symptom catalog.',
+      );
+    }
+    await LifeMateOfflinePregnancyDailyMutation.enqueueSymptom(
+      outbox: outbox,
+      namespace: namespace,
+      mutationId: clientRequestId,
+      observedAtUtc: observedAtUtc,
+      localDate: localDate,
+      timeZone: timeZone,
+      symptomCode: symptomCode,
+      intensity: intensity,
+      note: note,
+      createdAtUtc: createdAtUtc,
+    );
+  });
+
+  Future<void> enqueueMood({
+    required String clientRequestId,
+    required DateTime observedAtUtc,
+    required DateTime localDate,
+    required String moodCode,
+    DateTime? createdAtUtc,
+  }) => _withOutbox<void>((outbox, namespace) async {
+    await LifeMateOfflinePregnancyDailyMutation.enqueueMood(
+      outbox: outbox,
+      namespace: namespace,
+      mutationId: clientRequestId,
+      observedAtUtc: observedAtUtc,
+      localDate: localDate,
+      timeZone: timeZone,
+      moodCode: moodCode,
+      createdAtUtc: createdAtUtc,
+    );
+  });
+
+  Future<void> enqueueMeasurement({
+    required String clientRequestId,
+    required String observationType,
+    required double valuePrimary,
+    double? valueSecondary,
+    String? note,
+    required DateTime observedAtUtc,
+    required DateTime observedLocalDate,
+    DateTime? createdAtUtc,
+  }) => _withOutbox<void>((outbox, namespace) async {
+    await LifeMateOfflinePregnancyMeasurementMutation.enqueueCreate(
+      outbox: outbox,
+      namespace: namespace,
+      mutationId: clientRequestId,
+      observationType: observationType,
+      valuePrimary: valuePrimary,
+      valueSecondary: valueSecondary,
+      note: note,
+      observedAtUtc: observedAtUtc,
+      observedLocalDate: observedLocalDate,
+      timeZone: timeZone,
+      createdAtUtc: createdAtUtc,
+    );
+  });
+
+  /// Privacy-minimal pending projection for Cocoon UI. Only mutation IDs are
+  /// returned; no symptom, mood, measurement value, note or other health data
+  /// is exposed by this status query.
+  Future<Set<String>> pendingPregnancyMutationIds() =>
+      _withOutbox<Set<String>>((outbox, namespace) async {
+        final values = await outbox.list(namespace: namespace);
+        return values
+            .where(
+              (value) =>
+                  value.state == LifeMateMutationSyncState.pending ||
+                  value.state == LifeMateMutationSyncState.retryScheduled,
+            )
+            .where(
+              (value) =>
+                  value.sourceKey.startsWith('pregnancy-check-in:') ||
+                  value.sourceKey.startsWith('pregnancy-symptom:') ||
+                  value.sourceKey.startsWith('pregnancy-mood:') ||
+                  value.sourceKey.startsWith('pending-pregnancy-measurement:'),
+            )
+            .map((value) => value.mutationId)
+            .toSet();
+      });
+
+  /// Replays through the one shared runtime. A successful replay removes the
+  /// local outbox item, but UI still refreshes the authoritative Cocoon source
+  /// before presenting it as server-confirmed.
+  Future<LifeMateOfflineSyncResult> flushPending() async {
+    final adoption = await _requireAdoption();
+    final ownsStore = _localStore == null;
+    final store = _localStore ?? await LifeMateLocalHealthStore.openDefault();
+    LifeMateSharedOfflineRuntime? runtime;
+    try {
+      runtime = await LifeMateSharedOfflineRuntime.open(
+        namespace: adoption.toLocalNamespace(),
+        timeZone: timeZone,
+        apiBaseUri: apiBaseUri,
+        accessToken: accessToken,
+        legacyAccountIds: <String>{legacyAccountId},
+        store: store,
+        legacyStorage: _legacyStorage,
+      );
+      return await runtime.flushDetailed();
+    } finally {
+      runtime?.close();
+      if (ownsStore) store.close();
+    }
+  }
+
   Future<void> forgetAdoptedOwner() => _identityStore.forget(
     environmentId: _environmentId,
     legacyAccountId: legacyAccountId,
   );
+
+  Future<T> _withOutbox<T>(
+    Future<T> Function(
+      LifeMateLocalMutationOutbox outbox,
+      LifeMateLocalNamespace namespace,
+    ) action,
+  ) async {
+    final adoption = await _requireAdoption();
+    final ownsStore = _localStore == null;
+    final store = _localStore ?? await LifeMateLocalHealthStore.openDefault();
+    try {
+      final outbox = LifeMateLocalMutationOutbox(store: store);
+      return await action(outbox, adoption.toLocalNamespace());
+    } finally {
+      if (ownsStore) store.close();
+    }
+  }
+
+  Future<LifeMateOfflineIdentityAdoption> _requireAdoption() async {
+    final adoption = await _identityStore.lookup(
+      environmentId: _environmentId,
+      legacyAccountId: legacyAccountId,
+    );
+    if (adoption == null) {
+      throw StateError(
+        'Cocoon offline mutations require a previously adopted canonical owner.',
+      );
+    }
+    return adoption;
+  }
 
   Future<T> _withSnapshotCache<T>(
     LifeMateOfflineIdentityAdoption adoption,

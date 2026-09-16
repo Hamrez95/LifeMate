@@ -109,6 +109,120 @@ void main() {
 
     expect(await coordinator.readCachedOwnerSnapshot(), isNull);
   });
+
+  test('pregnancy writes require canonical owner adoption before local acceptance', () async {
+    final localStore = LifeMateLocalHealthStore.forTesting(
+      database: sqlite3.openInMemory(),
+      keyBytes: key,
+    );
+    final coordinator = _coordinator(
+      localStore: localStore,
+      identityStorage: _MemoryIdentityStorage(),
+      legacyStorage: _MemoryMutationStorage(),
+    );
+    addTearDown(localStore.close);
+
+    await expectLater(
+      coordinator.enqueueMood(
+        clientRequestId: '123e4567-e89b-42d3-a456-426614174002',
+        observedAtUtc: DateTime.utc(2026, 9, 14, 8),
+        localDate: DateTime(2026, 9, 14),
+        moodCode: 'good',
+      ),
+      throwsStateError,
+    );
+  });
+
+  test('daily and measurement mutations persist in one Person-scoped outbox', () async {
+    final localStore = LifeMateLocalHealthStore.forTesting(
+      database: sqlite3.openInMemory(),
+      keyBytes: key,
+    );
+    final coordinator = _coordinator(
+      localStore: localStore,
+      identityStorage: _MemoryIdentityStorage(),
+      legacyStorage: _MemoryMutationStorage(),
+    );
+    addTearDown(localStore.close);
+    await coordinator.cacheAuthoritativeBootstrap(_bootstrap());
+
+    const checkInId = '123e4567-e89b-42d3-a456-426614174000';
+    const measurementId = '123e4567-e89b-42d3-a456-426614174100';
+    await coordinator.enqueueDailyCheckIn(
+      clientRequestId: checkInId,
+      observedAtUtc: DateTime.utc(2026, 9, 14, 8),
+      localDate: DateTime(2026, 9, 14),
+      feeling: 'comfortable',
+      energy: 'steady',
+    );
+    await coordinator.enqueueMeasurement(
+      clientRequestId: measurementId,
+      observationType: 'blood_pressure',
+      valuePrimary: 118,
+      valueSecondary: 76,
+      observedAtUtc: DateTime.utc(2026, 9, 14, 8, 5),
+      observedLocalDate: DateTime(2026, 9, 14),
+    );
+
+    expect(
+      await coordinator.pendingPregnancyMutationIds(),
+      <String>{checkInId, measurementId},
+    );
+
+    final outbox = LifeMateLocalMutationOutbox(store: localStore);
+    final queued = await outbox.list(
+      namespace: LifeMateLocalNamespace(
+        environmentId: 'https://api.example.test',
+        accountId: 'account-a',
+        personId: 'person-a',
+      ),
+    );
+    expect(queued, hasLength(2));
+    expect(
+      queued.map((value) => value.endpointPath).toSet(),
+      <String>{
+        '/api/v1/cocoon/pregnancy/check-ins',
+        '/api/v1/cocoon/pregnancy/measurements',
+      },
+    );
+    expect(queued.every((value) => value.payload['clientRequestId'] == value.mutationId), isTrue);
+  });
+
+  test('same mutation id is idempotent but cannot be reused for another payload', () async {
+    final localStore = LifeMateLocalHealthStore.forTesting(
+      database: sqlite3.openInMemory(),
+      keyBytes: key,
+    );
+    final coordinator = _coordinator(
+      localStore: localStore,
+      identityStorage: _MemoryIdentityStorage(),
+      legacyStorage: _MemoryMutationStorage(),
+    );
+    addTearDown(localStore.close);
+    await coordinator.cacheAuthoritativeBootstrap(_bootstrap());
+
+    const requestId = '123e4567-e89b-42d3-a456-426614174222';
+    Future<void> enqueueGood() => coordinator.enqueueMood(
+      clientRequestId: requestId,
+      observedAtUtc: DateTime.utc(2026, 9, 14, 8),
+      localDate: DateTime(2026, 9, 14),
+      moodCode: 'good',
+    );
+
+    await enqueueGood();
+    await enqueueGood();
+    expect(await coordinator.pendingPregnancyMutationIds(), <String>{requestId});
+
+    await expectLater(
+      coordinator.enqueueMood(
+        clientRequestId: requestId,
+        observedAtUtc: DateTime.utc(2026, 9, 14, 8),
+        localDate: DateTime(2026, 9, 14),
+        moodCode: 'low',
+      ),
+      throwsStateError,
+    );
+  });
 }
 
 CocoonPregnancyOfflineOwnerCoordinator _coordinator({
