@@ -1,4 +1,3 @@
-import 'package:cocoonmate/app/cocoon_gate3_mutations.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:lifemate_client/lifemate_client.dart';
 
