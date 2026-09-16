@@ -17,7 +17,7 @@ void main() {
         CocoonQuickCheckInScreen(
           fa: false,
           syncState: CocoonCheckInSyncState.idle,
-          onSubmit: (_) async {},
+          onSubmit: (_) async => CocoonCheckInSubmitResult.confirmed,
         ),
         mediaQuery: const MediaQueryData(disableAnimations: true),
       ),
@@ -45,7 +45,7 @@ void main() {
           CocoonQuickCheckInScreen(
             fa: true,
             syncState: CocoonCheckInSyncState.idle,
-            onSubmit: (_) async {},
+            onSubmit: (_) async => CocoonCheckInSubmitResult.confirmed,
           ),
           mediaQuery: const MediaQueryData(
             textScaler: TextScaler.linear(1.5),
