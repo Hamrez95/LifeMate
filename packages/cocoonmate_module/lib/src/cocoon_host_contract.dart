@@ -153,7 +153,8 @@ class CocoonModuleConfig {
   final Set<CocoonQuickAddKind> quickAddEnabled;
   final ValueChanged<CocoonQuickAddKind>? onOpenQuickAdd;
   final CocoonCheckInSyncState checkInSyncState;
-  final Future<void> Function(CocoonCheckInDraft draft)? onSubmitCheckIn;
+  final Future<CocoonCheckInSubmitResult> Function(CocoonCheckInDraft draft)?
+      onSubmitCheckIn;
   final List<CocoonSymptomOption> symptomOptions;
   final CocoonSymptomCatalogState symptomCatalogState;
   final CocoonSymptomSubmitState symptomSubmitState;

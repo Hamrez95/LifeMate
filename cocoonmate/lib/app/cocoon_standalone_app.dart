@@ -92,6 +92,7 @@ class CocoonAuthenticatedHost extends StatefulWidget {
     this.runtimeLoader,
     this.bootstrapLoader,
     this.gate3ReadLoader,
+    this.gate3MutationAdapter,
     this.signOut,
     this.offlineBootstrapCache,
     this.offlineSnapshotLoader,
@@ -104,6 +105,7 @@ class CocoonAuthenticatedHost extends StatefulWidget {
   final CocoonRuntimeLoader? runtimeLoader;
   final CocoonBootstrapLoader? bootstrapLoader;
   final CocoonGate3ReadLoader? gate3ReadLoader;
+  final CocoonGate3MutationAdapter? gate3MutationAdapter;
   final CocoonSignOut? signOut;
   final CocoonOfflineBootstrapCache? offlineBootstrapCache;
   final CocoonOfflineSnapshotLoader? offlineSnapshotLoader;
@@ -124,12 +126,16 @@ class _CocoonAuthenticatedHostState extends State<CocoonAuthenticatedHost>
   bool _refreshingGate3 = false;
   CocoonPregnancyOfflineOwnerCoordinator? _offlineOwnerCoordinator;
   String? _offlineOwnerLegacyAccountId;
+  CocoonGate3MutationAdapter? _gate3MutationAdapter;
+  String? _gate3MutationOwnerLegacyAccountId;
+  bool _ownsGate3MutationAdapter = false;
 
   CocoonCalendarLoadState _calendarState = CocoonCalendarLoadState.loading;
   List<CocoonCalendarItem> _calendarItems = const [];
   DateTime? _calendarAsOfLocalDate;
   CocoonRecordsState _recordsState = CocoonRecordsState.loading;
   List<CocoonRecordViewData> _records = const [];
+  CocoonCheckInSyncState _checkInSyncState = CocoonCheckInSyncState.idle;
 
   late final LifeMateRemoteConfigClient? _runtimeClient =
       widget.runtimeLoader == null
@@ -156,6 +162,7 @@ class _CocoonAuthenticatedHostState extends State<CocoonAuthenticatedHost>
   @override
   void initState() {
     super.initState();
+    _gate3MutationAdapter = widget.gate3MutationAdapter;
     WidgetsBinding.instance.addPostFrameCallback((_) => refresh());
   }
 
@@ -164,6 +171,7 @@ class _CocoonAuthenticatedHostState extends State<CocoonAuthenticatedHost>
     _runtimeClient?.close();
     _pregnancyClient?.close();
     _gate3ReadModelLoader?.close();
+    if (_ownsGate3MutationAdapter) _gate3MutationAdapter?.close();
     super.dispose();
   }
 
@@ -194,6 +202,8 @@ class _CocoonAuthenticatedHostState extends State<CocoonAuthenticatedHost>
       recordsState: _recordsState,
       records: _records,
       onRetryRecords: () => _refreshGate3ReadModels(),
+      checkInSyncState: _checkInSyncState,
+      onSubmitCheckIn: _gate3MutationAdapter == null ? null : _submitCheckIn,
     ),
   );
 
@@ -293,6 +303,58 @@ class _CocoonAuthenticatedHostState extends State<CocoonAuthenticatedHost>
     }
   }
 
+  Future<CocoonCheckInSubmitResult> _submitCheckIn(
+    CocoonCheckInDraft draft,
+  ) async {
+    final adapter = _gate3MutationAdapter;
+    if (adapter == null) {
+      throw StateError('Gate-3 mutation adapter is unavailable.');
+    }
+    if (mounted) {
+      setState(() => _checkInSyncState = CocoonCheckInSyncState.submitting);
+    }
+    try {
+      final result = await adapter.submitCheckIn(
+        feeling: switch (draft.feeling) {
+          CocoonCheckInFeeling.comfortable =>
+            CocoonPregnancyFeeling.comfortable,
+          CocoonCheckInFeeling.mixed => CocoonPregnancyFeeling.mixed,
+          CocoonCheckInFeeling.difficult => CocoonPregnancyFeeling.difficult,
+        },
+        energy: switch (draft.energy) {
+          CocoonCheckInEnergy.low => CocoonPregnancyEnergy.low,
+          CocoonCheckInEnergy.steady => CocoonPregnancyEnergy.steady,
+          CocoonCheckInEnergy.high => CocoonPregnancyEnergy.high,
+        },
+      );
+      if (result.disposition == CocoonGate3MutationDisposition.queued) {
+        if (mounted) {
+          setState(() => _checkInSyncState = CocoonCheckInSyncState.queued);
+        }
+        return CocoonCheckInSubmitResult.queued;
+      }
+      await _refreshGate3ReadModels();
+      if (mounted) {
+        setState(() => _checkInSyncState = CocoonCheckInSyncState.confirmed);
+      }
+      return CocoonCheckInSubmitResult.confirmed;
+    } on LifeMateApiException catch (error) {
+      if (mounted) {
+        setState(() {
+          _checkInSyncState = error.statusCode == 0
+              ? CocoonCheckInSyncState.offline
+              : CocoonCheckInSyncState.error;
+        });
+      }
+      rethrow;
+    } catch (_) {
+      if (mounted) {
+        setState(() => _checkInSyncState = CocoonCheckInSyncState.error);
+      }
+      rethrow;
+    }
+  }
+
   void _markGate3ReadModelsStale() {
     if (!mounted) return;
     setState(() {
@@ -309,6 +371,7 @@ class _CocoonAuthenticatedHostState extends State<CocoonAuthenticatedHost>
       _calendarAsOfLocalDate = null;
       _recordsState = CocoonRecordsState.loading;
       _records = const [];
+      _checkInSyncState = CocoonCheckInSyncState.idle;
     });
   }
 
@@ -319,12 +382,14 @@ class _CocoonAuthenticatedHostState extends State<CocoonAuthenticatedHost>
       final injected = widget.offlineBootstrapCache;
       if (injected != null) {
         await injected(snapshot);
+        _ensureGate3MutationAdapter();
         return true;
       }
       final coordinator = _productionOfflineOwnerCoordinator();
       if (coordinator != null) {
         await coordinator.cacheAuthoritativeBootstrap(snapshot);
       }
+      _ensureGate3MutationAdapter();
       return true;
     } on CocoonOfflineOwnerIdentityMismatchException {
       _apply(CocoonEntryState.runtimeUnavailable, null);
@@ -352,6 +417,7 @@ class _CocoonAuthenticatedHostState extends State<CocoonAuthenticatedHost>
           episode.motherPersonId.trim().isNotEmpty &&
           episode.status == CocoonPregnancyEpisodeStatus.active) {
         _offlinePregnancySnapshot = cached;
+        _ensureGate3MutationAdapter();
         _apply(
           CocoonEntryState.offlineOwnerPregnancy,
           episode.motherPersonId,
@@ -398,6 +464,34 @@ class _CocoonAuthenticatedHostState extends State<CocoonAuthenticatedHost>
     return _offlineOwnerCoordinator;
   }
 
+  void _ensureGate3MutationAdapter() {
+    final injected = widget.gate3MutationAdapter;
+    if (injected != null) {
+      _gate3MutationAdapter = injected;
+      return;
+    }
+    if (widget.bootstrapLoader != null) return;
+    final coordinator = _productionOfflineOwnerCoordinator();
+    final legacyAccountId = _offlineOwnerLegacyAccountId;
+    if (coordinator == null ||
+        legacyAccountId == null ||
+        legacyAccountId.isEmpty) {
+      return;
+    }
+    if (_gate3MutationAdapter != null &&
+        _gate3MutationOwnerLegacyAccountId == legacyAccountId) {
+      return;
+    }
+    if (_ownsGate3MutationAdapter) _gate3MutationAdapter?.close();
+    _gate3MutationAdapter = CocoonGate3MutationAdapter.production(
+      baseUri: widget.config.apiBaseUri,
+      accessToken: () => LifeMateAuth.currentAccessToken,
+      offlineOwner: coordinator,
+    );
+    _gate3MutationOwnerLegacyAccountId = legacyAccountId;
+    _ownsGate3MutationAdapter = true;
+  }
+
   Future<void> _forgetOfflineOwner() async {
     try {
       final injected = widget.offlineOwnerForget;
@@ -411,6 +505,10 @@ class _CocoonAuthenticatedHostState extends State<CocoonAuthenticatedHost>
     } catch (_) {
       recordSafeEvent('cocoon_offline_identity_forget_failed');
     } finally {
+      if (_ownsGate3MutationAdapter) _gate3MutationAdapter?.close();
+      _gate3MutationAdapter = widget.gate3MutationAdapter;
+      _gate3MutationOwnerLegacyAccountId = null;
+      _ownsGate3MutationAdapter = false;
       _offlinePregnancySnapshot = null;
       _pregnancySnapshot = null;
       _clearGate3ReadModels();
