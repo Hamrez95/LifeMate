@@ -6,6 +6,8 @@ import 'package:flutter_localizations/flutter_localizations.dart';
 import 'package:lifemate_client/lifemate_client.dart';
 import 'package:lifemate_ui/lifemate_ui.dart';
 
+import 'cocoon_gate3_read_models.dart';
+
 const cocoonAppVersion = '0.1.0+1';
 
 typedef CocoonRuntimeLoader = Future<LifeMateRuntimeConfigSnapshot> Function();
@@ -89,6 +91,7 @@ class CocoonAuthenticatedHost extends StatefulWidget {
     required this.locale,
     this.runtimeLoader,
     this.bootstrapLoader,
+    this.gate3ReadLoader,
     this.signOut,
     this.offlineBootstrapCache,
     this.offlineSnapshotLoader,
@@ -100,6 +103,7 @@ class CocoonAuthenticatedHost extends StatefulWidget {
   final Locale locale;
   final CocoonRuntimeLoader? runtimeLoader;
   final CocoonBootstrapLoader? bootstrapLoader;
+  final CocoonGate3ReadLoader? gate3ReadLoader;
   final CocoonSignOut? signOut;
   final CocoonOfflineBootstrapCache? offlineBootstrapCache;
   final CocoonOfflineSnapshotLoader? offlineSnapshotLoader;
@@ -117,8 +121,15 @@ class _CocoonAuthenticatedHostState extends State<CocoonAuthenticatedHost>
   CocoonPregnancySnapshot? _offlinePregnancySnapshot;
   CocoonPregnancySnapshot? _pregnancySnapshot;
   bool _refreshing = false;
+  bool _refreshingGate3 = false;
   CocoonPregnancyOfflineOwnerCoordinator? _offlineOwnerCoordinator;
   String? _offlineOwnerLegacyAccountId;
+
+  CocoonCalendarLoadState _calendarState = CocoonCalendarLoadState.loading;
+  List<CocoonCalendarItem> _calendarItems = const [];
+  DateTime? _calendarAsOfLocalDate;
+  CocoonRecordsState _recordsState = CocoonRecordsState.loading;
+  List<CocoonRecordViewData> _records = const [];
 
   late final LifeMateRemoteConfigClient? _runtimeClient =
       widget.runtimeLoader == null
@@ -134,6 +145,13 @@ class _CocoonAuthenticatedHostState extends State<CocoonAuthenticatedHost>
           accessToken: () => LifeMateAuth.currentAccessToken,
         )
       : null;
+  late final CocoonGate3ReadModelLoader? _gate3ReadModelLoader =
+      widget.gate3ReadLoader == null && widget.bootstrapLoader == null
+      ? CocoonGate3ReadModelLoader(
+          baseUri: widget.config.apiBaseUri,
+          accessToken: () => LifeMateAuth.currentAccessToken,
+        )
+      : null;
 
   @override
   void initState() {
@@ -145,6 +163,7 @@ class _CocoonAuthenticatedHostState extends State<CocoonAuthenticatedHost>
   void dispose() {
     _runtimeClient?.close();
     _pregnancyClient?.close();
+    _gate3ReadModelLoader?.close();
     super.dispose();
   }
 
@@ -165,8 +184,18 @@ class _CocoonAuthenticatedHostState extends State<CocoonAuthenticatedHost>
   CocoonPregnancySnapshot? get pregnancySnapshot => _pregnancySnapshot;
 
   @override
-  Widget build(BuildContext context) =>
-      CocoonMateModule(config: CocoonModuleConfig(host: this));
+  Widget build(BuildContext context) => CocoonMateModule(
+    config: CocoonModuleConfig(
+      host: this,
+      calendarState: _calendarState,
+      calendarItems: _calendarItems,
+      calendarAsOfLocalDate: _calendarAsOfLocalDate,
+      onRetryCalendar: () => _refreshGate3ReadModels(),
+      recordsState: _recordsState,
+      records: _records,
+      onRetryRecords: () => _refreshGate3ReadModels(),
+    ),
+  );
 
   @override
   Future<void> refresh() async {
@@ -199,12 +228,18 @@ class _CocoonAuthenticatedHostState extends State<CocoonAuthenticatedHost>
                 episode: snapshot.activeEpisode,
               ),
       );
+      if (next == CocoonEntryState.activePregnancy) {
+        await _refreshGate3ReadModels();
+      } else {
+        _clearGate3ReadModels();
+      }
     } on LifeMateApiException catch (error) {
       if (error.isUnauthorized) {
         await _forgetOfflineOwner();
         await (widget.signOut?.call() ?? LifeMateAuth.signOut());
         _apply(CocoonEntryState.unauthenticated, null);
       } else if (error.statusCode == 0) {
+        _markGate3ReadModelsStale();
         await _applyOfflineOwnerFallback();
       } else {
         _apply(CocoonEntryState.runtimeUnavailable, null);
@@ -216,6 +251,65 @@ class _CocoonAuthenticatedHostState extends State<CocoonAuthenticatedHost>
     } finally {
       _refreshing = false;
     }
+  }
+
+  Future<void> _refreshGate3ReadModels() async {
+    if (_refreshingGate3 || _entryState != CocoonEntryState.activePregnancy) {
+      return;
+    }
+    final injected = widget.gate3ReadLoader;
+    final production = _gate3ReadModelLoader;
+    if (injected == null && production == null) return;
+
+    _refreshingGate3 = true;
+    if (mounted && _calendarItems.isEmpty && _records.isEmpty) {
+      setState(() {
+        _calendarState = CocoonCalendarLoadState.loading;
+        _recordsState = CocoonRecordsState.loading;
+      });
+    }
+    try {
+      final values = injected != null
+          ? await injected(
+              now: DateTime.now(),
+              fa: widget.locale.languageCode == 'fa',
+            )
+          : await production!.load(
+              now: DateTime.now(),
+              fa: widget.locale.languageCode == 'fa',
+            );
+      if (!mounted || _entryState != CocoonEntryState.activePregnancy) return;
+      setState(() {
+        _calendarState = values.calendarState;
+        _calendarItems = values.calendarItems;
+        _calendarAsOfLocalDate = values.calendarAsOfLocalDate;
+        _recordsState = values.recordsState;
+        _records = values.records;
+      });
+    } catch (_) {
+      _markGate3ReadModelsStale();
+    } finally {
+      _refreshingGate3 = false;
+    }
+  }
+
+  void _markGate3ReadModelsStale() {
+    if (!mounted) return;
+    setState(() {
+      _calendarState = CocoonCalendarLoadState.error;
+      _recordsState = CocoonRecordsState.error;
+    });
+  }
+
+  void _clearGate3ReadModels() {
+    if (!mounted) return;
+    setState(() {
+      _calendarState = CocoonCalendarLoadState.loading;
+      _calendarItems = const [];
+      _calendarAsOfLocalDate = null;
+      _recordsState = CocoonRecordsState.loading;
+      _records = const [];
+    });
   }
 
   Future<bool> _cacheAuthoritativeBootstrap(
@@ -319,6 +413,7 @@ class _CocoonAuthenticatedHostState extends State<CocoonAuthenticatedHost>
     } finally {
       _offlinePregnancySnapshot = null;
       _pregnancySnapshot = null;
+      _clearGate3ReadModels();
     }
   }
 

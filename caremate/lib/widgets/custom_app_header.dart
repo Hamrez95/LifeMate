@@ -36,14 +36,14 @@ class CustomAppHeader extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final notificationLabel = LifeMateRuntimeLocale.select(
-      fa: showNotificationDot
-          ? 'هشدارهای مراقبتی، مورد جدید دارید'
-          : 'هشدارهای مراقبتی',
-      en: showNotificationDot
-          ? 'Care alerts, new alert available'
-          : 'Care alerts',
-    );
+    final isPersian = LifeMateRuntimeLocale.isPersian;
+    final notificationLabel = isPersian
+        ? (showNotificationDot
+              ? 'هشدارهای مراقبتی، مورد جدید دارید'
+              : 'هشدارهای مراقبتی')
+        : (showNotificationDot
+              ? 'Care alerts, new alert available'
+              : 'Care alerts');
     return Padding(
       padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 12),
       child: Row(
@@ -94,15 +94,9 @@ class CustomAppHeader extends StatelessWidget {
           Semantics(
             key: const Key('caremate-header-profile'),
             button: true,
-            label: LifeMateRuntimeLocale.select(
-              fa: 'بازکردن پروفایل',
-              en: 'Open profile',
-            ),
+            label: isPersian ? 'بازکردن پروفایل' : 'Open profile',
             child: Tooltip(
-              message: LifeMateRuntimeLocale.select(
-                fa: 'پروفایل',
-                en: 'Profile',
-              ),
+              message: isPersian ? 'پروفایل' : 'Profile',
               child: Material(
                 color: Colors.transparent,
                 shape: const CircleBorder(),

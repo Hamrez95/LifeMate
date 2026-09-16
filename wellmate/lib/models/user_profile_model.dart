@@ -21,17 +21,12 @@ class UserProfileModel {
 
   // پارس کردن JSON بک‌اند
   factory UserProfileModel.fromJson(Map<String, dynamic> json) {
+    final fallbackName = LifeMateRuntimeLocale.isPersian
+        ? 'کاربر مهمان'
+        : 'Guest user';
     return UserProfileModel(
       id: json['id']?.toString() ?? '',
-      fullName:
-          json['full_name'] ??
-          LifeMateRuntimeLocale.select(
-            fa: LifeMateRuntimeLocale.select(
-              fa: 'کاربر مهمان',
-              en: "Guest user",
-            ),
-            en: "Guest user",
-          ),
+      fullName: json['full_name'] ?? fallbackName,
       email: json['email'] ?? '',
       avatarUrl: json['avatar_url'] ?? '',
       isPremium: json['is_premium'] ?? false,

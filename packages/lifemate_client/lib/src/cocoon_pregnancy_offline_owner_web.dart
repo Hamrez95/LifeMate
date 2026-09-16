@@ -1,6 +1,8 @@
 import 'capabilities.dart';
 import 'cocoon_pregnancy.dart';
+import 'cocoon_pregnancy_daily_api.dart' show CocoonApprovedSymptomCatalog;
 import 'lifemate_api_client.dart' show AccessTokenProvider;
+import 'offline_sync_result.dart';
 
 typedef CocoonCanonicalIdentityResolver =
     Future<LifeMateCapabilitySnapshot> Function();
@@ -23,6 +25,51 @@ final class CocoonPregnancyOfflineOwnerCoordinator {
 
   Future<CocoonPregnancySnapshot?> readCachedOwnerSnapshot() =>
       Future<CocoonPregnancySnapshot?>.error(_unsupported());
+
+  Future<void> enqueueDailyCheckIn({
+    required String clientRequestId,
+    required DateTime observedAtUtc,
+    required DateTime localDate,
+    required String feeling,
+    required String energy,
+    DateTime? createdAtUtc,
+  }) => Future<void>.error(_unsupported());
+
+  Future<void> enqueueSymptom({
+    required String clientRequestId,
+    required DateTime observedAtUtc,
+    required DateTime localDate,
+    required String symptomCode,
+    required String intensity,
+    required CocoonApprovedSymptomCatalog approvedCatalog,
+    String? note,
+    DateTime? createdAtUtc,
+  }) => Future<void>.error(_unsupported());
+
+  Future<void> enqueueMood({
+    required String clientRequestId,
+    required DateTime observedAtUtc,
+    required DateTime localDate,
+    required String moodCode,
+    DateTime? createdAtUtc,
+  }) => Future<void>.error(_unsupported());
+
+  Future<void> enqueueMeasurement({
+    required String clientRequestId,
+    required String observationType,
+    required double valuePrimary,
+    double? valueSecondary,
+    String? note,
+    required DateTime observedAtUtc,
+    required DateTime observedLocalDate,
+    DateTime? createdAtUtc,
+  }) => Future<void>.error(_unsupported());
+
+  Future<Set<String>> pendingPregnancyMutationIds() =>
+      Future<Set<String>>.error(_unsupported());
+
+  Future<LifeMateOfflineSyncResult> flushPending() =>
+      Future<LifeMateOfflineSyncResult>.error(_unsupported());
 
   Future<void> forgetAdoptedOwner() => Future<void>.error(_unsupported());
 
