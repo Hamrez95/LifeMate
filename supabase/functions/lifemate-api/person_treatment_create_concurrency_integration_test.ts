@@ -358,20 +358,15 @@ Deno.test({
       "integration-only-idempotency-secret-0123456789abcdef",
     );
 
-    let releasePersisted!: () => void;
-    let signalPersisted!: () => void;
+    let releaseAction!: () => void;
+    let signalActionStarted!: () => void;
     const releaseGate = new Promise<void>((resolve) => {
-      releasePersisted = resolve;
+      releaseAction = resolve;
     });
-    const persisted = new Promise<void>((resolve) => {
-      signalPersisted = resolve;
+    const actionStarted = new Promise<void>((resolve) => {
+      signalActionStarted = resolve;
     });
-    const store = createPersonTreatmentCreateStore(databaseUrl, {
-      afterMedicationPersisted: async () => {
-        signalPersisted();
-        await releaseGate;
-      },
-    });
+    const store = createPersonTreatmentCreateStore(databaseUrl);
     let actionCount = 0;
 
     try {
@@ -389,6 +384,8 @@ Deno.test({
         bodyText,
         async () => {
           actionCount += 1;
+          signalActionStarted();
+          await releaseGate;
           const created = await store.createTreatment(appUserId, body);
           return new Response(JSON.stringify(created), {
             status: 201,
@@ -397,7 +394,7 @@ Deno.test({
         },
       );
 
-      await persisted;
+      await actionStarted;
       await assertApiError(
         () =>
           idempotency.execute(
@@ -414,7 +411,7 @@ Deno.test({
         "idempotency_in_progress",
       );
 
-      releasePersisted();
+      releaseAction();
       const firstResponse = await first;
       assertEquals(firstResponse.status, 201);
       const firstPayload = await firstResponse.json() as Record<
@@ -485,7 +482,7 @@ Deno.test({
       assertEquals(auditCounts.length, 2);
       assertEquals(auditCounts.every((row) => Number(row.count) === 1), true);
     } finally {
-      releasePersisted();
+      releaseAction();
       await closeLifeMateSqlClientsForTest().catch(() => undefined);
       await cleanupFixture(appUserId, accountId, personId, [key]);
       await fixtureSql.end({ timeout: 1 }).catch(() => undefined);
