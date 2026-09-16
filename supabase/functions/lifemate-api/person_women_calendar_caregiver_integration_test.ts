@@ -185,9 +185,10 @@ Deno.test({
       await fixtureSql`
         insert into lifemate.women_companion_privacy_scopes(
           relationship_id,view_period_timing,view_phase_summary,
-          view_shared_wellbeing,updated_by_user_id
+          view_shared_wellbeing,view_calendar_detail,updated_by_user_id
         ) values (
-          ${relationshipId}::uuid,true,true,true,${patient.appUserId}::uuid
+          ${relationshipId}::uuid,true,true,true,true,
+          ${patient.appUserId}::uuid
         )
       `;
       const relationship = await fixtureSql`
@@ -224,6 +225,8 @@ Deno.test({
       const patientSummary = summary.patient as Record<string, unknown>;
       assertEquals(patientSummary.displayName, "Canonical Patient");
       assertEquals(patientSummary.avatarKey, "person_purple");
+      const privacyScopes = summary.privacyScopes as Record<string, unknown>;
+      assertEquals(privacyScopes.viewCalendarDetail, true);
       const episodes = summary.episodes as Array<Record<string, unknown>>;
       assertEquals(episodes.length, 1);
       assertEquals(episodes[0].id, episodeId);
@@ -267,8 +270,8 @@ Deno.test({
       await fixtureSql`
         update lifemate.women_companion_privacy_scopes
         set view_period_timing=false,view_phase_summary=false,
-            view_shared_wellbeing=false,version=version+1,
-            updated_at_utc=now()
+            view_shared_wellbeing=false,view_calendar_detail=false,
+            version=version+1,updated_at_utc=now()
         where relationship_id=${relationshipId}::uuid
       `;
       await assertApiError(
@@ -279,8 +282,8 @@ Deno.test({
       await fixtureSql`
         update lifemate.women_companion_privacy_scopes
         set view_period_timing=true,view_phase_summary=true,
-            view_shared_wellbeing=true,version=version+1,
-            updated_at_utc=now()
+            view_shared_wellbeing=true,view_calendar_detail=true,
+            version=version+1,updated_at_utc=now()
         where relationship_id=${relationshipId}::uuid
       `;
 
