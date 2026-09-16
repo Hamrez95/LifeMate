@@ -86,9 +86,13 @@ for (const [pattern, message] of personStoreContracts) {
     throw new Error(`Person Care Event store contract missing: ${message}`);
   }
 }
-if (!store.includes("const metadata = eventType == null ? null : { eventType }")) {
+if (
+  !/const metadata\s*=\s*eventType\s*==\s*null\s*\?\s*null\s*:\s*JSON\.stringify\(\{\s*eventType\s*\}\)/.test(
+    store,
+  )
+) {
   throw new Error(
-    "Care Event audit metadata must keep event semantics without patient AppUser identity.",
+    "Care Event audit metadata must serialize event semantics without patient AppUser identity.",
   );
 }
 
