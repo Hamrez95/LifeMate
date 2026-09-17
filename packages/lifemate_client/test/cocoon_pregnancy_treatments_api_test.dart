@@ -15,14 +15,26 @@ void main() {
     'treatmentPlans': [
       {
         'id': '11111111-1111-4111-8111-111111111111',
-        'status': 'Active',
+        'status': 'active',
         'doseText': 'canonical dose',
+        'version': 3,
+        'medication': {
+          'id': '44444444-4444-4444-8444-444444444444',
+          'name': 'Canonical medication',
+          'strengthText': 'canonical strength',
+        },
       },
     ],
     'doseOccurrences': [
       {
         'id': '22222222-2222-4222-8222-222222222222',
         'treatmentPlanId': '11111111-1111-4111-8111-111111111111',
+        'scheduledAtUtc': '2026-09-16T05:30:00.000Z',
+        'scheduledLocalDate': '2026-09-16',
+        'scheduledLocalTime': '09:00',
+        'timeZone': 'Asia/Tehran',
+        'status': 'scheduled',
+        'version': 7,
       },
     ],
     'mutationAuthority': 'canonical_treatment_api',
@@ -49,18 +61,81 @@ void main() {
     expect(captured.url.queryParameters['fromDate'], '2026-09-14');
     expect(captured.url.queryParameters['toDate'], '2026-09-20');
     expect(captured.headers.containsKey('Idempotency-Key'), isFalse);
-    expect(result.treatmentPlans.single['status'], 'Active');
+    expect(result.treatmentPlans.single['status'], 'active');
     expect(result.doseOccurrences, hasLength(1));
     expect(result.mutationAuthority, 'canonical_treatment_api');
+
+    final plan = result.typedTreatmentPlans.single;
+    expect(plan.id, '11111111-1111-4111-8111-111111111111');
+    expect(plan.medicationId, '44444444-4444-4444-8444-444444444444');
+    expect(plan.medicationName, 'Canonical medication');
+    expect(plan.doseText, 'canonical dose');
+    expect(plan.version, 3);
+
+    final occurrence = result.typedDoseOccurrences.single;
+    expect(occurrence.id, '22222222-2222-4222-8222-222222222222');
+    expect(occurrence.treatmentPlanId, plan.id);
+    expect(occurrence.version, 7);
+    expect(occurrence.status, 'scheduled');
+    expect(occurrence.scheduledAtUtc, DateTime.utc(2026, 9, 16, 5, 30));
     api.close();
   });
 
-  test('rejects a response that redirects mutation authority away from shared API', () async {
-    final payload = contextPayload()..['mutationAuthority'] = 'cocoon_private_store';
+  test(
+    'rejects a response that redirects mutation authority away from shared API',
+    () async {
+      final payload = contextPayload()
+        ..['mutationAuthority'] = 'cocoon_private_store';
+      final api = CocoonPregnancyTreatmentsApiClient(
+        baseUri: Uri.parse('https://example.test'),
+        accessToken: () => 'token',
+        httpClient: MockClient(
+          (_) async => http.Response(jsonEncode(payload), 200),
+        ),
+      );
+
+      await expectLater(
+        api.list(
+          fromDate: DateTime(2026, 9, 14),
+          toDate: DateTime(2026, 9, 20),
+        ),
+        throwsFormatException,
+      );
+      api.close();
+    },
+  );
+
+  test('rejects occurrence identity that does not belong to an active plan', () async {
+    final payload = contextPayload();
+    (payload['doseOccurrences'] as List).single['treatmentPlanId'] =
+        '99999999-9999-4999-8999-999999999999';
     final api = CocoonPregnancyTreatmentsApiClient(
       baseUri: Uri.parse('https://example.test'),
       accessToken: () => 'token',
-      httpClient: MockClient((_) async => http.Response(jsonEncode(payload), 200)),
+      httpClient: MockClient(
+        (_) async => http.Response(jsonEncode(payload), 200),
+      ),
+    );
+
+    await expectLater(
+      api.list(
+        fromDate: DateTime(2026, 9, 14),
+        toDate: DateTime(2026, 9, 20),
+      ),
+      throwsFormatException,
+    );
+    api.close();
+  });
+
+  test('rejects occurrence without canonical version', () async {
+    final payload = contextPayload();
+    (payload['doseOccurrences'] as List).single.remove('version');
+    final api = CocoonPregnancyTreatmentsApiClient(
+      baseUri: Uri.parse('https://example.test'),
+      accessToken: () => 'token',
+      httpClient: MockClient(
+        (_) async => http.Response(jsonEncode(payload), 200),
+      ),
     );
 
     await expectLater(
@@ -77,13 +152,15 @@ void main() {
     final api = CocoonPregnancyTreatmentsApiClient(
       baseUri: Uri.parse('https://example.test'),
       accessToken: () => 'token',
-      httpClient: MockClient((_) async => http.Response(
-        jsonEncode({
-          'code': 'pregnancy_scope_denied',
-          'detail': 'Medication access is not granted.',
-        }),
-        403,
-      )),
+      httpClient: MockClient(
+        (_) async => http.Response(
+          jsonEncode({
+            'code': 'pregnancy_scope_denied',
+            'detail': 'Medication access is not granted.',
+          }),
+          403,
+        ),
+      ),
     );
 
     await expectLater(
@@ -107,7 +184,9 @@ void main() {
     final api = CocoonPregnancyTreatmentsApiClient(
       baseUri: Uri.parse('https://example.test'),
       accessToken: () => 'token',
-      httpClient: MockClient((_) async => http.Response(jsonEncode(payload), 200)),
+      httpClient: MockClient(
+        (_) async => http.Response(jsonEncode(payload), 200),
+      ),
     );
 
     final result = await api.list(
@@ -116,6 +195,8 @@ void main() {
     );
     expect(result.treatmentPlans, isEmpty);
     expect(result.doseOccurrences, isEmpty);
+    expect(result.typedTreatmentPlans, isEmpty);
+    expect(result.typedDoseOccurrences, isEmpty);
     api.close();
   });
 
