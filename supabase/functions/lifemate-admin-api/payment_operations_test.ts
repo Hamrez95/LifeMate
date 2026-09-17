@@ -8,7 +8,8 @@ import {
 function assertEquals(actual: unknown, expected: unknown, message?: string) {
   if (JSON.stringify(actual) !== JSON.stringify(expected)) {
     throw new Error(
-      message ?? `Expected ${JSON.stringify(expected)}, got ${JSON.stringify(actual)}`,
+      message ??
+        `Expected ${JSON.stringify(expected)}, got ${JSON.stringify(actual)}`,
     );
   }
 }
@@ -51,11 +52,12 @@ Deno.test("refund parser preserves PostgreSQL bigint precision as text", async (
   assertEquals(parsed.amountMinor, "9007199254740993123");
 
   await assertRejects(
-    () => parseRefundRequestV2(request({
-      transactionId,
-      amountMinor: "9223372036854775808",
-      reason: "Verified partial refund requested by customer support.",
-    })),
+    () =>
+      parseRefundRequestV2(request({
+        transactionId,
+        amountMinor: "9223372036854775808",
+        reason: "Verified partial refund requested by customer support.",
+      })),
     "amount_minor_invalid",
   );
 });
@@ -77,12 +79,13 @@ Deno.test("correction execute parses one request body without clone-after-consum
 
 Deno.test("renewal intent requires an explicit boolean", async () => {
   await assertRejects(
-    () => parseRenewalIntent(request({
-      subscriptionId,
-      expectedVersion: 1,
-      cancelAtPeriodEnd: "true",
-      reasonCode: "user_requested",
-    })),
+    () =>
+      parseRenewalIntent(request({
+        subscriptionId,
+        expectedVersion: 1,
+        cancelAtPeriodEnd: "true",
+        reasonCode: "user_requested",
+      })),
     "cancel_at_period_end_invalid",
   );
 

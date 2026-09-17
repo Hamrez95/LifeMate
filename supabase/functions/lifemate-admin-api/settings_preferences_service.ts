@@ -8,11 +8,22 @@ function iso(value: unknown): string {
 
 function mutationResult(value: unknown): Record<string, unknown> {
   if (!value || typeof value !== "object" || Array.isArray(value)) {
-    throw new ApiError(503, "settings_workflow_unavailable", "Settings workflow result was unavailable.");
+    throw new ApiError(
+      503,
+      "settings_workflow_unavailable",
+      "Settings workflow result was unavailable.",
+    );
   }
   const row = value as Record<string, unknown>;
-  if (!Number.isInteger(row.httpStatus) || typeof row.code !== "string" || typeof row.replayed !== "boolean") {
-    throw new ApiError(503, "settings_workflow_unavailable", "Settings workflow result was invalid.");
+  if (
+    !Number.isInteger(row.httpStatus) || typeof row.code !== "string" ||
+    typeof row.replayed !== "boolean"
+  ) {
+    throw new ApiError(
+      503,
+      "settings_workflow_unavailable",
+      "Settings workflow result was invalid.",
+    );
   }
   return row;
 }
@@ -21,17 +32,24 @@ export function createCommandCenterPreferencesStore(databaseUrl: string) {
   const sql: AdminSql = getAdminSql(databaseUrl);
   return {
     async get() {
-      const rows = await sql`select * from admin.get_command_center_preferences()`;
+      const rows =
+        await sql`select * from admin.get_command_center_preferences()`;
       const value = (rows as unknown as Record<string, unknown>[])[0];
       if (!value) {
-        throw new ApiError(503, "settings_unavailable", "Command Center preferences are unavailable.");
+        throw new ApiError(
+          503,
+          "settings_unavailable",
+          "Command Center preferences are unavailable.",
+        );
       }
       return {
         locale: String(value.locale),
         timeZone: String(value.time_zone),
         displayName: String(value.display_name),
         version: Number(value.version),
-        updatedAtUtc: value.updated_at_utc == null ? null : iso(value.updated_at_utc),
+        updatedAtUtc: value.updated_at_utc == null
+          ? null
+          : iso(value.updated_at_utc),
       };
     },
 

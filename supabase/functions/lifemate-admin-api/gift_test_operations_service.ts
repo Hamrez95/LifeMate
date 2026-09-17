@@ -4,21 +4,34 @@ import { ApiError } from "./validation.ts";
 
 function object(value: unknown): Record<string, unknown> {
   if (!value || typeof value !== "object" || Array.isArray(value)) {
-    throw new ApiError(503, "gift_test_finalize_unavailable", "Gift workflow returned an invalid result.");
+    throw new ApiError(
+      503,
+      "gift_test_finalize_unavailable",
+      "Gift workflow returned an invalid result.",
+    );
   }
   return value as Record<string, unknown>;
 }
 
-async function auditRequestId(actorAccountId: string, idempotencyKey: string): Promise<string> {
+async function auditRequestId(
+  actorAccountId: string,
+  idempotencyKey: string,
+): Promise<string> {
   const digest = await crypto.subtle.digest(
     "SHA-256",
-    new TextEncoder().encode(`${actorAccountId}:gift-test-finalize:${idempotencyKey}`),
+    new TextEncoder().encode(
+      `${actorAccountId}:gift-test-finalize:${idempotencyKey}`,
+    ),
   );
   const bytes = [...new Uint8Array(digest).slice(0, 16)];
   bytes[6] = (bytes[6] & 0x0f) | 0x40;
   bytes[8] = (bytes[8] & 0x3f) | 0x80;
-  const hex = bytes.map((value) => value.toString(16).padStart(2, "0")).join("");
-  return `${hex.slice(0, 8)}-${hex.slice(8, 12)}-${hex.slice(12, 16)}-${hex.slice(16, 20)}-${hex.slice(20)}`;
+  const hex = bytes.map((value) => value.toString(16).padStart(2, "0")).join(
+    "",
+  );
+  return `${hex.slice(0, 8)}-${hex.slice(8, 12)}-${hex.slice(12, 16)}-${
+    hex.slice(16, 20)
+  }-${hex.slice(20)}`;
 }
 
 export function createGiftTestOperationsStore(databaseUrl: string) {
@@ -31,7 +44,10 @@ export function createGiftTestOperationsStore(databaseUrl: string) {
       idempotencyKey: string;
       requestHash: string;
     }) {
-      const requestId = await auditRequestId(input.actorAccountId, input.idempotencyKey);
+      const requestId = await auditRequestId(
+        input.actorAccountId,
+        input.idempotencyKey,
+      );
       return await sql.begin(async (tx) => {
         await tx`select pg_advisory_xact_lock(hashtextextended(${`${input.actorAccountId}:gift-test-finalize:${input.idempotencyKey}`},0))`;
         const existing = await tx`
@@ -44,9 +60,15 @@ export function createGiftTestOperationsStore(databaseUrl: string) {
           limit 1
         `;
         if (existing[0]) {
-          const metadata = existing[0].metadata_json as Record<string, unknown> | null;
+          const metadata = existing[0].metadata_json as
+            | Record<string, unknown>
+            | null;
           if (metadata?.requestHash !== input.requestHash) {
-            throw new ApiError(409, "idempotency_conflict", "Idempotency-Key was already used for a different gift finalization.");
+            throw new ApiError(
+              409,
+              "idempotency_conflict",
+              "Idempotency-Key was already used for a different gift finalization.",
+            );
           }
           return {
             httpStatus: 200,
@@ -67,7 +89,11 @@ export function createGiftTestOperationsStore(databaseUrl: string) {
         const result = object(rows[0]?.result);
         const status = Number(result.httpStatus);
         if (!Number.isInteger(status)) {
-          throw new ApiError(503, "gift_test_finalize_unavailable", "Gift workflow returned an invalid status.");
+          throw new ApiError(
+            503,
+            "gift_test_finalize_unavailable",
+            "Gift workflow returned an invalid status.",
+          );
         }
         if (status >= 400) return result;
 
@@ -77,10 +103,16 @@ export function createGiftTestOperationsStore(databaseUrl: string) {
           ) values(
             ${input.actorAccountId}::uuid,'commerce.gift.test_finalize','gift_intent',${input.payload.giftIntentId},
             'Succeeded',${input.correlationId}::uuid,${requestId}::uuid,true,
-            ${tx.json({requestHash:input.requestHash,transactionId:input.payload.transactionId,testOnly:true})}::jsonb
+            ${
+          tx.json({
+            requestHash: input.requestHash,
+            transactionId: input.payload.transactionId,
+            testOnly: true,
+          })
+        }::jsonb
           )
         `;
-        return {...result,replayed:false};
+        return { ...result, replayed: false };
       });
     },
   };

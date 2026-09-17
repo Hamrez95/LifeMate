@@ -8,17 +8,44 @@ export type ResearchPrivacyPolicy = {
 };
 
 export function validateResearchPrivacyPolicy(input: ResearchPrivacyPolicy) {
-  if (input.ageBucketYears !== null && (!Number.isInteger(input.ageBucketYears) || input.ageBucketYears < 1 || input.ageBucketYears > 20)) {
-    throw new ApiError(400, "research_age_bucket_invalid", "Age bucket size is invalid.");
+  if (
+    input.ageBucketYears !== null &&
+    (!Number.isInteger(input.ageBucketYears) || input.ageBucketYears < 1 ||
+      input.ageBucketYears > 20)
+  ) {
+    throw new ApiError(
+      400,
+      "research_age_bucket_invalid",
+      "Age bucket size is invalid.",
+    );
   }
-  if (!Number.isInteger(input.minimumCohortSize) || input.minimumCohortSize < 5 || input.minimumCohortSize > 1_000_000) {
-    throw new ApiError(400, "research_cohort_threshold_invalid", "Minimum cohort size is invalid.");
+  if (
+    !Number.isInteger(input.minimumCohortSize) || input.minimumCohortSize < 5 ||
+    input.minimumCohortSize > 1_000_000
+  ) {
+    throw new ApiError(
+      400,
+      "research_cohort_threshold_invalid",
+      "Minimum cohort size is invalid.",
+    );
   }
-  if (!Number.isInteger(input.smallCellThreshold) || input.smallCellThreshold < 5 || input.smallCellThreshold > input.minimumCohortSize) {
-    throw new ApiError(400, "research_small_cell_threshold_invalid", "Small-cell threshold is invalid.");
+  if (
+    !Number.isInteger(input.smallCellThreshold) ||
+    input.smallCellThreshold < 5 ||
+    input.smallCellThreshold > input.minimumCohortSize
+  ) {
+    throw new ApiError(
+      400,
+      "research_small_cell_threshold_invalid",
+      "Small-cell threshold is invalid.",
+    );
   }
   if (input.rowMode !== "Aggregate" && input.rowMode !== "Pseudonymous") {
-    throw new ApiError(400, "research_row_mode_invalid", "Research row mode is invalid.");
+    throw new ApiError(
+      400,
+      "research_row_mode_invalid",
+      "Research row mode is invalid.",
+    );
   }
   if (input.rowMode === "Pseudonymous") {
     throw new ApiError(
@@ -32,10 +59,18 @@ export function validateResearchPrivacyPolicy(input: ResearchPrivacyPolicy) {
 
 export function ageBucketLabel(age: number, width: number): string {
   if (!Number.isInteger(age) || age < 0 || age > 130) {
-    throw new ApiError(400, "research_age_invalid", "Age is outside the supported range.");
+    throw new ApiError(
+      400,
+      "research_age_invalid",
+      "Age is outside the supported range.",
+    );
   }
   if (!Number.isInteger(width) || width < 1 || width > 20) {
-    throw new ApiError(400, "research_age_bucket_invalid", "Age bucket size is invalid.");
+    throw new ApiError(
+      400,
+      "research_age_bucket_invalid",
+      "Age bucket size is invalid.",
+    );
   }
   const endInclusive = age === 0 ? width : Math.ceil(age / width) * width;
   const startExclusive = Math.max(0, endInclusive - width);
@@ -47,7 +82,11 @@ export function suppressSmallCells<T extends { count: number }>(
   threshold: number,
 ): Array<T & { suppressed: boolean }> {
   if (!Number.isInteger(threshold) || threshold < 5) {
-    throw new ApiError(400, "research_small_cell_threshold_invalid", "Small-cell threshold is invalid.");
+    throw new ApiError(
+      400,
+      "research_small_cell_threshold_invalid",
+      "Small-cell threshold is invalid.",
+    );
   }
   return cells.map((cell) => ({
     ...cell,
@@ -55,10 +94,17 @@ export function suppressSmallCells<T extends { count: number }>(
   }));
 }
 
-export function assertCohortExportable(cohortSize: number, policy: ResearchPrivacyPolicy) {
+export function assertCohortExportable(
+  cohortSize: number,
+  policy: ResearchPrivacyPolicy,
+) {
   validateResearchPrivacyPolicy(policy);
   if (!Number.isInteger(cohortSize) || cohortSize < policy.minimumCohortSize) {
-    throw new ApiError(409, "research_cohort_too_small", "Dataset cohort does not meet the privacy threshold.");
+    throw new ApiError(
+      409,
+      "research_cohort_too_small",
+      "Dataset cohort does not meet the privacy threshold.",
+    );
   }
 }
 
@@ -95,6 +141,10 @@ export function rejectDirectIdentifierFields(fields: string[]) {
     return forbiddenTokens.has(compact);
   });
   if (match) {
-    throw new ApiError(400, "research_direct_identifier_forbidden", "Direct or linkable identifiers cannot be exported in a research dataset.");
+    throw new ApiError(
+      400,
+      "research_direct_identifier_forbidden",
+      "Direct or linkable identifiers cannot be exported in a research dataset.",
+    );
   }
 }

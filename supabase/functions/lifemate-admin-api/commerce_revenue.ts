@@ -15,7 +15,13 @@ export type CommerceRevenueQuery = {
 export type RevenueMetricState = "ready" | "partial" | "unavailable";
 
 export type RevenueMetric = {
-  name: "mrr" | "arr" | "arpu" | "paid_conversion" | "revenue_churn" | "refund_amount";
+  name:
+    | "mrr"
+    | "arr"
+    | "arpu"
+    | "paid_conversion"
+    | "revenue_churn"
+    | "refund_amount";
   state: RevenueMetricState;
   value: string | number | null;
   currency: string | null;
@@ -44,11 +50,22 @@ function optionalDate(value: string | null, field: string): string | null {
   const normalized = value?.trim() ?? "";
   if (!normalized) return null;
   if (!/^\d{4}-\d{2}-\d{2}$/.test(normalized)) {
-    throw new ApiError(400, "commerce_revenue_range_invalid", `${field} must use YYYY-MM-DD.`);
+    throw new ApiError(
+      400,
+      "commerce_revenue_range_invalid",
+      `${field} must use YYYY-MM-DD.`,
+    );
   }
   const parsed = new Date(`${normalized}T00:00:00.000Z`);
-  if (Number.isNaN(parsed.getTime()) || parsed.toISOString().slice(0, 10) !== normalized) {
-    throw new ApiError(400, "commerce_revenue_range_invalid", `${field} is invalid.`);
+  if (
+    Number.isNaN(parsed.getTime()) ||
+    parsed.toISOString().slice(0, 10) !== normalized
+  ) {
+    throw new ApiError(
+      400,
+      "commerce_revenue_range_invalid",
+      `${field} is invalid.`,
+    );
   }
   return normalized;
 }
@@ -57,7 +74,11 @@ function optionalCode(value: string | null, field: string): string | null {
   const normalized = value?.trim() ?? "";
   if (!normalized) return null;
   if (!CODE.test(normalized)) {
-    throw new ApiError(400, "commerce_revenue_filter_invalid", `${field} filter is invalid.`);
+    throw new ApiError(
+      400,
+      "commerce_revenue_filter_invalid",
+      `${field} filter is invalid.`,
+    );
   }
   return normalized.toLowerCase();
 }
@@ -66,11 +87,20 @@ export function parseCommerceRevenueQuery(url: URL): CommerceRevenueQuery {
   const from = optionalDate(url.searchParams.get("from"), "from");
   const to = optionalDate(url.searchParams.get("to"), "to");
   if (from && to && from > to) {
-    throw new ApiError(400, "commerce_revenue_range_invalid", "Revenue date range is invalid.");
+    throw new ApiError(
+      400,
+      "commerce_revenue_range_invalid",
+      "Revenue date range is invalid.",
+    );
   }
-  const rawCurrency = url.searchParams.get("currency")?.trim().toUpperCase() ?? "";
+  const rawCurrency = url.searchParams.get("currency")?.trim().toUpperCase() ??
+    "";
   if (rawCurrency && !CURRENCY.test(rawCurrency)) {
-    throw new ApiError(400, "commerce_revenue_currency_invalid", "Currency filter must be a three-letter code.");
+    throw new ApiError(
+      400,
+      "commerce_revenue_currency_invalid",
+      "Currency filter must be a three-letter code.",
+    );
   }
   return {
     from,
@@ -81,11 +111,17 @@ export function parseCommerceRevenueQuery(url: URL): CommerceRevenueQuery {
   };
 }
 
-function unavailable(name: RevenueMetric["name"], reason: string, currency: string | null): RevenueMetric {
+function unavailable(
+  name: RevenueMetric["name"],
+  reason: string,
+  currency: string | null,
+): RevenueMetric {
   return { name, state: "unavailable", value: null, currency, reason };
 }
 
-export function unsupportedRecurringRevenueMetrics(currency: string | null): RevenueMetric[] {
+export function unsupportedRecurringRevenueMetrics(
+  currency: string | null,
+): RevenueMetric[] {
   return [
     unavailable(
       "mrr",
@@ -127,7 +163,10 @@ async function relationAvailability(sql: AdminSql) {
   };
 }
 
-async function actuals(sql: AdminSql, query: CommerceRevenueQuery): Promise<RevenueCurrencyActual[]> {
+async function actuals(
+  sql: AdminSql,
+  query: CommerceRevenueQuery,
+): Promise<RevenueCurrencyActual[]> {
   const rows = await sql`
     select
       t.currency,
@@ -158,7 +197,10 @@ async function actuals(sql: AdminSql, query: CommerceRevenueQuery): Promise<Reve
   }));
 }
 
-async function refundActuals(sql: AdminSql, query: CommerceRevenueQuery): Promise<Map<string, RefundAggregate>> {
+async function refundActuals(
+  sql: AdminSql,
+  query: CommerceRevenueQuery,
+): Promise<Map<string, RefundAggregate>> {
   const rows = await sql`
     select
       request.currency,
@@ -188,7 +230,10 @@ async function refundActuals(sql: AdminSql, query: CommerceRevenueQuery): Promis
   );
 }
 
-async function transactionSeries(sql: AdminSql, query: CommerceRevenueQuery): Promise<RevenueSeriesPoint[]> {
+async function transactionSeries(
+  sql: AdminSql,
+  query: CommerceRevenueQuery,
+): Promise<RevenueSeriesPoint[]> {
   const rows = await sql`
     select
       (t.occurred_at_utc at time zone 'Asia/Tehran')::date::text as day,
@@ -215,7 +260,10 @@ async function transactionSeries(sql: AdminSql, query: CommerceRevenueQuery): Pr
   }));
 }
 
-async function refundSeries(sql: AdminSql, query: CommerceRevenueQuery): Promise<Map<string, string>> {
+async function refundSeries(
+  sql: AdminSql,
+  query: CommerceRevenueQuery,
+): Promise<Map<string, string>> {
   const rows = await sql`
     select
       (request.requested_at_utc at time zone 'Asia/Tehran')::date::text as day,
@@ -266,23 +314,35 @@ export function createCommerceRevenueStore(databaseUrl: string) {
             state: "unavailable" as const,
             ledger: "commerce.transactions",
             refundLedger: "commerce.refund_requests",
-            note: "No revenue amount is reconstructed from prices or subscription counts.",
+            note:
+              "No revenue amount is reconstructed from prices or subscription counts.",
           },
-          freshness: { status: "unavailable" as const, asOfUtc: new Date().toISOString() },
+          freshness: {
+            status: "unavailable" as const,
+            asOfUtc: new Date().toISOString(),
+          },
         };
       }
 
-      const [values, baseSeries] = await Promise.all([actuals(sql, query), transactionSeries(sql, query)]);
-      const refundByCurrency: Map<string, RefundAggregate> = availability.refunds
-        ? await refundActuals(sql, query)
-        : new Map();
-      const refundByDay = availability.refunds ? await refundSeries(sql, query) : new Map<string, string>();
+      const [values, baseSeries] = await Promise.all([
+        actuals(sql, query),
+        transactionSeries(sql, query),
+      ]);
+      const refundByCurrency: Map<string, RefundAggregate> =
+        availability.refunds ? await refundActuals(sql, query) : new Map();
+      const refundByDay = availability.refunds
+        ? await refundSeries(sql, query)
+        : new Map<string, string>();
       const actualByCurrency = values.map((item) => {
         const refund = refundByCurrency.get(item.currency);
         return {
           ...item,
-          refundedAmountMinor: availability.refunds ? (refund?.amountMinor ?? "0") : null,
-          refundedTransactions: availability.refunds ? (refund?.transactions ?? 0) : null,
+          refundedAmountMinor: availability.refunds
+            ? (refund?.amountMinor ?? "0")
+            : null,
+          refundedTransactions: availability.refunds
+            ? (refund?.transactions ?? 0)
+            : null,
         };
       });
       const series = baseSeries.map((point) => ({
@@ -293,29 +353,32 @@ export function createCommerceRevenueStore(databaseUrl: string) {
       }));
 
       const selectedRefund = query.currency
-        ? actualByCurrency.find((item) => item.currency === query.currency)?.refundedAmountMinor ?? "0"
+        ? actualByCurrency.find((item) => item.currency === query.currency)
+          ?.refundedAmountMinor ?? "0"
         : null;
       const refundMetric: RevenueMetric = availability.refunds
         ? query.currency
           ? {
-              name: "refund_amount",
-              state: "ready",
-              value: selectedRefund,
-              currency: query.currency,
-              reason: "Succeeded human-review refund workflow amounts only; integer minor units.",
-            }
+            name: "refund_amount",
+            state: "ready",
+            value: selectedRefund,
+            currency: query.currency,
+            reason:
+              "Succeeded human-review refund workflow amounts only; integer minor units.",
+          }
           : {
-              name: "refund_amount",
-              state: "partial",
-              value: null,
-              currency: null,
-              reason: "Refund amounts are available only as the per-currency breakdown below; no FX aggregation is performed.",
-            }
+            name: "refund_amount",
+            state: "partial",
+            value: null,
+            currency: null,
+            reason:
+              "Refund amounts are available only as the per-currency breakdown below; no FX aggregation is performed.",
+          }
         : unavailable(
-            "refund_amount",
-            "Refund workflow ledger is not deployed; transaction status alone is not treated as a refund amount.",
-            query.currency,
-          );
+          "refund_amount",
+          "Refund workflow ledger is not deployed; transaction status alone is not treated as a refund amount.",
+          query.currency,
+        );
 
       return {
         query,
@@ -325,10 +388,16 @@ export function createCommerceRevenueStore(databaseUrl: string) {
         source: {
           state: "partial" as const,
           ledger: "commerce.transactions",
-          refundLedger: availability.refunds ? "commerce.refund_requests" : null,
-          note: "Actual successful transaction/refund facts only. MRR/ARR/ARPU/churn/conversion remain unavailable until their canonical semantics are instrumented.",
+          refundLedger: availability.refunds
+            ? "commerce.refund_requests"
+            : null,
+          note:
+            "Actual successful transaction/refund facts only. MRR/ARR/ARPU/churn/conversion remain unavailable until their canonical semantics are instrumented.",
         },
-        freshness: { status: "partial" as const, asOfUtc: new Date().toISOString() },
+        freshness: {
+          status: "partial" as const,
+          asOfUtc: new Date().toISOString(),
+        },
       };
     },
   };
