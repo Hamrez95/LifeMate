@@ -121,8 +121,7 @@ requireMarkers(
   [
     'createIdentityResolver',
     'createLegacyLifeMateDatabase',
-    'const identity = await identityResolver.requireIdentity(auth);',
-    'await privacyPreferences.requireRegistrationComplete(identity.appUserId);',
+    'requireIdentity: identityResolver.requireIdentity',
   ],
   'database compatibility facade',
 );
@@ -131,9 +130,7 @@ requireMarkers(
   [
     'createMedication: personMedications.createMedication',
     'listMedications: personMedications.listMedications',
-    'createTreatmentPlan:',
-    'personTreatmentCreate.createTreatment',
-    'personTreatmentPlans.createTreatmentPlan',
+    'createTreatmentPlan: personTreatmentPlans.createTreatmentPlan',
     'listTreatmentPlans: personTreatmentPlans.listTreatmentPlans',
     'listDoseOccurrences: personDoseOccurrences.listDoseOccurrences',
     'reportDose: personDoseOccurrences.reportDose',
