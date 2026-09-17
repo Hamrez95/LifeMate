@@ -65,6 +65,28 @@ final class CocoonPregnancyOfflineOwnerCoordinator {
     DateTime? createdAtUtc,
   }) => Future<void>.error(_unsupported());
 
+  Future<void> enqueueCalendarEvent({
+    required String clientRequestId,
+    required String classification,
+    required String eventType,
+    required String title,
+    String? providerName,
+    String? specialty,
+    String? medicationName,
+    String? doseText,
+    String? administrationRoute,
+    String? reason,
+    String? instructions,
+    String? centerName,
+    String? addressLine,
+    String? phoneNumber,
+    required DateTime scheduledLocalDate,
+    required String scheduledLocalTime,
+    required int patientReminderMinutesBefore,
+    required int caregiverReminderMinutesBefore,
+    DateTime? createdAtUtc,
+  }) => Future<void>.error(_unsupported());
+
   Future<Set<String>> pendingPregnancyMutationIds() =>
       Future<Set<String>>.error(_unsupported());
 

@@ -208,9 +208,59 @@ final class CocoonPregnancyOfflineOwnerCoordinator {
     );
   });
 
+  /// Queues the same canonical care-event payload used by the online pregnancy
+  /// Calendar endpoint. Presentation date/time labels are deliberately not
+  /// accepted here; callers must supply typed canonical date/time values.
+  Future<void> enqueueCalendarEvent({
+    required String clientRequestId,
+    required String classification,
+    required String eventType,
+    required String title,
+    String? providerName,
+    String? specialty,
+    String? medicationName,
+    String? doseText,
+    String? administrationRoute,
+    String? reason,
+    String? instructions,
+    String? centerName,
+    String? addressLine,
+    String? phoneNumber,
+    required DateTime scheduledLocalDate,
+    required String scheduledLocalTime,
+    required int patientReminderMinutesBefore,
+    required int caregiverReminderMinutesBefore,
+    DateTime? createdAtUtc,
+  }) => _withOutbox<void>((outbox, namespace) async {
+    await LifeMateOfflinePregnancyCalendarMutation.enqueueCreate(
+      outbox: outbox,
+      namespace: namespace,
+      mutationId: clientRequestId,
+      classification: classification,
+      eventType: eventType,
+      title: title,
+      providerName: providerName,
+      specialty: specialty,
+      medicationName: medicationName,
+      doseText: doseText,
+      administrationRoute: administrationRoute,
+      reason: reason,
+      instructions: instructions,
+      centerName: centerName,
+      addressLine: addressLine,
+      phoneNumber: phoneNumber,
+      scheduledLocalDate: scheduledLocalDate,
+      scheduledLocalTime: scheduledLocalTime,
+      timeZone: timeZone,
+      patientReminderMinutesBefore: patientReminderMinutesBefore,
+      caregiverReminderMinutesBefore: caregiverReminderMinutesBefore,
+      createdAtUtc: createdAtUtc,
+    );
+  });
+
   /// Privacy-minimal pending projection for Cocoon UI. Only mutation IDs are
-  /// returned; no symptom, mood, measurement value, note or other health data
-  /// is exposed by this status query.
+  /// returned; no symptom, mood, measurement, appointment or note payload is
+  /// exposed by this status query.
   Future<Set<String>> pendingPregnancyMutationIds() =>
       _withOutbox<Set<String>>((outbox, namespace) async {
         final values = await outbox.list(namespace: namespace);
@@ -225,6 +275,7 @@ final class CocoonPregnancyOfflineOwnerCoordinator {
                   value.sourceKey.startsWith('pregnancy-check-in:') ||
                   value.sourceKey.startsWith('pregnancy-symptom:') ||
                   value.sourceKey.startsWith('pregnancy-mood:') ||
+                  value.sourceKey.startsWith('pregnancy-care-event-create:') ||
                   value.sourceKey.startsWith('pending-pregnancy-measurement:'),
             )
             .map((value) => value.mutationId)
