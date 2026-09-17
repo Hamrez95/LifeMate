@@ -21,6 +21,7 @@ Deno.test({
   sanitizeResources: false,
   fn: async () => {
     const sql = postgres(databaseUrl, { max: 1, prepare: false });
+    await installProviderExtensionCompatibility(sql);
     const db = createLifeMateDatabase(databaseUrl, contactSecret);
     const growth = createGrowthStore(databaseUrl, contactSecret);
     const suffix = crypto.randomUUID();
@@ -187,6 +188,52 @@ Deno.test({
     }
   },
 });
+
+type AdminSql = ReturnType<typeof postgres>;
+
+async function installProviderExtensionCompatibility(sql: AdminSql): Promise<void> {
+  // Growth SQL intentionally targets Supabase's pgcrypto placement in the
+  // `extensions` schema. The raw PostgreSQL integration service installs the
+  // same pgcrypto functions in `public`, so this ephemeral test-only shim
+  // reproduces the provider namespace without changing production migrations or
+  // the shared portability bootstrap.
+  await sql.unsafe(`
+    create schema if not exists extensions;
+
+    create or replace function extensions.gen_random_bytes(integer)
+    returns bytea
+    language plpgsql
+    volatile
+    strict
+    as $fixture$
+    begin
+      return public.gen_random_bytes($1);
+    end
+    $fixture$;
+
+    create or replace function extensions.digest(text, text)
+    returns bytea
+    language plpgsql
+    immutable
+    strict
+    as $fixture$
+    begin
+      return public.digest($1, $2);
+    end
+    $fixture$;
+
+    create or replace function extensions.digest(bytea, text)
+    returns bytea
+    language plpgsql
+    immutable
+    strict
+    as $fixture$
+    begin
+      return public.digest($1, $2);
+    end
+    $fixture$;
+  `);
+}
 
 function auth(subject: string, email: string, phone: string): AuthUser {
   return { id: subject, email, phone, userMetadata: {} };
