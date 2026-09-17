@@ -27,6 +27,16 @@ export type ResolvedAppIdentity<
   appUserId: string;
 };
 
+export type BootstrapIdentityState = {
+  appUserStatus: string;
+  accountStatus: string | null;
+};
+
+type BootstrapIdentityStateRow = {
+  app_user_status: string;
+  account_status: string | null;
+};
+
 type TokenLookupRow = {
   account_id: string;
   account_status: string;
@@ -55,6 +65,54 @@ export function readIdentityLookupMode(
   throw new Error(
     "LIFEMATE_IDENTITY_LINK_LOOKUP_MODE must be legacy, prefer-token, or token-only.",
   );
+}
+
+/**
+ * Reads the legacy bootstrap tombstone only inside the approved identity
+ * boundary. This remains deliberately status-aware so a deletion-pending or
+ * deleted account cannot be mistaken for a brand-new authentication subject.
+ */
+export function createBootstrapIdentityStateReader(databaseUrl: string) {
+  const sql = getLifeMateSql(databaseUrl);
+
+  async function read(
+    authSubject: string,
+  ): Promise<BootstrapIdentityState | null> {
+    const rows = await sql<BootstrapIdentityStateRow[]>`
+      select
+        u.status as app_user_status,
+        a.status as account_status
+      from lifemate.app_users u
+      left join lateral (
+        select candidate.status
+        from identity.accounts candidate
+        where candidate.legacy_app_user_id=u.id
+           or (candidate.legacy_app_user_id is null and candidate.id=u.id)
+        order by case when candidate.legacy_app_user_id=u.id then 0 else 1 end,
+                 candidate.updated_at_utc desc,
+                 candidate.id
+        limit 1
+      ) a on true
+      where u.auth_subject=${authSubject}
+      limit 2
+    `;
+
+    if (rows.length > 1) {
+      throw new ApiError(
+        409,
+        "bootstrap_identity_ambiguous",
+        "The LifeMate identity mapping is inconsistent.",
+      );
+    }
+    const row = rows[0];
+    if (!row) return null;
+    return {
+      appUserStatus: row.app_user_status,
+      accountStatus: row.account_status,
+    };
+  }
+
+  return { read };
 }
 
 export function createIdentityResolver(
