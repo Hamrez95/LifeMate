@@ -10,6 +10,12 @@ import { ApiError } from "./validation.ts";
 const MIN_PREVIEW_COHORT = 10;
 const MAX_EVALUATION_SUBJECTS = 50_000;
 const SUPPORTED_SOURCE_ATTRIBUTES = new Set<SegmentAttribute>([
+  "demographic.age_years",
+  "demographic.age_bucket",
+  "demographic.birthday_month",
+  "demographic.birthday_day",
+  "demographic.birthday_upcoming_days",
+  "demographic.gender_identity",
   "demographic.locale",
   "product.code",
   "product.enrolled",
@@ -36,6 +42,12 @@ type SubjectRow = {
   account_id: unknown;
   person_id: unknown;
   locale: unknown;
+  age_years: unknown;
+  age_bucket: unknown;
+  birthday_month: unknown;
+  birthday_day: unknown;
+  birthday_upcoming_days: unknown;
+  gender_identity: unknown;
   application_codes: unknown;
   last_active_at_utc: unknown;
   product_codes: unknown;
@@ -57,6 +69,11 @@ function normalizedArray(value: unknown): string[] {
   return stringArray(value)
     .map((item) => item.trim().toLowerCase())
     .filter(Boolean);
+}
+
+function finiteInt(value: unknown): number | null {
+  const number = Number(value);
+  return Number.isInteger(number) ? number : null;
 }
 
 function mapSegment(row: Record<string, unknown>): SegmentRecord {
@@ -86,6 +103,49 @@ function lifecycle(lastActiveAtUtc: unknown): { days: number | null; label: stri
   return { days, label: "inactive_90d_plus" };
 }
 
+export function projectDemographicSubject(
+  row: Pick<
+    SubjectRow,
+    | "locale"
+    | "age_years"
+    | "age_bucket"
+    | "birthday_month"
+    | "birthday_day"
+    | "birthday_upcoming_days"
+    | "gender_identity"
+  >,
+): SegmentSubject {
+  const subject: SegmentSubject = {};
+  const locale = typeof row.locale === "string" ? row.locale.trim() : "";
+  if (locale) subject["demographic.locale"] = locale;
+
+  const age = finiteInt(row.age_years);
+  if (age !== null && age >= 0 && age <= 130) {
+    subject["demographic.age_years"] = age;
+  }
+  const ageBucket = typeof row.age_bucket === "string" ? row.age_bucket.trim() : "";
+  if (ageBucket) subject["demographic.age_bucket"] = ageBucket;
+
+  const month = finiteInt(row.birthday_month);
+  if (month !== null && month >= 1 && month <= 12) {
+    subject["demographic.birthday_month"] = month;
+  }
+  const day = finiteInt(row.birthday_day);
+  if (day !== null && day >= 1 && day <= 31) {
+    subject["demographic.birthday_day"] = day;
+  }
+  const upcoming = finiteInt(row.birthday_upcoming_days);
+  if (upcoming !== null && upcoming >= 0 && upcoming <= 366) {
+    subject["demographic.birthday_upcoming_days"] = upcoming;
+  }
+
+  const gender = typeof row.gender_identity === "string"
+    ? row.gender_identity.trim()
+    : "";
+  if (gender) subject["demographic.gender_identity"] = gender;
+  return subject;
+}
+
 function toSubject(row: SubjectRow): SegmentSubject {
   const products = Array.from(new Set([
     ...normalizedArray(row.application_codes),
@@ -93,17 +153,14 @@ function toSubject(row: SubjectRow): SegmentSubject {
   ]));
   const activity = lifecycle(row.last_active_at_utc);
   const subject: SegmentSubject = {
+    ...projectDemographicSubject(row),
     "product.code": products,
     "product.enrolled": products.length > 0,
     "subscription.status": normalizedArray(row.subscription_statuses),
     "entitlement.code": normalizedArray(row.entitlement_codes),
     "engagement.lifecycle": activity.label,
   };
-  if (activity.days !== null) {
-    subject["engagement.last_active_days"] = activity.days;
-  }
-  const locale = typeof row.locale === "string" ? row.locale.trim() : "";
-  if (locale) subject["demographic.locale"] = locale;
+  if (activity.days !== null) subject["engagement.last_active_days"] = activity.days;
   return subject;
 }
 
@@ -120,7 +177,13 @@ async function loadSubjects(sql: AdminSql): Promise<SubjectRow[]> {
     select
       d.account_id,
       d.person_id,
-      pp.locale,
+      demo.locale,
+      demo.age_years,
+      demo.age_bucket,
+      demo.birthday_month,
+      demo.birthday_day,
+      demo.birthday_upcoming_days,
+      demo.gender_identity,
       d.application_codes,
       d.last_active_at_utc,
       coalesce((
@@ -144,7 +207,8 @@ async function loadSubjects(sql: AdminSql): Promise<SubjectRow[]> {
           and (e.expires_at_utc is null or e.expires_at_utc > now())
       ),array[]::varchar[]) as entitlement_codes
     from admin.user_directory_v2 d
-    left join core.person_profiles pp on pp.person_id=d.person_id
+    left join audience.demographic_projection(now()) demo
+      on demo.person_id=d.person_id
     order by d.account_id
     limit ${MAX_EVALUATION_SUBJECTS + 1}
   `;
@@ -364,7 +428,7 @@ export function createAudienceSegmentStore(databaseUrl: string) {
         count: count > 0 && count < MIN_PREVIEW_COHORT ? null : count,
         suppressed: count > 0 && count < MIN_PREVIEW_COHORT,
         minimumCohortSize: MIN_PREVIEW_COHORT,
-        source: "canonical_account_person_commerce_projection_v1",
+        source: "canonical_account_person_demographic_commerce_projection_v2",
         sourceAsOfUtc: new Date().toISOString(),
       };
     },
@@ -400,8 +464,6 @@ export function createAudienceSegmentStore(databaseUrl: string) {
             );
           }
 
-          // Evaluation and persistence use the same transaction/connection as the
-          // SHARE lock. This is required because the Admin pool is intentionally max=1.
           const members = await matchingMembers(segment.ruleSet, tx);
           const sourceAsOfUtc = new Date().toISOString();
           const snapshots = await tx`
@@ -443,11 +505,7 @@ export function createAudienceSegmentStore(databaseUrl: string) {
     sourceCapabilities() {
       return {
         supportedAttributes: [...SUPPORTED_SOURCE_ATTRIBUTES],
-        unavailableAttributes: [
-          "demographic.age_bucket",
-          "campaign.channel",
-          "campaign.last_outcome",
-        ],
+        unavailableAttributes: ["campaign.channel", "campaign.last_outcome"],
         minimumPreviewCohort: MIN_PREVIEW_COHORT,
       };
     },
