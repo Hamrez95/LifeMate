@@ -10,7 +10,9 @@ Deno.test("Readiness tests stay wired into canonical execution tasks", async () 
   const executionTokens = new Set<string>();
   for (const taskName of ["test", "test:integration"]) {
     for (
-      const token of (config.tasks?.[taskName] ?? "").split(/\s+/).filter(Boolean)
+      const token of (config.tasks?.[taskName] ?? "").split(/\s+/).filter(
+        Boolean,
+      )
     ) {
       executionTokens.add(token);
     }
