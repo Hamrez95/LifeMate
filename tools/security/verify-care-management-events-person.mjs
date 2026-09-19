@@ -54,21 +54,45 @@ for (const forbidden of ["patient_user_id", "{ patientUserId }"]) {
     );
   }
 }
-for (const marker of [
-  "self_person_id_for_legacy_app_user",
-  "patient_person_id = ${patientPersonId}::uuid",
-  "(id, patient_person_id, created_by_user_id, client_request_id",
-  "${caregiverAppUserId}::uuid",
-  "client_request_id = ${input.clientRequestId}::uuid",
-  "'care_event', ${eventId}::uuid",
-]) {
-  if (!store.includes(marker)) {
-    throw new Error(`Person Care Event store contract missing: ${marker}`);
+
+const personStoreContracts = [
+  [
+    /self_person_id_for_legacy_app_user/,
+    "Care Event ownership must resolve through the canonical self Person mapping",
+  ],
+  [
+    /patient_person_id\s*=\s*\$\{personId\}::uuid/,
+    "Care Event reads and mutations must remain scoped by patient_person_id",
+  ],
+  [
+    /\(id,\s*patient_person_id,\s*created_by_user_id,\s*client_request_id/,
+    "Care Event inserts must persist Person ownership and creator identity",
+  ],
+  [
+    /\$\{caregiverAppUserId\}::uuid/,
+    "Care Event writes must preserve the acting caregiver identity",
+  ],
+  [
+    /client_request_id\s*=\s*\$\{input\.clientRequestId\}::uuid/,
+    "Care Event idempotency lookup must remain Person-scoped",
+  ],
+  [
+    /['"]care_event['"]\s*,\s*\$\{eventId\}::uuid/,
+    "Care Event audit records must identify the Care Event without patient AppUser ownership",
+  ],
+];
+for (const [pattern, message] of personStoreContracts) {
+  if (!pattern.test(store)) {
+    throw new Error(`Person Care Event store contract missing: ${message}`);
   }
 }
-if (!store.includes("const metadata = eventType == null ? null : { eventType }")) {
+if (
+  !/const metadata\s*=\s*eventType\s*==\s*null\s*\?\s*null\s*:\s*JSON\.stringify\(\{\s*eventType\s*\}\)/.test(
+    store,
+  )
+) {
   throw new Error(
-    "Care Event audit metadata must keep event semantics without patient AppUser identity.",
+    "Care Event audit metadata must serialize event semantics without patient AppUser identity.",
   );
 }
 
