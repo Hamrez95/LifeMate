@@ -132,6 +132,28 @@ Deno.test({
       );
       assertEquals(permitted.canViewWomenCalendar, true);
 
+      // The legacy relationship flag is presentation compatibility only. The
+      // caregiver runtime now authorizes sensitive Women Calendar data solely
+      // through explicit granular scopes, so the integration fixture must grant
+      // those scopes independently rather than treating the legacy flag as auth.
+      await admin`
+        insert into lifemate.women_companion_privacy_scopes(
+          relationship_id,view_period_timing,view_phase_summary,
+          view_shared_wellbeing,view_calendar_detail,updated_by_user_id
+        ) values(
+          ${String(relationship.id)}::uuid,true,true,true,true,
+          ${patient.appUserId}::uuid
+        )
+        on conflict(relationship_id) do update set
+          view_period_timing=true,
+          view_phase_summary=true,
+          view_shared_wellbeing=true,
+          view_calendar_detail=true,
+          version=lifemate.women_companion_privacy_scopes.version+1,
+          updated_by_user_id=excluded.updated_by_user_id,
+          updated_at_utc=now()
+      `;
+
       const privateDailyLog = await women.upsertOwnerDailyLog(
         patient.appUserId,
         {
@@ -247,8 +269,8 @@ Deno.test({
       >;
       assertEquals(sharedSummary.mood, "good");
       assertEquals(sharedSummary.energyLevel, 4);
-      assertEquals(sharedSummary.painLevel, 1);
-      assertEquals(sharedSummary.symptoms, ["fatigue"]);
+      assertEquals("painLevel" in sharedSummary, false);
+      assertEquals("symptoms" in sharedSummary, false);
       assertEquals("privateNotes" in sharedSummary, false);
       assertEquals("shareSummaryWithCompanion" in sharedSummary, false);
 
@@ -371,6 +393,29 @@ async function cleanupWomenCalendarRun(
   if (userIds.length === 0) return;
 
   await admin.begin(async (tx: any) => {
+    const relationshipRows = await tx`
+      select id::text as id
+      from lifemate.care_relationships
+      where patient_user_id in ${tx(userIds)}
+         or caregiver_user_id in ${tx(userIds)}
+         or revoked_by_user_id in ${tx(userIds)}
+    `;
+    const relationshipIds = relationshipRows.map((
+      row: Record<string, unknown>,
+    ) => String(row.id));
+    if (relationshipIds.length > 0) {
+      await tx`
+        delete from lifemate.women_companion_privacy_scopes
+        where relationship_id in ${tx(relationshipIds)}
+      `;
+      const scopeKeys = relationshipIds.map((id: string) =>
+        `care_relationship:${id}`
+      );
+      await tx`
+        delete from consent.consent_records
+        where scope_key in ${tx(scopeKeys)}
+      `;
+    }
     await tx`
       delete from lifemate.women_calendar_support_actions
       where patient_user_id in ${tx(userIds)}

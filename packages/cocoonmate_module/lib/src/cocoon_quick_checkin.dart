@@ -9,6 +9,8 @@ enum CocoonCheckInSyncState {
   offline,
 }
 
+enum CocoonCheckInSubmitResult { queued, confirmed }
+
 enum CocoonCheckInFeeling { comfortable, mixed, difficult }
 
 enum CocoonCheckInEnergy { low, steady, high }
@@ -30,7 +32,8 @@ class CocoonQuickCheckInScreen extends StatefulWidget {
 
   final bool fa;
   final CocoonCheckInSyncState syncState;
-  final Future<void> Function(CocoonCheckInDraft draft) onSubmit;
+  final Future<CocoonCheckInSubmitResult> Function(CocoonCheckInDraft draft)
+      onSubmit;
 
   @override
   State<CocoonQuickCheckInScreen> createState() =>
@@ -40,10 +43,39 @@ class CocoonQuickCheckInScreen extends StatefulWidget {
 class _CocoonQuickCheckInScreenState extends State<CocoonQuickCheckInScreen> {
   CocoonCheckInFeeling? _feeling;
   CocoonCheckInEnergy? _energy;
+  late CocoonCheckInSyncState _syncState = widget.syncState;
 
-  bool get _busy => widget.syncState == CocoonCheckInSyncState.submitting;
+  bool get _busy => _syncState == CocoonCheckInSyncState.submitting;
   bool get _ready => _feeling != null && _energy != null && !_busy;
   String t(String en, String fa) => widget.fa ? fa : en;
+
+  @override
+  void didUpdateWidget(CocoonQuickCheckInScreen oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (widget.syncState != oldWidget.syncState && !_busy) {
+      _syncState = widget.syncState;
+    }
+  }
+
+  Future<void> _submit() async {
+    if (!_ready) return;
+    setState(() => _syncState = CocoonCheckInSyncState.submitting);
+    try {
+      final result = await widget.onSubmit(
+        CocoonCheckInDraft(feeling: _feeling!, energy: _energy!),
+      );
+      if (!mounted) return;
+      setState(() {
+        _syncState = switch (result) {
+          CocoonCheckInSubmitResult.queued => CocoonCheckInSyncState.queued,
+          CocoonCheckInSubmitResult.confirmed =>
+            CocoonCheckInSyncState.confirmed,
+        };
+      });
+    } catch (_) {
+      if (mounted) setState(() => _syncState = CocoonCheckInSyncState.error);
+    }
+  }
 
   @override
   Widget build(BuildContext context) => CustomScrollView(
@@ -56,9 +88,9 @@ class _CocoonQuickCheckInScreenState extends State<CocoonQuickCheckInScreen> {
                 children: [
                   _CheckInHero(fa: widget.fa),
                   const SizedBox(height: 22),
-                  if (widget.syncState != CocoonCheckInSyncState.idle)
-                    _CheckInStatus(fa: widget.fa, state: widget.syncState),
-                  if (widget.syncState != CocoonCheckInSyncState.idle)
+                  if (_syncState != CocoonCheckInSyncState.idle)
+                    _CheckInStatus(fa: widget.fa, state: _syncState),
+                  if (_syncState != CocoonCheckInSyncState.idle)
                     const SizedBox(height: 24),
                   CocoonSectionHeading(
                     title: t('How do you feel?', 'امروز چه حالی داری؟'),
@@ -114,14 +146,7 @@ class _CocoonQuickCheckInScreenState extends State<CocoonQuickCheckInScreen> {
                   _PrivacyNote(fa: widget.fa),
                   const SizedBox(height: 22),
                   FilledButton.icon(
-                    onPressed: _ready
-                        ? () => widget.onSubmit(
-                              CocoonCheckInDraft(
-                                feeling: _feeling!,
-                                energy: _energy!,
-                              ),
-                            )
-                        : null,
+                    onPressed: _ready ? _submit : null,
                     icon: _busy
                         ? const SizedBox.square(
                             dimension: 18,

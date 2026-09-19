@@ -168,7 +168,10 @@ void main() {
             body: CocoonQuickCheckInScreen(
               fa: true,
               syncState: CocoonCheckInSyncState.idle,
-              onSubmit: (draft) async => submitted = draft,
+              onSubmit: (draft) async {
+                submitted = draft;
+                return CocoonCheckInSubmitResult.confirmed;
+              },
             ),
           ),
         ),
@@ -198,7 +201,7 @@ void main() {
           body: CocoonQuickCheckInScreen(
             fa: false,
             syncState: CocoonCheckInSyncState.queued,
-            onSubmit: (_) async {},
+            onSubmit: (_) async => CocoonCheckInSubmitResult.confirmed,
           ),
         ),
       ),
@@ -448,7 +451,7 @@ void main() {
           config: CocoonModuleConfig(
             host: host,
             initialTab: 2,
-            onSubmitCheckIn: (_) async {},
+            onSubmitCheckIn: (_) async => CocoonCheckInSubmitResult.confirmed,
           ),
         ),
       ),
