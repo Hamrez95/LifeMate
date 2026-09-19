@@ -41,3 +41,44 @@ Deno.test("all pregnancy unit tests are executed and type-checked by canonical t
     }`,
   );
 });
+
+Deno.test("all pregnancy integration tests are type-checked and executed by the canonical DB task", async () => {
+  const config = JSON.parse(await Deno.readTextFile("deno.json")) as {
+    tasks?: Record<string, string>;
+  };
+  const integrationTask = config.tasks?.["test:integration"] ?? "";
+  const checkTask = config.tasks?.check ?? "";
+  const pregnancyIntegrationTests: string[] = [];
+
+  for await (const entry of Deno.readDir(".")) {
+    if (
+      entry.isFile &&
+      /^pregnancy_.*_integration_test\.ts$/.test(entry.name)
+    ) {
+      pregnancyIntegrationTests.push(entry.name);
+    }
+  }
+  pregnancyIntegrationTests.sort();
+
+  const missingFromIntegration = pregnancyIntegrationTests.filter((name) =>
+    !integrationTask.split(/\s+/).includes(name)
+  );
+  const missingFromCheck = pregnancyIntegrationTests.filter((name) =>
+    !checkTask.split(/\s+/).includes(name)
+  );
+
+  assertEquals(
+    missingFromIntegration,
+    [],
+    `Pregnancy integration tests missing from deno task test:integration: ${
+      missingFromIntegration.join(", ")
+    }`,
+  );
+  assertEquals(
+    missingFromCheck,
+    [],
+    `Pregnancy integration tests missing from deno task check: ${
+      missingFromCheck.join(", ")
+    }`,
+  );
+});
