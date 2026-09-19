@@ -298,24 +298,24 @@ export function createHealthObservationStore(databaseUrl: string) {
       .map(mapObservation);
   }
 
-  async function createOwnerObservation(
+  async function createOwnerObservationInTransaction(
+    connection: any,
     appUserId: string,
     body: Record<string, unknown>,
     trustedApplicationCode = "wellmate",
   ): Promise<Record<string, unknown>> {
     const input = normalizeHealthObservationInput(body);
 
-    return await sql.begin(async (tx: any) => {
       const { accountId, personId } = await resolveOwnerIdentity(
-        tx,
+        connection,
         appUserId,
       );
       const sourceApplication = await resolveSourceApplication(
-        tx,
+        connection,
         trustedApplicationCode,
       );
       const id = crypto.randomUUID();
-      const inserted = await tx`
+      const inserted = await connection`
         insert into lifemate.health_observations
           (id, person_id, recorded_by_account_id,
            source_application_id, client_request_id,
@@ -339,7 +339,7 @@ export function createHealthObservationStore(databaseUrl: string) {
       `;
 
       if (inserted[0]) {
-        await tx`
+        await connection`
           insert into lifemate.audit_logs
             (id, actor_user_id, action, resource_type, resource_id,
              metadata_json, created_at_utc)
@@ -360,7 +360,7 @@ export function createHealthObservationStore(databaseUrl: string) {
         });
       }
 
-      const existing = await tx`
+      const existing = await connection`
         select h.*, app.code as source_application_code
         from lifemate.health_observations h
         join ecosystem.applications app on app.id = h.source_application_id
@@ -377,7 +377,21 @@ export function createHealthObservationStore(databaseUrl: string) {
         );
       }
       return mapObservation(existing[0]);
-    });
+  }
+
+  async function createOwnerObservation(
+    appUserId: string,
+    body: Record<string, unknown>,
+    trustedApplicationCode = "wellmate",
+  ): Promise<Record<string, unknown>> {
+    return await sql.begin((tx: any) =>
+      createOwnerObservationInTransaction(
+        tx,
+        appUserId,
+        body,
+        trustedApplicationCode,
+      )
+    );
   }
 
   async function deleteOwnerObservation(
@@ -421,6 +435,7 @@ export function createHealthObservationStore(databaseUrl: string) {
   return {
     listOwnerObservations,
     createOwnerObservation,
+    createOwnerObservationInTransaction,
     deleteOwnerObservation,
   };
 }
