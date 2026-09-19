@@ -14,6 +14,12 @@ import {
 
 type MeasurementType = "weight" | "blood_pressure" | "blood_glucose";
 
+type CreateOwnerObservation = (
+  appUserId: string,
+  body: Record<string, unknown>,
+  trustedApplicationCode?: string,
+) => Promise<Record<string, unknown>>;
+
 const supportedMeasurementTypes = new Set<MeasurementType>([
   "weight",
   "blood_pressure",
@@ -32,6 +38,24 @@ export function normalizePregnancyMeasurementType(
     );
   }
   return normalized as MeasurementType;
+}
+
+/// Delegates pregnancy measurement creation to the canonical health-observation
+/// domain while fixing provenance to the trusted CocoonMate application.
+/// Client-provided provenance fields cannot select the trusted application code.
+export async function createPregnancyMeasurementObservation(
+  createOwnerObservation: CreateOwnerObservation,
+  appUserId: string,
+  body: Record<string, unknown>,
+): Promise<Record<string, unknown>> {
+  const measurementType = normalizePregnancyMeasurementType(
+    body.observationType,
+  );
+  return await createOwnerObservation(
+    appUserId,
+    { ...body, observationType: measurementType },
+    "cocoonmate",
+  );
 }
 
 export function createPregnancyMeasurementRouteHandler(databaseUrl: string) {
@@ -181,13 +205,10 @@ export function createPregnancyMeasurementRouteHandler(databaseUrl: string) {
       path === "/api/v1/cocoon/pregnancy/measurements"
     ) {
       const body = await readJsonObject(request);
-      const measurementType = normalizePregnancyMeasurementType(
-        body.observationType,
-      );
-      const created = await observations.createOwnerObservation(
+      const created = await createPregnancyMeasurementObservation(
+        observations.createOwnerObservation,
         appUserId,
-        { ...body, observationType: measurementType },
-        "cocoonmate",
+        body,
       );
       const link = await linkExisting(appUserId, created.id);
       return json({
