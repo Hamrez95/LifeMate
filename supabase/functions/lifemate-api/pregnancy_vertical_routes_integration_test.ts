@@ -296,6 +296,177 @@ Deno.test({
           "treatment_plan",
         ]),
       );
+      assertEquals(
+        JSON.stringify(recordBody).includes("integration fixture"),
+        false,
+      );
+
+      const baselineRecordPage = await records({
+        request: getRequest(
+          "/api/v1/cocoon/pregnancy/records",
+          {
+            fromDate: localDate,
+            toDate: localDate,
+            categories: "symptoms,moods",
+            limit: "30",
+          },
+        ),
+        path: "/api/v1/cocoon/pregnancy/records",
+        appUserId,
+      });
+      const baselineRecordBody = await baselineRecordPage!.json() as Record<
+        string,
+        unknown
+      >;
+      const baselineRecordItems = baselineRecordBody.items as Array<
+        Record<string, unknown>
+      >;
+      assertEquals(baselineRecordItems.length, 2);
+
+      const firstRecordPage = await records({
+        request: getRequest(
+          "/api/v1/cocoon/pregnancy/records",
+          {
+            fromDate: localDate,
+            toDate: localDate,
+            categories: "symptoms,moods",
+            limit: "1",
+          },
+        ),
+        path: "/api/v1/cocoon/pregnancy/records",
+        appUserId,
+      });
+      const firstRecordBody = await firstRecordPage!.json() as Record<
+        string,
+        unknown
+      >;
+      const firstRecordItems = firstRecordBody.items as Array<
+        Record<string, unknown>
+      >;
+      assertEquals(firstRecordItems.length, 1);
+      assertEquals(firstRecordItems[0].id, baselineRecordItems[0].id);
+      const stableCursor = String(firstRecordBody.nextCursor ?? "");
+      assertEquals(stableCursor.length > 0, true);
+
+      const newerObservedAtUtc = new Date(Date.now() - 10_000).toISOString();
+      const newerSymptom = await capture({
+        request: postRequest("/api/v1/cocoon/pregnancy/symptoms", {
+          clientRequestId: crypto.randomUUID(),
+          observedAtUtc: newerObservedAtUtc,
+          localDate,
+          timeZone: "UTC",
+          symptomCode: "fatigue",
+          intensity: "mild",
+          note: "newer private pagination note",
+        }),
+        path: "/api/v1/cocoon/pregnancy/symptoms",
+        appUserId,
+      });
+      assertEquals(newerSymptom?.status, 201);
+
+      const secondRecordPage = await records({
+        request: getRequest(
+          "/api/v1/cocoon/pregnancy/records",
+          {
+            fromDate: localDate,
+            toDate: localDate,
+            categories: "symptoms,moods",
+            limit: "1",
+            cursor: stableCursor,
+          },
+        ),
+        path: "/api/v1/cocoon/pregnancy/records",
+        appUserId,
+      });
+      const secondRecordBody = await secondRecordPage!.json() as Record<
+        string,
+        unknown
+      >;
+      const secondRecordItems = secondRecordBody.items as Array<
+        Record<string, unknown>
+      >;
+      assertEquals(secondRecordItems.length, 1);
+      assertEquals(secondRecordItems[0].id, baselineRecordItems[1].id);
+      assertEquals(secondRecordItems[0].id === firstRecordItems[0].id, false);
+      assertEquals(
+        JSON.stringify(secondRecordBody).includes("newer private pagination note"),
+        false,
+      );
+
+      const refreshedFirstPage = await records({
+        request: getRequest(
+          "/api/v1/cocoon/pregnancy/records",
+          {
+            fromDate: localDate,
+            toDate: localDate,
+            categories: "symptoms,moods",
+            limit: "1",
+          },
+        ),
+        path: "/api/v1/cocoon/pregnancy/records",
+        appUserId,
+      });
+      const refreshedFirstBody = await refreshedFirstPage!.json() as Record<
+        string,
+        unknown
+      >;
+      assertEquals(
+        (refreshedFirstBody.items as Array<Record<string, unknown>>)[0].id ===
+          firstRecordItems[0].id,
+        false,
+      );
+
+      await assertApiError(
+        () =>
+          records({
+            request: getRequest(
+              "/api/v1/cocoon/pregnancy/records",
+              {
+                fromDate: localDate,
+                toDate: localDate,
+                categories: "unknown",
+              },
+            ),
+            path: "/api/v1/cocoon/pregnancy/records",
+            appUserId,
+          }),
+        400,
+        "pregnancy_records_category_invalid",
+      );
+      await assertApiError(
+        () =>
+          records({
+            request: getRequest(
+              "/api/v1/cocoon/pregnancy/records",
+              {
+                fromDate: localDate,
+                toDate: localDate,
+                limit: "101",
+              },
+            ),
+            path: "/api/v1/cocoon/pregnancy/records",
+            appUserId,
+          }),
+        400,
+        "pregnancy_records_limit_invalid",
+      );
+      await assertApiError(
+        () =>
+          records({
+            request: getRequest(
+              "/api/v1/cocoon/pregnancy/records",
+              {
+                fromDate: localDate,
+                toDate: localDate,
+                cursor: "not-a-valid-records-cursor",
+              },
+            ),
+            path: "/api/v1/cocoon/pregnancy/records",
+            appUserId,
+          }),
+        400,
+        "pregnancy_records_cursor_invalid",
+      );
 
       await assertApiError(
         () =>
