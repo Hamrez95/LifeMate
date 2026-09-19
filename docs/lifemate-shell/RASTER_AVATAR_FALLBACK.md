@@ -17,8 +17,9 @@ material was used.
 ## Intentional limitations
 
 - only the neutral `idle` pose is rendered;
-- the tiny vertical drift is decorative and stops for Reduced Motion, accessible
-  navigation, inactive lifecycle, or Flutter `TickerMode`;
+- the tiny one-time idle settle is decorative and stops for Reduced Motion,
+  accessible navigation, inactive lifecycle, or Flutter `TickerMode`; it never
+  keeps a permanent ticker alive;
 - no actor tap, navigation, domain mutation, health claim, or audio depends on
   this animation;
 - flattened artwork is **not** skin-tintable safely, so the runtime does not

@@ -78,7 +78,9 @@ class _CampAvatarFallbackState extends State<CampAvatarFallback>
 
   void _syncMotion() {
     if (widget.motionEnabled) {
-      _controller.repeat(reverse: true);
+      // A compact one-time settle keeps the bridge visually alive without a
+      // permanent ticker. The real Rive actor owns continuous loops later.
+      _controller.forward(from: 0);
     } else {
       _controller.stop();
       _controller.value = 0;
