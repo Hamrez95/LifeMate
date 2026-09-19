@@ -10,6 +10,8 @@ import { createWomenCalendarStore } from "./women_calendar.ts";
 import { ApiError } from "./validation.ts";
 
 const databaseUrl = Deno.env.get("TEST_DATABASE_URL");
+const fixtureDatabaseUrl = Deno.env.get("TEST_ADMIN_DATABASE_URL") ??
+  databaseUrl;
 if (!databaseUrl) {
   throw new Error(
     "TEST_DATABASE_URL is required for Person Women Calendar tests.",
