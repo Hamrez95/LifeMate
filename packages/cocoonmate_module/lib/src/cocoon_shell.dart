@@ -296,6 +296,7 @@ class _CocoonShellState extends State<CocoonShell> {
                 CocoonQuickAddKind.measurement,
               if (widget.config.onSubmitMedication != null &&
                   widget.config.onPickMedicationTime != null &&
+                  widget.config.medicationInitialTime != null &&
                   widget.config.medicationOptions.isNotEmpty)
                 CocoonQuickAddKind.medication,
             },
@@ -382,15 +383,17 @@ class _CocoonShellState extends State<CocoonShell> {
     }
     final submitMedication = widget.config.onSubmitMedication;
     final pickMedicationTime = widget.config.onPickMedicationTime;
+    final initialMedicationTime = widget.config.medicationInitialTime;
     if (kind == CocoonQuickAddKind.medication &&
         submitMedication != null &&
-        pickMedicationTime != null) {
+        pickMedicationTime != null &&
+        initialMedicationTime != null) {
       Navigator.of(context).push(
         MaterialPageRoute<void>(
           builder: (_) => CocoonMedicationLogScreen(
             fa: _fa,
             options: widget.config.medicationOptions,
-            initialTimeLabel: widget.config.medicationInitialTimeLabel,
+            initialTime: initialMedicationTime,
             submitState: widget.config.medicationSubmitState,
             onPickTime: pickMedicationTime,
             onSubmit: submitMedication,

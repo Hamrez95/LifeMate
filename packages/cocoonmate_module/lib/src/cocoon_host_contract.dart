@@ -99,7 +99,7 @@ class CocoonModuleConfig {
     this.measurementSubmitState = CocoonMeasurementSubmitState.idle,
     this.onSubmitMeasurement,
     this.medicationOptions = const [],
-    this.medicationInitialTimeLabel = '',
+    this.medicationInitialTime,
     this.medicationSubmitState = CocoonMedicationSubmitState.idle,
     this.onPickMedicationTime,
     this.onSubmitMedication,
@@ -166,9 +166,9 @@ class CocoonModuleConfig {
   final Future<void> Function(CocoonMeasurementDraft draft)?
       onSubmitMeasurement;
   final List<CocoonMedicationOption> medicationOptions;
-  final String medicationInitialTimeLabel;
+  final CocoonMedicationLogTime? medicationInitialTime;
   final CocoonMedicationSubmitState medicationSubmitState;
-  final Future<String?> Function()? onPickMedicationTime;
+  final Future<CocoonMedicationLogTime?> Function()? onPickMedicationTime;
   final Future<void> Function(CocoonMedicationLogDraft draft)?
       onSubmitMedication;
   final CocoonReminderLoadState reminderLoadState;

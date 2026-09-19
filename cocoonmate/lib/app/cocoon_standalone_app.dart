@@ -77,9 +77,10 @@ class CocoonStandaloneApp extends StatelessWidget {
             appName: appName,
             logoAssetPath: logoAssetPath,
           ),
-      authenticatedBuilder: (context, _) => CocoonAuthenticatedHost(
+      authenticatedBuilder: (context, api) => CocoonAuthenticatedHost(
         config: config,
         locale: Localizations.localeOf(context),
+        treatmentApi: api,
       ),
     );
   }
@@ -93,6 +94,7 @@ class CocoonAuthenticatedHost extends StatefulWidget {
     this.bootstrapLoader,
     this.gate3ReadLoader,
     this.gate3MutationAdapter,
+    this.treatmentApi,
     this.signOut,
     this.offlineBootstrapCache,
     this.offlineSnapshotLoader,
@@ -106,6 +108,9 @@ class CocoonAuthenticatedHost extends StatefulWidget {
   final CocoonBootstrapLoader? bootstrapLoader;
   final CocoonGate3ReadLoader? gate3ReadLoader;
   final CocoonGate3MutationAdapter? gate3MutationAdapter;
+  /// The shared, durable WellMate client supplied by [LifeMateExperienceGate].
+  /// Medication adherence never gets a Cocoon-specific mutation client.
+  final LifeMateApiClient? treatmentApi;
   final CocoonSignOut? signOut;
   final CocoonOfflineBootstrapCache? offlineBootstrapCache;
   final CocoonOfflineSnapshotLoader? offlineSnapshotLoader;
@@ -136,6 +141,9 @@ class _CocoonAuthenticatedHostState extends State<CocoonAuthenticatedHost>
   CocoonRecordsState _recordsState = CocoonRecordsState.loading;
   List<CocoonRecordViewData> _records = const [];
   CocoonCheckInSyncState _checkInSyncState = CocoonCheckInSyncState.idle;
+  CocoonMedicationSubmitState _medicationSubmitState =
+      CocoonMedicationSubmitState.idle;
+  List<CocoonMedicationOption> _medicationOptions = const [];
 
   late final LifeMateRemoteConfigClient? _runtimeClient =
       widget.runtimeLoader == null
@@ -157,6 +165,13 @@ class _CocoonAuthenticatedHostState extends State<CocoonAuthenticatedHost>
           baseUri: widget.config.apiBaseUri,
           accessToken: () => LifeMateAuth.currentAccessToken,
         )
+       : null;
+  late final CocoonPregnancyTreatmentsApiClient? _treatmentContextClient =
+      widget.bootstrapLoader == null
+      ? CocoonPregnancyTreatmentsApiClient(
+          baseUri: widget.config.apiBaseUri,
+          accessToken: () => LifeMateAuth.currentAccessToken,
+        )
       : null;
 
   @override
@@ -171,6 +186,7 @@ class _CocoonAuthenticatedHostState extends State<CocoonAuthenticatedHost>
     _runtimeClient?.close();
     _pregnancyClient?.close();
     _gate3ReadModelLoader?.close();
+    _treatmentContextClient?.close();
     if (_ownsGate3MutationAdapter) _gate3MutationAdapter?.close();
     super.dispose();
   }
@@ -204,6 +220,15 @@ class _CocoonAuthenticatedHostState extends State<CocoonAuthenticatedHost>
       onRetryRecords: () => _refreshGate3ReadModels(),
       checkInSyncState: _checkInSyncState,
       onSubmitCheckIn: _gate3MutationAdapter == null ? null : _submitCheckIn,
+      medicationOptions: _medicationOptions,
+      medicationInitialTime: _medicationLogTime(DateTime.now()),
+      medicationSubmitState: _medicationSubmitState,
+      onPickMedicationTime: _pickMedicationTime,
+      onSubmitMedication:
+          _medicationOptions.isEmpty ||
+              widget.treatmentApi is! DurableLifeMateApiClient
+          ? null
+          : _submitMedication,
     ),
   );
 
@@ -296,10 +321,127 @@ class _CocoonAuthenticatedHostState extends State<CocoonAuthenticatedHost>
         _recordsState = values.recordsState;
         _records = values.records;
       });
+      await _refreshTreatmentContext(DateTime.now());
     } catch (_) {
       _markGate3ReadModelsStale();
     } finally {
       _refreshingGate3 = false;
+    }
+  }
+
+  Future<void> _refreshTreatmentContext(DateTime now) async {
+    final client = _treatmentContextClient;
+    if (client == null || _entryState != CocoonEntryState.activePregnancy) {
+      return;
+    }
+    final localToday = DateTime(now.year, now.month, now.day);
+    try {
+      final context = await client.list(
+        fromDate: localToday,
+        toDate: localToday,
+      );
+      final plans = <String, CocoonPregnancyTreatmentPlanProjection>{
+        for (final plan in context.typedTreatmentPlans) plan.id: plan,
+      };
+      final options = <CocoonMedicationOption>[];
+      for (final occurrence in context.typedDoseOccurrences) {
+        final plan = plans[occurrence.treatmentPlanId];
+        if (plan == null) continue;
+        final medication = [plan.medicationName, plan.strengthText]
+            .whereType<String>()
+            .where((value) => value.trim().isNotEmpty)
+            .join(' ');
+        final dose = [plan.doseText, occurrence.scheduledLocalTime]
+            .where((value) => value.trim().isNotEmpty)
+            .join(' · ');
+        options.add(
+          CocoonMedicationOption(
+            doseOccurrenceId: occurrence.id,
+            expectedVersion: occurrence.version,
+            name: medication,
+            doseLabel: dose,
+          ),
+        );
+      }
+      if (!mounted || _entryState != CocoonEntryState.activePregnancy) return;
+      setState(() => _medicationOptions = List.unmodifiable(options));
+    } on Object {
+      // The shared treatment domain remains the source of truth. Do not show
+      // stale or invented medication options if its authorized projection fails.
+      if (mounted) setState(() => _medicationOptions = const []);
+    }
+  }
+
+  CocoonMedicationLogTime _medicationLogTime(DateTime local) =>
+      CocoonMedicationLogTime(
+        label: MaterialLocalizations.of(context).formatTimeOfDay(
+          TimeOfDay.fromDateTime(local),
+        ),
+        occurredAtUtc: local.toUtc(),
+      );
+
+  Future<CocoonMedicationLogTime?> _pickMedicationTime() async {
+    final now = DateTime.now();
+    final selected = await showTimePicker(
+      context: context,
+      initialTime: TimeOfDay.fromDateTime(now),
+    );
+    if (selected == null) return null;
+    final local = DateTime(
+      now.year,
+      now.month,
+      now.day,
+      selected.hour,
+      selected.minute,
+    );
+    return _medicationLogTime(local);
+  }
+
+  Future<void> _submitMedication(CocoonMedicationLogDraft draft) async {
+    final api = widget.treatmentApi;
+    if (api is! DurableLifeMateApiClient) {
+      throw StateError('Shared durable treatment client is unavailable.');
+    }
+    if (mounted) {
+      setState(
+        () => _medicationSubmitState = CocoonMedicationSubmitState.submitting,
+      );
+    }
+    try {
+      final result = await api.reportDose(
+        occurrenceId: draft.doseOccurrenceId,
+        clientRequestId: LifeMateApiClient.createClientRequestId(),
+        version: draft.expectedVersion,
+        status: switch (draft.action) {
+          CocoonMedicationLogAction.taken => 'taken',
+          CocoonMedicationLogAction.skipped => 'skipped',
+        },
+        occurredAtUtc: draft.occurredAtUtc,
+      );
+      if (mounted) {
+        setState(
+          () => _medicationSubmitState = result['pendingSync'] == true
+              ? CocoonMedicationSubmitState.queued
+              : CocoonMedicationSubmitState.confirmed,
+        );
+      }
+      await _refreshGate3ReadModels();
+    } on LifeMateApiException catch (error) {
+      if (mounted) {
+        setState(
+          () => _medicationSubmitState = error.statusCode == 0
+              ? CocoonMedicationSubmitState.offline
+              : CocoonMedicationSubmitState.error,
+        );
+      }
+      rethrow;
+    } catch (_) {
+      if (mounted) {
+        setState(
+          () => _medicationSubmitState = CocoonMedicationSubmitState.error,
+        );
+      }
+      rethrow;
     }
   }
 
@@ -372,6 +514,8 @@ class _CocoonAuthenticatedHostState extends State<CocoonAuthenticatedHost>
       _recordsState = CocoonRecordsState.loading;
       _records = const [];
       _checkInSyncState = CocoonCheckInSyncState.idle;
+      _medicationSubmitState = CocoonMedicationSubmitState.idle;
+      _medicationOptions = const [];
     });
   }
 

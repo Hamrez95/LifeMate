@@ -544,6 +544,7 @@ void main() {
   testWidgets('medication log only presents injected care-plan items', (
     tester,
   ) async {
+    CocoonMedicationLogDraft? submitted;
     await tester.pumpWidget(
       MaterialApp(
         theme: CocoonTheme.light(),
@@ -551,15 +552,22 @@ void main() {
           fa: true,
           options: const [
             CocoonMedicationOption(
-              id: 'care-plan-item',
+              doseOccurrenceId: 'care-plan-occurrence',
+              expectedVersion: 1,
               name: 'مکمل برنامه مراقبتی',
               doseLabel: 'طبق دستور ثبت‌شده',
             ),
           ],
-          initialTimeLabel: '۰۹:۳۰',
+          initialTime: CocoonMedicationLogTime(
+            label: '۰۹:۳۰',
+            occurredAtUtc: DateTime.utc(2026, 9, 19, 9, 30),
+          ),
           submitState: CocoonMedicationSubmitState.idle,
-          onPickTime: () async => '۱۰:۰۰',
-          onSubmit: (_) async {},
+          onPickTime: () async => CocoonMedicationLogTime(
+            label: '۱۰:۰۰',
+            occurredAtUtc: DateTime.utc(2026, 9, 19, 10),
+          ),
+          onSubmit: (draft) async => submitted = draft,
         ),
       ),
     );
@@ -567,6 +575,12 @@ void main() {
     expect(find.text('ثبت دارو و مکمل'), findsOneWidget);
     expect(find.text('مکمل برنامه مراقبتی'), findsOneWidget);
     expect(find.text('طبق دستور ثبت‌شده'), findsOneWidget);
+    await tester.tap(find.text('مکمل برنامه مراقبتی'));
+    await tester.tap(find.text('ثبت وضعیت'));
+    await tester.pump();
+    expect(submitted?.doseOccurrenceId, 'care-plan-occurrence');
+    expect(submitted?.expectedVersion, 1);
+    expect(submitted?.occurredAtUtc, DateTime.utc(2026, 9, 19, 9, 30));
     expect(tester.takeException(), isNull);
   });
 
