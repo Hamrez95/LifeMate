@@ -278,6 +278,32 @@ Deno.test({
         observationId,
       );
 
+      await assertApiError(
+        () =>
+          measurements({
+            request: postRequest("/api/v1/cocoon/pregnancy/measurements", {
+              clientRequestId: measurementRequestId,
+              observationType: "weight",
+              valuePrimary: 71.5,
+              observedAtUtc,
+              observedLocalDate: localDate,
+              timeZone: "UTC",
+            }),
+            path: "/api/v1/cocoon/pregnancy/measurements",
+            appUserId,
+          }),
+        409,
+        "idempotency_key_reused",
+      );
+      const measurementAfterConflict = await adminSql`
+        select count(*)::int as count,min(value_primary)::numeric as value_primary
+        from lifemate.health_observations
+        where person_id=${personId}::uuid
+          and client_request_id=${measurementRequestId}::uuid
+      `;
+      assertEquals(Number(measurementAfterConflict[0].count), 1);
+      assertEquals(Number(measurementAfterConflict[0].value_primary), 70.5);
+
       const daily = await capture({
         request: getRequest(
           "/api/v1/cocoon/pregnancy/daily-captures",
