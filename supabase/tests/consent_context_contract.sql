@@ -6,6 +6,17 @@ insert into lifemate.app_users(id,auth_subject,status,created_at_utc,updated_at_
 ('71000000-0000-0000-0000-000000000002','context-subject-b','Active',now(),now()),
 ('71000000-0000-0000-0000-000000000003','context-subject-c','Active',now(),now());
 
+-- This contract needs two simultaneous caregiver contexts. Raise only the
+-- synthetic Free owner-caregiver limit inside this transaction so the quota
+-- guard cannot mask the consent-isolation assertion under test.
+update commerce.catalog_policies cp
+set value_json='2'::jsonb,updated_at_utc=now()
+from commerce.products p
+where cp.product_id=p.id
+  and p.code='wellmate-caremate'
+  and cp.policy_key='free.owner_caregivers.max'
+  and cp.status='Active';
+
 insert into lifemate.care_relationships(
   id,patient_user_id,caregiver_user_id,status,
   patient_consent_version,patient_consented_at_utc,
