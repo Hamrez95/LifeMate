@@ -345,11 +345,13 @@ export function createHealthObservationStore(databaseUrl: string) {
         values
           (${crypto.randomUUID()}::uuid, ${appUserId}::uuid,
            'health.observation_created', 'health_observation', ${id}::uuid,
-           ${JSON.stringify({
-             observationType: input.observationType,
-             sourceCategory: "FirstPartyUserInput",
-             sourceApplicationCode: sourceApplication.code,
-           })}::jsonb, now())
+           ${
+        JSON.stringify({
+          observationType: input.observationType,
+          sourceCategory: "FirstPartyUserInput",
+          sourceApplicationCode: sourceApplication.code,
+        })
+      }::jsonb, now())
       `;
       return mapObservation({
         ...inserted[0],
