@@ -191,7 +191,9 @@ Deno.test({
 
 type AdminSql = ReturnType<typeof postgres>;
 
-async function installProviderExtensionCompatibility(sql: AdminSql): Promise<void> {
+async function installProviderExtensionCompatibility(
+  sql: AdminSql,
+): Promise<void> {
   // Growth SQL intentionally targets Supabase's pgcrypto placement in the
   // `extensions` schema. The raw PostgreSQL integration service installs the
   // same pgcrypto functions in `public`, so this ephemeral test-only shim
