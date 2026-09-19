@@ -170,6 +170,27 @@ export function normalizeHealthObservationInput(
   };
 }
 
+function sameObservationInput(
+  row: Row,
+  input: NormalizedHealthObservation,
+): boolean {
+  const nullableNumber = (value: unknown): number | null =>
+    value == null ? null : Number(value);
+  const nullableString = (value: unknown): string | null =>
+    value == null ? null : String(value);
+
+  return String(row.observation_type) === input.observationType &&
+    nullableNumber(row.value_primary) === input.valuePrimary &&
+    nullableNumber(row.value_secondary) === input.valueSecondary &&
+    nullableString(row.unit_primary) === input.unitPrimary &&
+    nullableString(row.unit_secondary) === input.unitSecondary &&
+    nullableString(row.note) === input.note &&
+    new Date(String(row.observed_at_utc)).getTime() ===
+      input.observedAtUtc.getTime() &&
+    dateString(row.observed_local_date) === input.observedLocalDate &&
+    String(row.time_zone) === input.timeZone;
+}
+
 function normalizeTrustedApplicationCode(value: string): string {
   const code = value.trim().toLowerCase();
   if (!/^[a-z0-9][a-z0-9_-]{1,63}$/.test(code)) {
@@ -374,6 +395,13 @@ export function createHealthObservationStore(databaseUrl: string) {
           409,
           "health_observation_idempotency_conflict",
           "The health observation could not be resolved after a retry.",
+        );
+      }
+      if (!sameObservationInput(existing[0], input)) {
+        throw new ApiError(
+          409,
+          "idempotency_key_reused",
+          "clientRequestId was already used for a different health observation.",
         );
       }
       return mapObservation(existing[0]);
