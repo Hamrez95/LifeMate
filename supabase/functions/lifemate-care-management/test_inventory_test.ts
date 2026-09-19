@@ -32,6 +32,11 @@ Deno.test("all Care Management unit tests are type-checked and executed", async 
     "deno task check must not contain duplicate file entries.",
   );
   assertEquals(
+    checkTokens.has("index.ts"),
+    true,
+    "Care Management production entrypoint must stay in deno task check.",
+  );
+  assertEquals(
     unitTests.filter((name) => !testTokens.has(name)),
     [],
     "Care Management unit tests must be executed by deno task test.",
