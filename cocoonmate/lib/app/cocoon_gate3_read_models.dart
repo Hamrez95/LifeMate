@@ -7,6 +7,37 @@ typedef CocoonGate3ReadLoader =
       required bool fa,
     });
 
+/// Canonical source identity retained beside a presentation-only Records row.
+///
+/// The opaque source/deep-link values are never interpreted here. Keeping them
+/// separate from the presentation id prevents a future detail action from
+/// guessing a treatment, observation or care-event id from display data.
+final class CocoonRecordSourceIdentity {
+  const CocoonRecordSourceIdentity({
+    required this.sourceKind,
+    required this.sourceId,
+    this.deepLink,
+    this.sourceVersion,
+  });
+
+  factory CocoonRecordSourceIdentity.fromCanonical(
+    CocoonPregnancyRecordItem source,
+  ) {
+    final deepLink = source.deepLink?.trim();
+    return CocoonRecordSourceIdentity(
+      sourceKind: source.sourceKind,
+      sourceId: source.sourceId,
+      deepLink: deepLink == null || deepLink.isEmpty ? null : deepLink,
+      sourceVersion: source.sourceVersion,
+    );
+  }
+
+  final String sourceKind;
+  final String sourceId;
+  final String? deepLink;
+  final int? sourceVersion;
+}
+
 /// Presentation projection for the Gate-3 daily-use surfaces.
 ///
 /// Every item comes from an authorized canonical API response. This class owns
@@ -18,6 +49,7 @@ final class CocoonGate3ReadModels {
     required this.calendarAsOfLocalDate,
     required this.recordsState,
     required this.records,
+    this.recordSources = const {},
   });
 
   final CocoonCalendarLoadState calendarState;
@@ -25,6 +57,13 @@ final class CocoonGate3ReadModels {
   final DateTime calendarAsOfLocalDate;
   final CocoonRecordsState recordsState;
   final List<CocoonRecordViewData> records;
+
+  /// Canonical source identity keyed by the corresponding Records presentation
+  /// id. Health payload values are deliberately not copied into this map.
+  final Map<String, CocoonRecordSourceIdentity> recordSources;
+
+  CocoonRecordSourceIdentity? sourceForRecord(String recordId) =>
+      recordSources[recordId];
 }
 
 /// Loads the canonical Calendar and composed Records read models in parallel.
@@ -83,14 +122,18 @@ final class CocoonGate3ReadModelLoader {
 
     CocoonRecordsState recordsState = CocoonRecordsState.error;
     List<CocoonRecordViewData> records = const [];
+    Map<String, CocoonRecordSourceIdentity> recordSources = const {};
     try {
       final page = await recordsFuture;
+      recordSources = _recordSourceMap(page.items);
       records = page.items.map(_recordItem).toList(growable: false);
       recordsState = records.isEmpty
           ? CocoonRecordsState.empty
           : CocoonRecordsState.ready;
     } on Object {
       recordsState = CocoonRecordsState.error;
+      records = const [];
+      recordSources = const {};
     }
 
     return CocoonGate3ReadModels(
@@ -99,6 +142,7 @@ final class CocoonGate3ReadModelLoader {
       calendarAsOfLocalDate: localToday,
       recordsState: recordsState,
       records: records,
+      recordSources: recordSources,
     );
   }
 
@@ -106,6 +150,21 @@ final class CocoonGate3ReadModelLoader {
     _calendar.close();
     _records.close();
   }
+}
+
+Map<String, CocoonRecordSourceIdentity> _recordSourceMap(
+  List<CocoonPregnancyRecordItem> items,
+) {
+  final values = <String, CocoonRecordSourceIdentity>{};
+  for (final item in items) {
+    if (values.containsKey(item.id)) {
+      throw const FormatException(
+        'Cocoon pregnancy Records returned a duplicate presentation id.',
+      );
+    }
+    values[item.id] = CocoonRecordSourceIdentity.fromCanonical(item);
+  }
+  return Map<String, CocoonRecordSourceIdentity>.unmodifiable(values);
 }
 
 CocoonCalendarItem _calendarItem(CocoonPregnancyCalendarItem source) {
