@@ -42,7 +42,10 @@ Deno.test({
         confirmConsent: true,
       });
       assertEquals(invitation.contactType, "phone");
-      assert(typeof invitation.token === "string" && invitation.token.length > 20);
+      assert(
+        typeof invitation.token === "string" &&
+          /^\d{10}$/.test(invitation.token),
+      );
 
       const invitations = await admin`
         select contact_type,contact_hash,contact_hint,token_hash,status,
@@ -55,9 +58,13 @@ Deno.test({
       const row = invitations[0];
       assertEquals(row.contact_type, "Phone");
       assertEquals(row.status, "Pending");
-      assert(typeof row.contact_hash === "string" && row.contact_hash.length > 20);
+      assert(
+        typeof row.contact_hash === "string" && row.contact_hash.length > 20,
+      );
       assert(typeof row.token_hash === "string" && row.token_hash.length > 20);
-      assert(typeof row.contact_hint === "string" && row.contact_hint.length > 0);
+      assert(
+        typeof row.contact_hint === "string" && row.contact_hint.length > 0,
+      );
       const serialized = String(row.serialized ?? "");
       assertEquals(serialized.includes("+989351234567"), false);
       assertEquals(serialized.includes("093512345678"), false);
