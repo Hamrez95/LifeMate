@@ -5,6 +5,8 @@ import { createProfileStore } from "./profile.ts";
 import { ApiError } from "./validation.ts";
 
 const databaseUrl = Deno.env.get("TEST_DATABASE_URL");
+const fixtureDatabaseUrl = Deno.env.get("TEST_ADMIN_DATABASE_URL") ??
+  databaseUrl;
 if (!databaseUrl) {
   throw new Error(
     "TEST_DATABASE_URL is required for ContactPoint conflict integration tests.",
@@ -16,7 +18,7 @@ Deno.test({
   sanitizeOps: false,
   sanitizeResources: false,
   fn: async () => {
-    const admin = postgres(databaseUrl, { max: 1, prepare: false });
+    const admin = postgres(fixtureDatabaseUrl!, { max: 1, prepare: false });
     const hashingSecret =
       "integration-only-contact-conflict-hash-secret-32-bytes";
     const encryptionSecret =
@@ -112,6 +114,10 @@ Deno.test({
                  as account_b
         from identity.contact_points cp
         where cp.kind='Phone' and cp.status <> 'Revoked'
+          and cp.account_id in (
+            identity.account_id_for_legacy_app_user(${identityA.appUserId}::uuid),
+            identity.account_id_for_legacy_app_user(${identityB.appUserId}::uuid)
+          )
       `;
       assertEquals(ownership.length, 1);
       assertEquals(ownership[0]?.account_id, ownership[0]?.account_a);
