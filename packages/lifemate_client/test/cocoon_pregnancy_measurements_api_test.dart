@@ -43,6 +43,43 @@ void main() {
           jsonEncode({
             'contractVersion': 1,
             'episodeId': '33333333-3333-4333-8333-333333333333',
+            'inputSchema': [
+              {
+                'observationType': 'weight',
+                'fields': [
+                  {
+                    'wireField': 'valuePrimary',
+                    'semanticRole': 'weight',
+                    'unit': 'kg',
+                  },
+                ],
+              },
+              {
+                'observationType': 'blood_pressure',
+                'fields': [
+                  {
+                    'wireField': 'valuePrimary',
+                    'semanticRole': 'systolic',
+                    'unit': 'mmHg',
+                  },
+                  {
+                    'wireField': 'valueSecondary',
+                    'semanticRole': 'diastolic',
+                    'unit': 'mmHg',
+                  },
+                ],
+              },
+              {
+                'observationType': 'blood_glucose',
+                'fields': [
+                  {
+                    'wireField': 'valuePrimary',
+                    'semanticRole': 'blood_glucose',
+                    'unit': 'mg/dL',
+                  },
+                ],
+              },
+            ],
             'items': [observation()],
           }),
           200,
@@ -62,6 +99,29 @@ void main() {
     expect(captured.headers.containsKey('Idempotency-Key'), isFalse);
     expect(result.items.single.observationType, 'weight');
     expect(result.items.single.unitPrimary, 'kg');
+    final bpSchema = result.schemaFor(
+      CocoonPregnancyMeasurementType.bloodPressure,
+    );
+    expect(bpSchema, isNotNull);
+    expect(
+      bpSchema!.fields.map((field) => field.semanticRole).toList(),
+      [
+        CocoonPregnancyMeasurementSemanticRole.systolic,
+        CocoonPregnancyMeasurementSemanticRole.diastolic,
+      ],
+    );
+    expect(
+      bpSchema.fields.map((field) => field.unit).toList(),
+      ['mmHg', 'mmHg'],
+    );
+    expect(
+      result
+          .schemaFor(CocoonPregnancyMeasurementType.bloodGlucose)!
+          .fields
+          .single
+          .unit,
+      'mg/dL',
+    );
     api.close();
   });
 
@@ -198,3 +258,27 @@ void main() {
     api.close();
   });
 }
+
+
+  test('measurement schema rejects unknown semantic roles instead of guessing UI meaning', () {
+    expect(
+      () => CocoonPregnancyMeasurements.fromJson({
+        'contractVersion': 1,
+        'episodeId': '33333333-3333-4333-8333-333333333333',
+        'inputSchema': [
+          {
+            'observationType': 'blood_pressure',
+            'fields': [
+              {
+                'wireField': 'valuePrimary',
+                'semanticRole': 'invented-pressure-role',
+                'unit': 'mmHg',
+              },
+            ],
+          },
+        ],
+        'items': <Object?>[],
+      }),
+      throwsFormatException,
+    );
+  });
