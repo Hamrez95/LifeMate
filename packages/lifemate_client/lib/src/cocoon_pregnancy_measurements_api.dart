@@ -16,10 +16,104 @@ enum CocoonPregnancyMeasurementType {
   final String wireValue;
 }
 
+enum CocoonPregnancyMeasurementWireField {
+  valuePrimary('valuePrimary'),
+  valueSecondary('valueSecondary');
+
+  const CocoonPregnancyMeasurementWireField(this.wireValue);
+  final String wireValue;
+}
+
+enum CocoonPregnancyMeasurementSemanticRole {
+  weight('weight'),
+  systolic('systolic'),
+  diastolic('diastolic'),
+  bloodGlucose('blood_glucose');
+
+  const CocoonPregnancyMeasurementSemanticRole(this.wireValue);
+  final String wireValue;
+}
+
+class CocoonPregnancyMeasurementFieldSchema {
+  const CocoonPregnancyMeasurementFieldSchema({
+    required this.wireField,
+    required this.semanticRole,
+    required this.unit,
+  });
+
+  factory CocoonPregnancyMeasurementFieldSchema.fromJson(
+    Map<String, dynamic> json,
+  ) {
+    final wireField = _enumByWire(
+      CocoonPregnancyMeasurementWireField.values,
+      json['wireField'],
+      (value) => value.wireValue,
+      'measurement wire field',
+    );
+    final semanticRole = _enumByWire(
+      CocoonPregnancyMeasurementSemanticRole.values,
+      json['semanticRole'],
+      (value) => value.wireValue,
+      'measurement semantic role',
+    );
+    final unit = json['unit']?.toString().trim() ?? '';
+    if (unit.isEmpty) {
+      throw const FormatException('Measurement field unit is missing.');
+    }
+    return CocoonPregnancyMeasurementFieldSchema(
+      wireField: wireField,
+      semanticRole: semanticRole,
+      unit: unit,
+    );
+  }
+
+  final CocoonPregnancyMeasurementWireField wireField;
+  final CocoonPregnancyMeasurementSemanticRole semanticRole;
+  final String unit;
+}
+
+class CocoonPregnancyMeasurementInputSchema {
+  const CocoonPregnancyMeasurementInputSchema({
+    required this.type,
+    required this.fields,
+  });
+
+  factory CocoonPregnancyMeasurementInputSchema.fromJson(
+    Map<String, dynamic> json,
+  ) {
+    final type = _enumByWire(
+      CocoonPregnancyMeasurementType.values,
+      json['observationType'],
+      (value) => value.wireValue,
+      'measurement type',
+    );
+    final rawFields = json['fields'];
+    if (rawFields is! List || rawFields.isEmpty) {
+      throw const FormatException('Measurement input fields are missing.');
+    }
+    final fields = rawFields
+        .whereType<Map>()
+        .map(
+          (field) => CocoonPregnancyMeasurementFieldSchema.fromJson(
+            Map<String, dynamic>.from(field),
+          ),
+        )
+        .toList(growable: false);
+    if (fields.length != rawFields.length) {
+      throw const FormatException('Measurement input field is invalid.');
+    }
+    return CocoonPregnancyMeasurementInputSchema(type: type, fields: fields);
+  }
+
+  final CocoonPregnancyMeasurementType type;
+  final List<CocoonPregnancyMeasurementFieldSchema> fields;
+}
+
 class CocoonPregnancyMeasurements {
   const CocoonPregnancyMeasurements({
     required this.contractVersion,
     required this.episodeId,
+    required this.inputSchema,
     required this.items,
   });
 
@@ -29,9 +123,24 @@ class CocoonPregnancyMeasurements {
     if (episodeId.isEmpty || rawItems is! List) {
       throw const FormatException('Invalid Cocoon pregnancy measurements payload.');
     }
+    final rawSchema = json['inputSchema'];
+    final inputSchema = rawSchema is List
+        ? rawSchema
+            .whereType<Map>()
+            .map(
+              (item) => CocoonPregnancyMeasurementInputSchema.fromJson(
+                Map<String, dynamic>.from(item),
+              ),
+            )
+            .toList(growable: false)
+        : const <CocoonPregnancyMeasurementInputSchema>[];
+    if (rawSchema is List && inputSchema.length != rawSchema.length) {
+      throw const FormatException('Invalid measurement input schema payload.');
+    }
     return CocoonPregnancyMeasurements(
       contractVersion: (json['contractVersion'] as num?)?.toInt() ?? 0,
       episodeId: episodeId,
+      inputSchema: inputSchema,
       items: rawItems
           .whereType<Map>()
           .map(
@@ -45,7 +154,17 @@ class CocoonPregnancyMeasurements {
 
   final int contractVersion;
   final String episodeId;
+  final List<CocoonPregnancyMeasurementInputSchema> inputSchema;
   final List<LifeMateHealthObservation> items;
+
+  CocoonPregnancyMeasurementInputSchema? schemaFor(
+    CocoonPregnancyMeasurementType type,
+  ) {
+    for (final schema in inputSchema) {
+      if (schema.type == type) return schema;
+    }
+    return null;
+  }
 }
 
 class CocoonPregnancyMeasurementCreateResult {
@@ -247,6 +366,19 @@ class CocoonPregnancyMeasurementsApiClient {
       throw const FormatException('LifeMate API returned a non-object payload.');
     }
     return decoded;
+  }
+
+  static T _enumByWire<T>(
+    Iterable<T> values,
+    Object? wireValue,
+    String Function(T value) wireOf,
+    String label,
+  ) {
+    final normalized = wireValue?.toString().trim() ?? '';
+    for (final value in values) {
+      if (wireOf(value) == normalized) return value;
+    }
+    throw FormatException('Unknown $label: $normalized');
   }
 
   static String _required(String value, String name) {
