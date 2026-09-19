@@ -6,6 +6,7 @@ import {
 import {
   createPregnancyMeasurementObservation,
   normalizePregnancyMeasurementType,
+  pregnancyMeasurementSchema,
 } from "./pregnancy_measurements.ts";
 import { ApiError } from "./validation.ts";
 
@@ -30,6 +31,34 @@ Deno.test("Cocoon pregnancy measurements reject unsupported observation expansio
     assertEquals(error.status, 400);
     assertEquals(error.code, "pregnancy_measurement_type_invalid");
   }
+});
+
+Deno.test("Cocoon pregnancy measurement schema exposes canonical units only", () => {
+  assertEquals(pregnancyMeasurementSchema(), [
+    {
+      observationType: "weight",
+      fields: [
+        { valueKey: "valuePrimary", semantic: "weight", unit: "kg" },
+      ],
+    },
+    {
+      observationType: "blood_pressure",
+      fields: [
+        { valueKey: "valuePrimary", semantic: "systolic", unit: "mmHg" },
+        { valueKey: "valueSecondary", semantic: "diastolic", unit: "mmHg" },
+      ],
+    },
+    {
+      observationType: "blood_glucose",
+      fields: [
+        {
+          valueKey: "valuePrimary",
+          semantic: "blood_glucose",
+          unit: "mg/dL",
+        },
+      ],
+    },
+  ]);
 });
 
 Deno.test("Cocoon pregnancy measurement creation fixes trusted source provenance", async () => {
