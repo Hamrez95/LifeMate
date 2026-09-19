@@ -296,6 +296,7 @@ Deno.test({
           "pregnancy_symptom",
           "pregnancy_mood",
           "health_observation",
+          "treatment_plan",
         ]),
       );
 
