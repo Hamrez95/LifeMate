@@ -96,7 +96,7 @@ export function createPersonTreatmentManagementStore(
       const planId = crypto.randomUUID();
       const recurrenceJson = input.recurrence == null
         ? null
-        : JSON.stringify(input.recurrence);
+        : tx.json(input.recurrence);
       const medicationRows = await tx`
         insert into lifemate.medications
           (id, owner_person_id, name, strength_text, form, notes, version,
@@ -199,7 +199,7 @@ export function createPersonTreatmentManagementStore(
       }
       const recurrenceJson = input.recurrence == null
         ? null
-        : JSON.stringify(input.recurrence);
+        : tx.json(input.recurrence);
       const planRows = await tx`
         update lifemate.treatment_plans
         set dose_text=${input.doseText}, instructions=${input.instructions},
