@@ -16,6 +16,114 @@ enum CocoonPregnancyMeasurementType {
   final String wireValue;
 }
 
+class CocoonPregnancyMeasurementFieldSchema {
+  const CocoonPregnancyMeasurementFieldSchema({
+    required this.valueKey,
+    required this.semantic,
+    required this.unit,
+  });
+
+  factory CocoonPregnancyMeasurementFieldSchema.fromJson(
+    Map<String, dynamic> json,
+  ) {
+    final valueKey = json['valueKey']?.toString().trim() ?? '';
+    final semantic = json['semantic']?.toString().trim() ?? '';
+    final unit = json['unit']?.toString().trim() ?? '';
+    if ((valueKey != 'valuePrimary' && valueKey != 'valueSecondary') ||
+        semantic.isEmpty ||
+        unit.isEmpty) {
+      throw const FormatException(
+        'Invalid Cocoon pregnancy measurement field schema.',
+      );
+    }
+    return CocoonPregnancyMeasurementFieldSchema(
+      valueKey: valueKey,
+      semantic: semantic,
+      unit: unit,
+    );
+  }
+
+  final String valueKey;
+  final String semantic;
+  final String unit;
+}
+
+class CocoonPregnancyMeasurementTypeSchema {
+  const CocoonPregnancyMeasurementTypeSchema({
+    required this.type,
+    required this.fields,
+  });
+
+  factory CocoonPregnancyMeasurementTypeSchema.fromJson(
+    Map<String, dynamic> json,
+  ) {
+    final rawType = json['observationType']?.toString().trim() ?? '';
+    CocoonPregnancyMeasurementType? type;
+    for (final candidate in CocoonPregnancyMeasurementType.values) {
+      if (candidate.wireValue == rawType) {
+        type = candidate;
+        break;
+      }
+    }
+    final rawFields = json['fields'];
+    if (type == null || rawFields is! List || rawFields.isEmpty) {
+      throw const FormatException(
+        'Invalid Cocoon pregnancy measurement type schema.',
+      );
+    }
+    return CocoonPregnancyMeasurementTypeSchema(
+      type: type,
+      fields: rawFields
+          .whereType<Map>()
+          .map(
+            (field) => CocoonPregnancyMeasurementFieldSchema.fromJson(
+              Map<String, dynamic>.from(field),
+            ),
+          )
+          .toList(growable: false),
+    );
+  }
+
+  final CocoonPregnancyMeasurementType type;
+  final List<CocoonPregnancyMeasurementFieldSchema> fields;
+}
+
+class CocoonPregnancyMeasurementSchema {
+  const CocoonPregnancyMeasurementSchema({
+    required this.contractVersion,
+    required this.measurementTypes,
+  });
+
+  factory CocoonPregnancyMeasurementSchema.fromJson(Map<String, dynamic> json) {
+    final rawTypes = json['measurementTypes'];
+    if (rawTypes is! List || rawTypes.isEmpty) {
+      throw const FormatException(
+        'Invalid Cocoon pregnancy measurement schema payload.',
+      );
+    }
+    final types = rawTypes
+        .whereType<Map>()
+        .map(
+          (item) => CocoonPregnancyMeasurementTypeSchema.fromJson(
+            Map<String, dynamic>.from(item),
+          ),
+        )
+        .toList(growable: false);
+    if (types.length != rawTypes.length) {
+      throw const FormatException(
+        'Invalid Cocoon pregnancy measurement schema item.',
+      );
+    }
+    return CocoonPregnancyMeasurementSchema(
+      contractVersion: (json['contractVersion'] as num?)?.toInt() ?? 0,
+      measurementTypes: types,
+    );
+  }
+
+  final int contractVersion;
+  final List<CocoonPregnancyMeasurementTypeSchema> measurementTypes;
+}
+
 class CocoonPregnancyMeasurements {
   const CocoonPregnancyMeasurements({
     required this.contractVersion,
@@ -122,6 +230,14 @@ class CocoonPregnancyMeasurementsApiClient {
   final AccessTokenProvider _accessToken;
   final http.Client _http;
   static const _timeout = Duration(seconds: 20);
+
+  Future<CocoonPregnancyMeasurementSchema> schema() async =>
+      CocoonPregnancyMeasurementSchema.fromJson(
+        await _object(
+          'GET',
+          '/api/v1/cocoon/pregnancy/measurements/schema',
+        ),
+      );
 
   Future<CocoonPregnancyMeasurements> list({
     required DateTime fromDate,
