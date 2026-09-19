@@ -697,41 +697,52 @@ Deno.test({
 
 Deno.test({
   name:
-    "pregnancy vertical tables deny mobile roles and remain available to the restricted edge runtime",
+    "pregnancy canonical persistence denies mobile roles and remains available to the restricted edge runtime",
   sanitizeOps: false,
   sanitizeResources: false,
   fn: async () => {
     const rows = await adminSql`
-      select table_name,
+      with target(schema_name,table_name) as (
+        values
+          ('pregnancy','episodes'),
+          ('pregnancy','dating_revisions'),
+          ('pregnancy','episode_events'),
+          ('pregnancy','daily_check_ins'),
+          ('pregnancy','symptom_reports'),
+          ('pregnancy','mood_entries'),
+          ('pregnancy','care_event_links'),
+          ('pregnancy','observation_links'),
+          ('lifemate','care_events'),
+          ('lifemate','health_observations'),
+          ('lifemate','medications'),
+          ('lifemate','treatment_plans'),
+          ('lifemate','treatment_schedules')
+      )
+      select schema_name,table_name,
         has_table_privilege(
           'authenticated',
-          'pregnancy.' || table_name,
+          format('%I.%I',schema_name,table_name),
           'select'
         ) as authenticated_select,
         has_table_privilege(
           'anon',
-          'pregnancy.' || table_name,
+          format('%I.%I',schema_name,table_name),
           'select'
         ) as anon_select,
         has_table_privilege(
           'lifemate_edge_runtime',
-          'pregnancy.' || table_name,
+          format('%I.%I',schema_name,table_name),
           'select,insert,update,delete'
         ) as runtime_crud
-      from unnest(array[
-        'daily_check_ins',
-        'symptom_reports',
-        'mood_entries',
-        'care_event_links',
-        'observation_links'
-      ]) as tables(table_name)
-      order by table_name
+      from target
+      order by schema_name,table_name
     `;
-    assertEquals(rows.length, 5);
+    assertEquals(rows.length, 13);
     for (const row of rows) {
-      assertEquals(row.authenticated_select, false, String(row.table_name));
-      assertEquals(row.anon_select, false, String(row.table_name));
-      assertEquals(row.runtime_crud, true, String(row.table_name));
+      const label = `${row.schema_name}.${row.table_name}`;
+      assertEquals(row.authenticated_select, false, label);
+      assertEquals(row.anon_select, false, label);
+      assertEquals(row.runtime_crud, true, label);
     }
   },
 });
