@@ -9,6 +9,8 @@ import { ApiError } from "./validation.ts";
 import { createWomenCalendarStore } from "./women_calendar.ts";
 
 const databaseUrl = Deno.env.get("TEST_DATABASE_URL");
+const fixtureDatabaseUrl = Deno.env.get("TEST_ADMIN_DATABASE_URL") ??
+  databaseUrl;
 if (!databaseUrl) {
   throw new Error("TEST_DATABASE_URL is required for integration tests.");
 }
@@ -20,7 +22,7 @@ Deno.test({
   sanitizeOps: false,
   sanitizeResources: false,
   fn: async () => {
-    const admin = postgres(databaseUrl, { max: 1, prepare: false });
+    const admin = postgres(fixtureDatabaseUrl!, { max: 1, prepare: false });
     const db = createLifeMateDatabase(databaseUrl, contactSecret);
     const women = createWomenCalendarStore(databaseUrl);
     const suffix = crypto.randomUUID();
