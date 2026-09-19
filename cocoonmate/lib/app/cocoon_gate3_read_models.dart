@@ -90,9 +90,6 @@ final class CocoonGate3ReadModelLoader {
     required DateTime now,
     required bool fa,
   }) async {
-    // Locale-specific copy remains presentation-owned. The seam is retained so
-    // the host contract does not churn when localized read-model labels move to
-    // the module catalog.
     final localToday = DateTime(now.year, now.month, now.day);
     final calendarTo = localToday.add(const Duration(days: 30));
     final recordsFrom = localToday.subtract(const Duration(days: 90));
@@ -112,7 +109,9 @@ final class CocoonGate3ReadModelLoader {
     List<CocoonCalendarItem> calendarItems = const [];
     try {
       final page = await calendarFuture;
-      calendarItems = page.items.map(_calendarItem).toList(growable: false);
+      calendarItems = page.items
+          .map((item) => _calendarItem(item, fa: fa))
+          .toList(growable: false);
       calendarState = calendarItems.isEmpty
           ? CocoonCalendarLoadState.empty
           : CocoonCalendarLoadState.populated;
@@ -126,7 +125,9 @@ final class CocoonGate3ReadModelLoader {
     try {
       final page = await recordsFuture;
       recordSources = _recordSourceMap(page.items);
-      records = page.items.map(_recordItem).toList(growable: false);
+      records = page.items
+          .map((item) => _recordItem(item, fa: fa))
+          .toList(growable: false);
       recordsState = records.isEmpty
           ? CocoonRecordsState.empty
           : CocoonRecordsState.ready;
@@ -167,11 +168,14 @@ Map<String, CocoonRecordSourceIdentity> _recordSourceMap(
   return Map<String, CocoonRecordSourceIdentity>.unmodifiable(values);
 }
 
-CocoonCalendarItem _calendarItem(CocoonPregnancyCalendarItem source) {
+CocoonCalendarItem _calendarItem(
+  CocoonPregnancyCalendarItem source, {
+  required bool fa,
+}) {
   final event = source.careEvent;
   final title =
       _string(event['title']) ??
-      _calendarClassificationLabel(source.classification);
+      _calendarClassificationLabel(source.classification, fa: fa);
   final date =
       _string(event['scheduledLocalDate']) ?? _string(event['localDate']) ?? '';
   final time = _string(event['scheduledLocalTime']);
@@ -191,9 +195,12 @@ CocoonCalendarItem _calendarItem(CocoonPregnancyCalendarItem source) {
   );
 }
 
-CocoonRecordViewData _recordItem(CocoonPregnancyRecordItem source) {
-  final title = _recordTitle(source);
-  final summary = _recordSummary(source);
+CocoonRecordViewData _recordItem(
+  CocoonPregnancyRecordItem source, {
+  required bool fa,
+}) {
+  final title = _recordTitle(source, fa: fa);
+  final summary = _recordSummary(source, fa: fa);
   return CocoonRecordViewData(
     id: source.id,
     title: title,
@@ -216,51 +223,58 @@ CocoonRecordKind _recordKind(String category) => switch (category) {
   _ => CocoonRecordKind.document,
 };
 
-String _recordTitle(CocoonPregnancyRecordItem source) {
+String _recordTitle(CocoonPregnancyRecordItem source, {required bool fa}) {
   final summary = source.summary;
   return switch (source.category) {
-    'pregnancy' => 'Pregnancy started',
-    'check_ins' => 'Daily check-in',
-    'symptoms' => _humanCode(_string(summary['symptomCode']) ?? source.type),
-    'moods' => 'Mood',
+    'pregnancy' => fa ? 'شروع بارداری' : 'Pregnancy started',
+    'check_ins' => fa ? 'حال امروز' : 'Daily check-in',
+    'symptoms' => _humanCode(
+      _string(summary['symptomCode']) ?? source.type,
+      fa: fa,
+    ),
+    'moods' => fa ? 'خلق‌وخو' : 'Mood',
     'measurements' => _measurementLabel(
       _string(summary['observationType']) ?? source.type,
+      fa: fa,
     ),
     'appointments' => _humanCode(
       _string(summary['pregnancyClassification']) ?? source.type,
+      fa: fa,
     ),
     'medications' =>
-      source.type == 'dose_occurrence' ? 'Medication dose' : 'Treatment plan',
-    _ => _humanCode(source.type),
+      source.type == 'dose_occurrence'
+          ? (fa ? 'نوبت مصرف دارو' : 'Medication dose')
+          : (fa ? 'برنامه درمان' : 'Treatment plan'),
+    _ => _humanCode(source.type, fa: fa),
   };
 }
 
-String? _recordSummary(CocoonPregnancyRecordItem source) {
+String? _recordSummary(CocoonPregnancyRecordItem source, {required bool fa}) {
   final summary = source.summary;
   final values = <String>[];
   switch (source.category) {
     case 'check_ins':
-      _addCode(values, summary['feeling']);
-      _addCode(values, summary['energy']);
+      _addCode(values, summary['feeling'], fa: fa);
+      _addCode(values, summary['energy'], fa: fa);
       break;
     case 'symptoms':
-      _addCode(values, summary['intensity']);
+      _addCode(values, summary['intensity'], fa: fa);
       break;
     case 'moods':
-      _addCode(values, summary['moodCode']);
+      _addCode(values, summary['moodCode'], fa: fa);
       break;
     case 'appointments':
-      _addCode(values, summary['status']);
+      _addCode(values, summary['status'], fa: fa);
       break;
     case 'medications':
-      _addCode(values, summary['status']);
+      _addCode(values, summary['status'], fa: fa);
       break;
     case 'measurements':
       // Values intentionally stay in the canonical detail surface; the Records
       // list only identifies the measurement kind to avoid excess health text.
       break;
     case 'pregnancy':
-      _addCode(values, summary['status']);
+      _addCode(values, summary['status'], fa: fa);
       break;
     default:
       break;
@@ -268,32 +282,52 @@ String? _recordSummary(CocoonPregnancyRecordItem source) {
   return values.isEmpty ? null : values.join(' · ');
 }
 
-void _addCode(List<String> values, Object? raw) {
+void _addCode(List<String> values, Object? raw, {required bool fa}) {
   final value = _string(raw);
-  if (value != null) values.add(_humanCode(value));
+  if (value != null) values.add(_humanCode(value, fa: fa));
 }
 
-String _measurementLabel(String raw) => switch (raw) {
-  'weight' => 'Weight',
-  'blood_pressure' => 'Blood pressure',
-  'blood_glucose' => 'Blood glucose',
-  _ => _humanCode(raw),
+String _measurementLabel(String raw, {required bool fa}) => switch (raw) {
+  'weight' => fa ? 'وزن' : 'Weight',
+  'blood_pressure' => fa ? 'فشار خون' : 'Blood pressure',
+  'blood_glucose' => fa ? 'قند خون' : 'Blood glucose',
+  _ => _humanCode(raw, fa: fa),
 };
 
 String _calendarClassificationLabel(
-  CocoonPregnancyCalendarClassification value,
-) => switch (value) {
-  CocoonPregnancyCalendarClassification.prenatal => 'Prenatal appointment',
-  CocoonPregnancyCalendarClassification.ultrasound => 'Ultrasound',
-  CocoonPregnancyCalendarClassification.checkup => 'Check-up',
-  CocoonPregnancyCalendarClassification.labTest => 'Lab test',
-  CocoonPregnancyCalendarClassification.injection => 'Injection',
-  CocoonPregnancyCalendarClassification.other => 'Care event',
+  CocoonPregnancyCalendarClassification value, {
+  required bool fa,
+}) => switch (value) {
+  CocoonPregnancyCalendarClassification.prenatal =>
+    fa ? 'ویزیت بارداری' : 'Prenatal appointment',
+  CocoonPregnancyCalendarClassification.ultrasound =>
+    fa ? 'سونوگرافی' : 'Ultrasound',
+  CocoonPregnancyCalendarClassification.checkup => fa ? 'معاینه' : 'Check-up',
+  CocoonPregnancyCalendarClassification.labTest => fa ? 'آزمایش' : 'Lab test',
+  CocoonPregnancyCalendarClassification.injection => fa ? 'تزریق' : 'Injection',
+  CocoonPregnancyCalendarClassification.other => fa ? 'رویداد مراقبتی' : 'Care event',
 };
 
-String _humanCode(String value) {
+String _humanCode(String value, {required bool fa}) {
   final normalized = value.trim().replaceAll('_', ' ');
   if (normalized.isEmpty) return value;
+  if (fa) {
+    const translations = {
+      'comfortable': 'خوب',
+      'mixed': 'ترکیبی',
+      'difficult': 'سخت',
+      'low': 'کم',
+      'steady': 'متعادل',
+      'high': 'زیاد',
+      'mild': 'خفیف',
+      'moderate': 'متوسط',
+      'severe': 'شدید',
+      'taken': 'مصرف شد',
+      'skipped': 'مصرف نشد',
+      'active': 'فعال',
+    };
+    return translations[normalized.toLowerCase()] ?? normalized;
+  }
   return normalized[0].toUpperCase() + normalized.substring(1);
 }
 
