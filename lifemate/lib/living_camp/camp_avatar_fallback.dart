@@ -12,10 +12,7 @@ enum CampAvatarAction { idle, walk, drink, wellness }
 
 @immutable
 class CampAvatarFallbackAsset {
-  const CampAvatarFallbackAsset({
-    required this.family,
-    required this.path,
-  });
+  const CampAvatarFallbackAsset({required this.family, required this.path});
 
   final CampAvatarFamily family;
   final String path;
