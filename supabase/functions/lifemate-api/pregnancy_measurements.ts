@@ -1,6 +1,9 @@
 import { createCocoonIdentityResolver } from "./cocoon_identity.ts";
 import { getLifeMateSql } from "./database_client.ts";
-import { createHealthObservationStore } from "./health_observations.ts";
+import {
+  createHealthObservationStore,
+  healthObservationMetricUnits,
+} from "./health_observations.ts";
 import { json } from "./http.ts";
 import { createPregnancyAuthorization } from "./pregnancy_authorization.ts";
 import { createPregnancyStore } from "./pregnancy_store.ts";
@@ -25,6 +28,53 @@ const supportedMeasurementTypes = new Set<MeasurementType>([
   "blood_pressure",
   "blood_glucose",
 ]);
+
+type MeasurementInputField = {
+  wireField: "valuePrimary" | "valueSecondary";
+  semanticRole: "weight" | "systolic" | "diastolic" | "blood_glucose";
+  unit: string;
+};
+
+export type PregnancyMeasurementInputSchema = {
+  observationType: MeasurementType;
+  fields: MeasurementInputField[];
+};
+
+export function pregnancyMeasurementInputSchema(): PregnancyMeasurementInputSchema[] {
+  return [
+    measurementSchema("weight", [
+      { wireField: "valuePrimary", semanticRole: "weight" },
+    ]),
+    measurementSchema("blood_pressure", [
+      { wireField: "valuePrimary", semanticRole: "systolic" },
+      { wireField: "valueSecondary", semanticRole: "diastolic" },
+    ]),
+    measurementSchema("blood_glucose", [
+      { wireField: "valuePrimary", semanticRole: "blood_glucose" },
+    ]),
+  ];
+}
+
+function measurementSchema(
+  observationType: MeasurementType,
+  fields: Array<Omit<MeasurementInputField, "unit">>,
+): PregnancyMeasurementInputSchema {
+  const units = healthObservationMetricUnits(observationType);
+  if (!units?.unitPrimary) {
+    throw new Error(
+      `Canonical health-observation units are unavailable for ${observationType}.`,
+    );
+  }
+  return {
+    observationType,
+    fields: fields.map((field) => ({
+      ...field,
+      unit: field.wireField === "valueSecondary"
+        ? units.unitSecondary ?? units.unitPrimary
+        : units.unitPrimary!,
+    })),
+  };
+}
 
 export function normalizePregnancyMeasurementType(
   value: unknown,
@@ -227,6 +277,7 @@ export function createPregnancyMeasurementRouteHandler(databaseUrl: string) {
     return {
       contractVersion: 1,
       episodeId: episode.id,
+      inputSchema: pregnancyMeasurementInputSchema(),
       items,
     };
   }
