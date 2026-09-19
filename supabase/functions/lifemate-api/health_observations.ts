@@ -306,77 +306,77 @@ export function createHealthObservationStore(databaseUrl: string) {
   ): Promise<Record<string, unknown>> {
     const input = normalizeHealthObservationInput(body);
 
-      const { accountId, personId } = await resolveOwnerIdentity(
-        connection,
-        appUserId,
-      );
-      const sourceApplication = await resolveSourceApplication(
-        connection,
-        trustedApplicationCode,
-      );
-      const id = crypto.randomUUID();
-      const inserted = await connection`
-        insert into lifemate.health_observations
-          (id, person_id, recorded_by_account_id,
-           source_application_id, client_request_id,
-           observation_type, value_primary, value_secondary,
-           unit_primary, unit_secondary, note, observed_at_utc,
-           observed_local_date, time_zone, source_category,
-           source_provider, source_external_id, metadata_json,
-           version, created_at_utc, updated_at_utc)
-        values
-          (${id}::uuid, ${personId}::uuid, ${accountId}::uuid,
-           ${sourceApplication.id}::uuid,
-           ${input.clientRequestId}::uuid, ${input.observationType},
-           ${input.valuePrimary}, ${input.valueSecondary},
-           ${input.unitPrimary}, ${input.unitSecondary}, ${input.note},
-           ${input.observedAtUtc}, ${input.observedLocalDate}::date,
-           ${input.timeZone}, 'FirstPartyUserInput', ${sourceApplication.code},
-           null, '{}'::jsonb, 1, now(), now())
-        on conflict (person_id, source_application_id, client_request_id)
-        do nothing
-        returning *
-      `;
+  const { accountId, personId } = await resolveOwnerIdentity(
+    connection,
+    appUserId,
+  );
+  const sourceApplication = await resolveSourceApplication(
+    connection,
+    trustedApplicationCode,
+  );
+  const id = crypto.randomUUID();
+  const inserted = await connection`
+    insert into lifemate.health_observations
+      (id, person_id, recorded_by_account_id,
+       source_application_id, client_request_id,
+       observation_type, value_primary, value_secondary,
+       unit_primary, unit_secondary, note, observed_at_utc,
+       observed_local_date, time_zone, source_category,
+       source_provider, source_external_id, metadata_json,
+       version, created_at_utc, updated_at_utc)
+    values
+      (${id}::uuid, ${personId}::uuid, ${accountId}::uuid,
+       ${sourceApplication.id}::uuid,
+       ${input.clientRequestId}::uuid, ${input.observationType},
+       ${input.valuePrimary}, ${input.valueSecondary},
+       ${input.unitPrimary}, ${input.unitSecondary}, ${input.note},
+       ${input.observedAtUtc}, ${input.observedLocalDate}::date,
+       ${input.timeZone}, 'FirstPartyUserInput', ${sourceApplication.code},
+       null, '{}'::jsonb, 1, now(), now())
+    on conflict (person_id, source_application_id, client_request_id)
+    do nothing
+    returning *
+  `;
 
-      if (inserted[0]) {
-        await connection`
-          insert into lifemate.audit_logs
-            (id, actor_user_id, action, resource_type, resource_id,
-             metadata_json, created_at_utc)
-          values
-            (${crypto.randomUUID()}::uuid, ${appUserId}::uuid,
-             'health.observation_created', 'health_observation', ${id}::uuid,
-             ${
-          JSON.stringify({
-            observationType: input.observationType,
-            sourceCategory: "FirstPartyUserInput",
-            sourceApplicationCode: sourceApplication.code,
-          })
-        }::jsonb, now())
-        `;
-        return mapObservation({
-          ...inserted[0],
-          source_application_code: sourceApplication.code,
-        });
-      }
+  if (inserted[0]) {
+    await connection`
+      insert into lifemate.audit_logs
+        (id, actor_user_id, action, resource_type, resource_id,
+         metadata_json, created_at_utc)
+      values
+        (${crypto.randomUUID()}::uuid, ${appUserId}::uuid,
+         'health.observation_created', 'health_observation', ${id}::uuid,
+         ${
+      JSON.stringify({
+        observationType: input.observationType,
+        sourceCategory: "FirstPartyUserInput",
+        sourceApplicationCode: sourceApplication.code,
+      })
+    }::jsonb, now())
+    `;
+    return mapObservation({
+      ...inserted[0],
+      source_application_code: sourceApplication.code,
+    });
+  }
 
-      const existing = await connection`
-        select h.*, app.code as source_application_code
-        from lifemate.health_observations h
-        join ecosystem.applications app on app.id = h.source_application_id
-        where h.person_id = ${personId}::uuid
-          and h.source_application_id = ${sourceApplication.id}::uuid
-          and h.client_request_id = ${input.clientRequestId}::uuid
-        limit 1
-      `;
-      if (!existing[0]) {
-        throw new ApiError(
-          409,
-          "health_observation_idempotency_conflict",
-          "The health observation could not be resolved after a retry.",
-        );
-      }
-      return mapObservation(existing[0]);
+  const existing = await connection`
+    select h.*, app.code as source_application_code
+    from lifemate.health_observations h
+    join ecosystem.applications app on app.id = h.source_application_id
+    where h.person_id = ${personId}::uuid
+      and h.source_application_id = ${sourceApplication.id}::uuid
+      and h.client_request_id = ${input.clientRequestId}::uuid
+    limit 1
+  `;
+  if (!existing[0]) {
+    throw new ApiError(
+      409,
+      "health_observation_idempotency_conflict",
+      "The health observation could not be resolved after a retry.",
+    );
+  }
+  return mapObservation(existing[0]);
   }
 
   async function createOwnerObservation(
