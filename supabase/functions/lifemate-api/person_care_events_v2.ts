@@ -60,64 +60,81 @@ async function requireSelfPerson(
 export function createPersonCareEventStoreV2(databaseUrl: string) {
   const sql = getLifeMateSql(databaseUrl);
 
-  async function createCareEvent(
+  async function createCareEventWithConnection(
+    connection: any,
     patientAppUserId: string,
     body: Record<string, unknown>,
   ): Promise<Record<string, unknown>> {
     const input = normalizeCareEvent(body);
-    return await sql.begin(async (tx: any) => {
-      const patientPersonId = await requireSelfPerson(tx, patientAppUserId);
-      const existing = await tx`
-        select * from lifemate.care_events
-        where patient_person_id = ${patientPersonId}::uuid
-          and client_request_id = ${input.clientRequestId}::uuid
-        limit 1
-      `;
-      if (existing[0]) {
-        if (!sameCareEvent(existing[0], input)) {
-          throw new ApiError(
-            409,
-            "idempotency_key_reused",
-            "clientRequestId was already used for a different care event.",
-          );
-        }
-        return mapCareEvent(existing[0], patientAppUserId);
+    const patientPersonId = await requireSelfPerson(
+      connection,
+      patientAppUserId,
+    );
+    const existing = await connection`
+      select * from lifemate.care_events
+      where patient_person_id = ${patientPersonId}::uuid
+        and client_request_id = ${input.clientRequestId}::uuid
+      limit 1
+    `;
+    if (existing[0]) {
+      if (!sameCareEvent(existing[0], input)) {
+        throw new ApiError(
+          409,
+          "idempotency_key_reused",
+          "clientRequestId was already used for a different care event.",
+        );
       }
+      return mapCareEvent(existing[0], patientAppUserId);
+    }
 
-      const id = crypto.randomUUID();
-      const recurrenceJson = input.recurrence == null
-        ? null
-        : JSON.stringify(input.recurrence);
-      const rows = await tx`
-        insert into lifemate.care_events
-          (id, patient_person_id, created_by_user_id, client_request_id,
-           event_type, title, provider_name, specialty, medication_name,
-           dose_text, administration_route, reason, instructions, center_name,
-           address_line, phone_number, scheduled_local_date,
-           scheduled_local_time, time_zone,
-           recurrence_unit, recurrence_interval, recurrence_weekdays,
-           recurrence_end_date, recurrence_rule,
-           patient_reminder_minutes_before, caregiver_reminder_minutes_before,
-           status, version, created_at_utc, updated_at_utc)
-        values
-          (${id}::uuid, ${patientPersonId}::uuid, ${patientAppUserId}::uuid,
-           ${input.clientRequestId}::uuid, ${input.eventType}, ${input.title},
-           ${input.providerName}, ${input.specialty}, ${input.medicationName},
-           ${input.doseText}, ${input.administrationRoute}, ${input.reason},
-           ${input.instructions}, ${input.centerName}, ${input.addressLine},
-           ${input.phoneNumber}, ${input.scheduledLocalDate}::date,
-           ${input.scheduledLocalTime}::time, ${input.timeZone},
-           'none', 1, array[]::smallint[], null, ${recurrenceJson}::jsonb,
-           ${input.patientReminderMinutesBefore},
-           ${input.caregiverReminderMinutesBefore}, 'Scheduled', 1, now(), now())
-        returning *
-      `;
-      await insertAudit(tx, patientAppUserId, "care_event.created", id, {
+    const id = crypto.randomUUID();
+    const recurrenceJson = input.recurrence == null
+      ? null
+      : JSON.stringify(input.recurrence);
+    const rows = await connection`
+      insert into lifemate.care_events
+        (id, patient_person_id, created_by_user_id, client_request_id,
+         event_type, title, provider_name, specialty, medication_name,
+         dose_text, administration_route, reason, instructions, center_name,
+         address_line, phone_number, scheduled_local_date,
+         scheduled_local_time, time_zone,
+         recurrence_unit, recurrence_interval, recurrence_weekdays,
+         recurrence_end_date, recurrence_rule,
+         patient_reminder_minutes_before, caregiver_reminder_minutes_before,
+         status, version, created_at_utc, updated_at_utc)
+      values
+        (${id}::uuid, ${patientPersonId}::uuid, ${patientAppUserId}::uuid,
+         ${input.clientRequestId}::uuid, ${input.eventType}, ${input.title},
+         ${input.providerName}, ${input.specialty}, ${input.medicationName},
+         ${input.doseText}, ${input.administrationRoute}, ${input.reason},
+         ${input.instructions}, ${input.centerName}, ${input.addressLine},
+         ${input.phoneNumber}, ${input.scheduledLocalDate}::date,
+         ${input.scheduledLocalTime}::time, ${input.timeZone},
+         'none', 1, array[]::smallint[], null, ${recurrenceJson}::jsonb,
+         ${input.patientReminderMinutesBefore},
+         ${input.caregiverReminderMinutesBefore}, 'Scheduled', 1, now(), now())
+      returning *
+    `;
+    await insertAudit(
+      connection,
+      patientAppUserId,
+      "care_event.created",
+      id,
+      {
         eventType: input.eventType,
         recurrenceVersion: input.recurrence?.version ?? null,
-      });
-      return mapCareEvent(rows[0], patientAppUserId);
-    });
+      },
+    );
+    return mapCareEvent(rows[0], patientAppUserId);
+  }
+
+  async function createCareEvent(
+    patientAppUserId: string,
+    body: Record<string, unknown>,
+  ): Promise<Record<string, unknown>> {
+    return await sql.begin((tx: any) =>
+      createCareEventWithConnection(tx, patientAppUserId, body)
+    );
   }
 
   async function listCareEvents(
@@ -187,7 +204,7 @@ export function createPersonCareEventStoreV2(databaseUrl: string) {
     return expanded.slice(0, 500);
   }
 
-  return { createCareEvent, listCareEvents };
+  return { createCareEvent, createCareEventWithConnection, listCareEvents };
 }
 
 function normalizeCareEvent(body: Record<string, unknown>): CareEventInput {
