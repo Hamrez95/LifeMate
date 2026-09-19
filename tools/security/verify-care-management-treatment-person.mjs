@@ -75,7 +75,7 @@ for (const marker of [
 for (const [label, pattern] of [
   ["treatment Person ownership", /patient_person_id\s*=\s*\$\{patientPersonId\}::uuid/],
   ["treatment audit metadata column", /metadata_json\s*,\s*created_at_utc/],
-  ["treatment audit resource", /'treatment_plan'\s*,\s*\$\{treatmentPlanId\}::uuid\s*,\s*null\s*,\s*now\(\)/],
+  ["treatment audit resource", /'treatment_plan'\s*,\s*\$\{(?:planId|treatmentPlanId)\}::uuid\s*,\s*null\s*,\s*now\(\)/],
   ["medication Person ownership", /owner_person_id\s*=\s*\$\{patientPersonId\}::uuid/],
 ]) {
   if (!pattern.test(store)) {
