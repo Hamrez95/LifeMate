@@ -4,10 +4,17 @@ import 'package:lifemate/living_camp/camp_avatar_fallback.dart';
 import 'package:lifemate/living_camp/camp_scene_renderer.dart';
 
 void main() {
-  test('both adult families resolve to an idle fallback asset', () {
+  test('both families expose every configured age-band fallback asset', () {
     for (final family in CampAvatarFamily.values) {
-      final asset = CampAvatarFallbackCatalog.resolve(family: family);
-      expect(asset.path, contains('assets/living_camp/v1/raster/actors/'));
+      for (final ageBand in CampAvatarAgeBand.values) {
+        final asset = CampAvatarFallbackCatalog.resolve(
+          family: family,
+          ageBand: ageBand,
+        );
+        expect(asset.family, family);
+        expect(asset.ageBand, ageBand);
+        expect(asset.path, contains('assets/living_camp/v1/raster/actors/'));
+      }
     }
   });
 
