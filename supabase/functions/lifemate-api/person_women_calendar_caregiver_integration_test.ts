@@ -9,13 +9,15 @@ import { ApiError } from "./validation.ts";
 import { createWomenCalendarStore } from "./women_calendar.ts";
 
 const databaseUrl = Deno.env.get("TEST_DATABASE_URL");
+const fixtureDatabaseUrl = Deno.env.get("TEST_ADMIN_DATABASE_URL") ??
+  databaseUrl;
 if (!databaseUrl) {
   throw new Error(
     "TEST_DATABASE_URL is required for Person caregiver Women Calendar tests.",
   );
 }
 
-const fixtureSql = postgres(databaseUrl, {
+const fixtureSql = postgres(fixtureDatabaseUrl!, {
   max: 1,
   prepare: false,
   idle_timeout: 5,
@@ -190,6 +192,16 @@ Deno.test({
       assertEquals(relationship[0].patient_person_id, patient.personId);
       assertEquals(relationship[0].caregiver_person_id, caregiver.personId);
 
+      await fixtureSql`
+        insert into lifemate.women_companion_privacy_scopes(
+          relationship_id,view_period_timing,view_phase_summary,
+          view_shared_wellbeing,view_calendar_detail,updated_by_user_id
+        ) values(
+          ${relationshipId}::uuid,true,true,true,true,
+          ${patient.appUserId}::uuid
+        )
+      `;
+
       const supportSchema = await fixtureSql`
         select column_name,is_nullable
         from information_schema.columns
@@ -261,15 +273,41 @@ Deno.test({
         set can_view_women_calendar=false,updated_at_utc=now()
         where id=${relationshipId}::uuid
       `;
+      // The legacy relationship flag is presentation compatibility only.
+      // Explicit granular privacy scopes remain the authorization boundary.
+      const legacyFlagOffSummary = await women.getCareSummary(
+        caregiver.appUserId,
+        patient.appUserId,
+      );
+      assertEquals(
+        (legacyFlagOffSummary.episodes as Array<Record<string, unknown>>)
+          .length,
+        1,
+      );
+      await fixtureSql`
+        update lifemate.care_relationships
+        set can_view_women_calendar=true,updated_at_utc=now()
+        where id=${relationshipId}::uuid
+      `;
+
+      await fixtureSql`
+        update lifemate.women_companion_privacy_scopes
+        set view_period_timing=false,view_phase_summary=false,
+            view_shared_wellbeing=false,view_calendar_detail=false,
+            version=version+1,updated_at_utc=now()
+        where relationship_id=${relationshipId}::uuid
+      `;
       await assertApiError(
         () => women.getCareSummary(caregiver.appUserId, patient.appUserId),
         403,
         "women_calendar_access_denied",
       );
       await fixtureSql`
-        update lifemate.care_relationships
-        set can_view_women_calendar=true,updated_at_utc=now()
-        where id=${relationshipId}::uuid
+        update lifemate.women_companion_privacy_scopes
+        set view_period_timing=true,view_phase_summary=true,
+            view_shared_wellbeing=true,view_calendar_detail=true,
+            version=version+1,updated_at_utc=now()
+        where relationship_id=${relationshipId}::uuid
       `;
 
       const action = await women.recordCareSupportAction(
