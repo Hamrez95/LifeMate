@@ -287,6 +287,26 @@ Deno.test({
         where id=${relationshipId}::uuid
       `;
 
+      await fixtureSql`
+        update lifemate.women_companion_privacy_scopes
+        set view_period_timing=false,view_phase_summary=false,
+            view_shared_wellbeing=false,view_calendar_detail=false,
+            version=version+1,updated_at_utc=now()
+        where relationship_id=${relationshipId}::uuid
+      `;
+      await assertApiError(
+        () => women.getCareSummary(caregiver.appUserId, patient.appUserId),
+        403,
+        "women_calendar_access_denied",
+      );
+      await fixtureSql`
+        update lifemate.women_companion_privacy_scopes
+        set view_period_timing=true,view_phase_summary=true,
+            view_shared_wellbeing=true,view_calendar_detail=true,
+            version=version+1,updated_at_utc=now()
+        where relationship_id=${relationshipId}::uuid
+      `;
+
       const action = await women.recordCareSupportAction(
         caregiver.appUserId,
         patient.appUserId,
