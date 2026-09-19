@@ -7,6 +7,8 @@ import { createGrowthStore } from "./growth.ts";
 import { ApiError } from "./validation.ts";
 
 const databaseUrl = Deno.env.get("TEST_DATABASE_URL");
+const fixtureDatabaseUrl = Deno.env.get("TEST_ADMIN_DATABASE_URL") ??
+  databaseUrl;
 if (!databaseUrl) {
   throw new Error(
     "TEST_DATABASE_URL is required for growth integration tests.",
@@ -20,7 +22,7 @@ Deno.test({
   sanitizeOps: false,
   sanitizeResources: false,
   fn: async () => {
-    const sql = postgres(databaseUrl, { max: 1, prepare: false });
+    const sql = postgres(fixtureDatabaseUrl!, { max: 1, prepare: false });
     await installProviderExtensionCompatibility(sql);
     const db = createLifeMateDatabase(databaseUrl, contactSecret);
     const growth = createGrowthStore(databaseUrl, contactSecret);
