@@ -257,8 +257,6 @@ void main() {
     expect(called, isFalse);
     api.close();
   });
-}
-
 
   test('measurement schema rejects unknown semantic roles instead of guessing UI meaning', () {
     expect(
@@ -282,3 +280,5 @@ void main() {
       throwsFormatException,
     );
   });
+
+}
