@@ -141,7 +141,7 @@ Deno.test({
           relationship_id,view_period_timing,view_phase_summary,
           view_shared_wellbeing,view_calendar_detail,updated_by_user_id
         ) values(
-          ${relationship.id}::uuid,true,true,true,true,
+          ${String(relationship.id)}::uuid,true,true,true,true,
           ${patient.appUserId}::uuid
         )
         on conflict(relationship_id) do update set
