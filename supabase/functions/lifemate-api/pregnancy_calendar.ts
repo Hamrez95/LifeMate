@@ -25,6 +25,12 @@ type CalendarLink = {
   classification: CalendarClassification;
 };
 
+type CalendarMutationContext = {
+  accountId: string;
+  personId: string;
+  episodeId: string;
+};
+
 const supportedClassifications = new Set<CalendarClassification>([
   "prenatal",
   "ultrasound",
@@ -74,6 +80,68 @@ export function createPregnancyCalendarRouteHandler(databaseUrl: string) {
     return { accountId, personId, episode };
   }
 
+  async function mutationContext(
+    connection: any,
+    appUserId: string,
+  ): Promise<CalendarMutationContext> {
+    const identityRows = await connection`
+      select
+        identity.account_id_for_legacy_app_user(${appUserId}::uuid)::text
+          as account_id,
+        core.self_person_id_for_legacy_app_user(${appUserId}::uuid)::text
+          as person_id
+    `;
+    const accountId = identityRows[0]?.account_id == null
+      ? null
+      : String(identityRows[0].account_id);
+    const personId = identityRows[0]?.person_id == null
+      ? null
+      : String(identityRows[0].person_id);
+    if (!accountId || !personId) {
+      throw new ApiError(
+        409,
+        "cocoon_person_context_missing",
+        "Cocoon person context is not ready.",
+      );
+    }
+
+    const rows = await connection`
+      select id::text
+      from pregnancy.episodes
+      where mother_person_id=${personId}::uuid
+        and status='active'
+      order by activated_at_utc desc,id
+      limit 1
+      for update
+    `;
+    const episodeId = rows[0]?.id == null ? null : String(rows[0].id);
+    if (!episodeId) {
+      throw new ApiError(
+        409,
+        "active_pregnancy_required",
+        "An active pregnancy is required.",
+      );
+    }
+
+    const accessRows = await connection`
+      select security.can_access_pregnancy_scope(
+        ${accountId}::uuid,
+        ${personId}::uuid,
+        ${episodeId}::uuid,
+        'pregnancy.owner.manage'::varchar,
+        now()
+      ) as allowed
+    `;
+    if (accessRows[0]?.allowed !== true) {
+      throw new ApiError(
+        403,
+        "pregnancy_access_denied",
+        "Pregnancy access is not authorized.",
+      );
+    }
+    return { accountId, personId, episodeId };
+  }
+
   async function linksForEpisode(episodeId: string): Promise<CalendarLink[]> {
     const rows = await sql`
       select care_event_id::text, classification
@@ -88,6 +156,57 @@ export function createPregnancyCalendarRouteHandler(databaseUrl: string) {
     }));
   }
 
+  async function linkExistingWithContext(
+    connection: any,
+    mutation: CalendarMutationContext,
+    careEventId: string,
+    classification: CalendarClassification,
+  ) {
+    const events = await connection`
+      select id
+      from lifemate.care_events
+      where id=${careEventId}::uuid
+        and patient_person_id=${mutation.personId}::uuid
+      for update
+    `;
+    if (!events[0]) {
+      throw new ApiError(
+        404,
+        "care_event_not_found",
+        "Care event was not found.",
+      );
+    }
+    const existing = await connection`
+      select episode_id::text,classification
+      from pregnancy.care_event_links
+      where care_event_id=${careEventId}::uuid
+      for update
+    `;
+    if (
+      existing[0] &&
+      String(existing[0].episode_id) !== mutation.episodeId
+    ) {
+      throw new ApiError(
+        409,
+        "care_event_already_linked",
+        "Care event is already associated with another pregnancy.",
+      );
+    }
+    const rows = await connection`
+      insert into pregnancy.care_event_links
+        (episode_id,care_event_id,classification,linked_by_account_id)
+      values
+        (${mutation.episodeId}::uuid,${careEventId}::uuid,${classification},
+         ${mutation.accountId}::uuid)
+      on conflict (episode_id,care_event_id) do update
+        set classification=excluded.classification,
+            updated_at_utc=now()
+      returning episode_id::text,care_event_id::text,classification,
+                created_at_utc,updated_at_utc
+    `;
+    return rows[0];
+  }
+
   async function linkExisting(
     appUserId: string,
     careEventIdValue: unknown,
@@ -97,48 +216,48 @@ export function createPregnancyCalendarRouteHandler(databaseUrl: string) {
     const classification = normalizePregnancyCalendarClassification(
       classificationValue,
     );
-    const { accountId, personId, episode } = await context(appUserId, true);
-
     return await sql.begin(async (tx: any) => {
-      const events = await tx`
-        select id
-        from lifemate.care_events
-        where id=${careEventId}::uuid
-          and patient_person_id=${personId}::uuid
-        for update
-      `;
-      if (!events[0]) {
-        throw new ApiError(
-          404,
-          "care_event_not_found",
-          "Care event was not found.",
-        );
-      }
-      const existing = await tx`
-        select episode_id::text,classification
-        from pregnancy.care_event_links
-        where care_event_id=${careEventId}::uuid
-        for update
-      `;
-      if (existing[0] && String(existing[0].episode_id) !== episode.id) {
-        throw new ApiError(
-          409,
-          "care_event_already_linked",
-          "Care event is already associated with another pregnancy.",
-        );
-      }
-      const rows = await tx`
-        insert into pregnancy.care_event_links
-          (episode_id,care_event_id,classification,linked_by_account_id)
-        values
-          (${episode.id}::uuid,${careEventId}::uuid,${classification},${accountId}::uuid)
-        on conflict (episode_id,care_event_id) do update
-          set classification=excluded.classification,
-              updated_at_utc=now()
-        returning episode_id::text,care_event_id::text,classification,
-                  created_at_utc,updated_at_utc
-      `;
-      return rows[0];
+      const mutation = await mutationContext(tx, appUserId);
+      return await linkExistingWithContext(
+        tx,
+        mutation,
+        careEventId,
+        classification,
+      );
+    });
+  }
+
+  async function createEvent(
+    appUserId: string,
+    careEventBody: Record<string, unknown>,
+    classificationValue: unknown,
+  ) {
+    const classification = normalizePregnancyCalendarClassification(
+      classificationValue,
+    );
+    return await sql.begin(async (tx: any) => {
+      const mutation = await mutationContext(tx, appUserId);
+      const created = await careEvents.createCareEventWithConnection(
+        tx,
+        appUserId,
+        careEventBody,
+      );
+      const seriesId = requiredUuid(
+        created.seriesId ?? created.id,
+        "careEventId",
+      );
+      const link = await linkExistingWithContext(
+        tx,
+        mutation,
+        seriesId,
+        classification,
+      );
+      return {
+        contractVersion: 1,
+        episodeId: String(link.episode_id),
+        pregnancyClassification: String(link.classification),
+        careEvent: created,
+      };
     });
   }
 
@@ -204,29 +323,14 @@ export function createPregnancyCalendarRouteHandler(databaseUrl: string) {
           "A canonical care event payload is required.",
         );
       }
-      // Create in the shared care-event domain first. Both the outer mutation
-      // coordinator and care-event clientRequestId make retries safe. Linking is
-      // idempotent, so a retry repairs a transient link failure without creating
-      // a second appointment.
-      const created = await careEvents.createCareEvent(
-        appUserId,
-        careEventBody as Record<string, unknown>,
+      return json(
+        await createEvent(
+          appUserId,
+          careEventBody as Record<string, unknown>,
+          body.classification,
+        ),
+        201,
       );
-      const seriesId = requiredUuid(
-        created.seriesId ?? created.id,
-        "careEventId",
-      );
-      const link = await linkExisting(
-        appUserId,
-        seriesId,
-        body.classification,
-      );
-      return json({
-        contractVersion: 1,
-        episodeId: String(link.episode_id),
-        pregnancyClassification: String(link.classification),
-        careEvent: created,
-      }, 201);
     }
 
     if (
