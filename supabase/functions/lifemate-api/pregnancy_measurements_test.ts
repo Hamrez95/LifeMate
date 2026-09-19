@@ -65,7 +65,6 @@ Deno.test("Cocoon pregnancy measurement creation fixes trusted source provenance
   assertEquals(created.sourceApplicationCode, "cocoonmate");
 });
 
-
 Deno.test(
   "Cocoon pregnancy measurement authorizes before canonical observation write",
   async () => {
