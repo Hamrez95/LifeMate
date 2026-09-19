@@ -118,12 +118,32 @@ class CampSceneLayer {
   final WidgetBuilder builder;
 }
 
+/// A presentation-only actor anchored in world coordinates. It has no hit
+/// target: zone semantics and navigation stay outside decorative animation.
+@immutable
+class CampSceneActor {
+  const CampSceneActor({
+    required this.actorId,
+    required this.anchor,
+    required this.width,
+    required this.height,
+    required this.builder,
+  });
+
+  final String actorId;
+  final CampPoint anchor;
+  final double width;
+  final double height;
+  final WidgetBuilder builder;
+}
+
 class CampSceneRenderer extends StatelessWidget {
   const CampSceneRenderer({
     super.key,
     required this.zones,
     required this.presentations,
     required this.layers,
+    this.actors = const [],
     this.worldSize = const CampWorldSize(),
     this.onZoneTap,
   });
@@ -131,6 +151,7 @@ class CampSceneRenderer extends StatelessWidget {
   final List<CampZoneDefinition> zones;
   final List<CampZonePresentation> presentations;
   final List<CampSceneLayer> layers;
+  final List<CampSceneActor> actors;
   final CampWorldSize worldSize;
   final ValueChanged<String>? onZoneTap;
 
@@ -148,6 +169,8 @@ class CampSceneRenderer extends StatelessWidget {
   Widget build(BuildContext context) {
     final orderedLayers = [...layers]
       ..sort((a, b) => a.zIndex.compareTo(b.zIndex));
+    final orderedActors = [...actors]
+      ..sort((a, b) => a.anchor.y.compareTo(b.anchor.y));
     return LayoutBuilder(
       builder: (context, constraints) {
         final scale = math.max(
@@ -176,10 +199,29 @@ class CampSceneRenderer extends StatelessWidget {
                   scale,
                   worldToScreen,
                 ),
+              for (final actor in orderedActors)
+                _buildActor(context, actor, scale, worldToScreen),
             ],
           ),
         );
       },
+    );
+  }
+
+  Widget _buildActor(
+    BuildContext context,
+    CampSceneActor actor,
+    double scale,
+    Offset Function(CampPoint) worldToScreen,
+  ) {
+    final ground = worldToScreen(actor.anchor);
+    return Positioned(
+      key: ValueKey<String>('camp-actor-${actor.actorId}'),
+      left: ground.dx - actor.width * scale / 2,
+      top: ground.dy - actor.height * scale,
+      width: actor.width * scale,
+      height: actor.height * scale,
+      child: IgnorePointer(child: actor.builder(context)),
     );
   }
 
