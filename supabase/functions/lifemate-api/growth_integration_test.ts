@@ -27,21 +27,24 @@ Deno.test({
     const db = createLifeMateDatabase(databaseUrl, contactSecret);
     const growth = createGrowthStore(databaseUrl, contactSecret);
     const suffix = crypto.randomUUID();
+    const phoneSeed = crypto.getRandomValues(new Uint32Array(1))[0] % 9_999_997;
+    const phone = (offset: number) =>
+      `+98912${String(phoneSeed + offset).padStart(7, "0")}`;
 
     const referrerAuth = auth(
       `growth-referrer-${suffix}`,
       `growth-referrer-${suffix}@example.test`,
-      "+989121230201",
+      phone(0),
     );
     const referredAuth = auth(
       `growth-referred-${suffix}`,
       `growth-referred-${suffix}@example.test`,
-      "+989121230202",
+      phone(1),
     );
     const alternateAuth = auth(
       `growth-alternate-${suffix}`,
       `growth-alternate-${suffix}@example.test`,
-      "+989121230203",
+      phone(2),
     );
 
     try {
