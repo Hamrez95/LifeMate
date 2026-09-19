@@ -7,7 +7,7 @@ import { closeLifeMateSqlClientsForTest } from "./database_client.ts";
 import { createPregnancyCaptureRouteHandler } from "./pregnancy_capture.ts";
 import { createPregnancyMeasurementRouteHandler } from "./pregnancy_measurements.ts";
 import { createPregnancyRecordsRouteHandler } from "./pregnancy_records.ts";
-import { createPregnancyTreatmentRouteHandler } from "./pregnancy_treatments.ts";
+import { createPregnancyTreatmentRouteHandler } from "./pregnancy_treatments.ts";\nimport { createPersonMedicationStore } from "./person_medications.ts";\nimport { createPersonTreatmentPlanStore } from "./person_treatment_plans.ts";
 import { ApiError } from "./validation.ts";
 
 const databaseUrl = Deno.env.get("TEST_DATABASE_URL");
@@ -41,7 +41,7 @@ Deno.test({
     const capture = createPregnancyCaptureRouteHandler(databaseUrl);
     const measurements = createPregnancyMeasurementRouteHandler(databaseUrl);
     const treatments = createPregnancyTreatmentRouteHandler(databaseUrl);
-    const records = createPregnancyRecordsRouteHandler(databaseUrl);
+    const records = createPregnancyRecordsRouteHandler(databaseUrl);\n    const medications = createPersonMedicationStore(databaseUrl);\n    const treatmentPlans = createPersonTreatmentPlanStore(databaseUrl);
 
     const observedAtUtc = new Date(Date.now() - 60_000).toISOString();
     const localDate = observedAtUtc.slice(0, 10);
@@ -50,7 +50,7 @@ Deno.test({
     const moodRequestId = crypto.randomUUID();
     const measurementRequestId = crypto.randomUUID();
 
-    let observationId: string | null = null;
+    let observationId: string | null = null;\n    let medicationId: string | null = null;\n    let treatmentPlanId: string | null = null;
 
     try {
       await seedIdentity(
@@ -228,6 +228,24 @@ Deno.test({
       assertEquals(measurementListBody.episodeId, episodeId);
       assertEquals((measurementListBody.items as unknown[]).length, 1);
 
+      const medication = await medications.createMedication(appUserId, {
+        name: "Pregnancy integration treatment",
+        strengthText: "10 mg",
+        form: "tablet",
+        notes: "synthetic pregnancy route fixture",
+      });
+      medicationId = String(medication.id);
+      const plan = await treatmentPlans.createTreatmentPlan(appUserId, {
+        medicationId,
+        doseText: "one tablet",
+        instructions: "synthetic integration instruction",
+        startDate: localDate,
+        endDate: localDate,
+        timeZone: "UTC",
+        schedules: [{ dayOfWeek: "monday", localTime: "12:00" }],
+      });
+      treatmentPlanId = String(plan.id);
+
       const treatmentList = await treatments({
         request: getRequest(
           "/api/v1/cocoon/pregnancy/treatments",
@@ -241,7 +259,11 @@ Deno.test({
         unknown
       >;
       assertEquals(treatmentBody.episodeId, episodeId);
-      assertEquals(treatmentBody.treatmentPlans, []);
+      const activePlans = treatmentBody.treatmentPlans as Array<
+        Record<string, unknown>
+      >;
+      assertEquals(activePlans.length, 1);
+      assertEquals(activePlans[0].id, treatmentPlanId);
       assertEquals(treatmentBody.doseOccurrences, []);
 
       const recordList = await records({
@@ -250,7 +272,7 @@ Deno.test({
           {
             fromDate: localDate,
             toDate: localDate,
-            categories: "check_ins,symptoms,moods,measurements",
+            categories: "check_ins,symptoms,moods,measurements,medications",
             limit: "30",
           },
         ),
@@ -260,7 +282,7 @@ Deno.test({
       const recordBody = await recordList!.json() as Record<string, unknown>;
       assertEquals(recordBody.episodeId, episodeId);
       const recordItems = recordBody.items as Array<Record<string, unknown>>;
-      assertEquals(recordItems.length, 4);
+      assertEquals(recordItems.length, 5);
       assertEquals(
         new Set(recordItems.map((item) => String(item.sourceKind))),
         new Set([
@@ -318,6 +340,32 @@ Deno.test({
         await adminSql`
           delete from lifemate.health_observations
           where id=${observationId}::uuid
+        `.catch(() => undefined);
+      }
+      if (treatmentPlanId) {
+        await adminSql`
+          delete from lifemate.treatment_schedules
+          where treatment_plan_id=${treatmentPlanId}::uuid
+        `.catch(() => undefined);
+        await adminSql`
+          delete from lifemate.audit_logs
+          where resource_type='treatment_plan'
+            and resource_id=${treatmentPlanId}::uuid
+        `.catch(() => undefined);
+        await adminSql`
+          delete from lifemate.treatment_plans
+          where id=${treatmentPlanId}::uuid
+        `.catch(() => undefined);
+      }
+      if (medicationId) {
+        await adminSql`
+          delete from lifemate.audit_logs
+          where resource_type='medication'
+            and resource_id=${medicationId}::uuid
+        `.catch(() => undefined);
+        await adminSql`
+          delete from lifemate.medications
+          where id=${medicationId}::uuid
         `.catch(() => undefined);
       }
       await cleanupIdentity(appUserId, accountId, personId);
