@@ -182,15 +182,6 @@ Deno.test({
           'caregiver-consent-v1',now(),true,false,now(),now()
         )
       `;
-      await fixtureSql`
-        insert into lifemate.women_companion_privacy_scopes(
-          relationship_id,view_period_timing,view_phase_summary,
-          view_shared_wellbeing,view_calendar_detail,updated_by_user_id
-        ) values (
-          ${relationshipId}::uuid,true,true,true,true,
-          ${patient.appUserId}::uuid
-        )
-      `;
       const relationship = await fixtureSql`
         select patient_person_id::text,caregiver_person_id::text
         from lifemate.care_relationships
