@@ -317,15 +317,7 @@ export function createPersonTreatmentCreateStore(
       const planId = crypto.randomUUID();
       const recurrenceJson = recurrence == null
         ? null
-        : JSON.stringify(
-          recurrence.maxOccurrences == null
-            ? Object.fromEntries(
-              Object.entries(recurrence).filter(([key]) =>
-                key !== "maxOccurrences"
-              ),
-            )
-            : recurrence,
-        );
+        : tx.json(recurrence);
       const planRows = await tx`
         insert into lifemate.treatment_plans
           (id, patient_person_id, medication_id, dose_text,
