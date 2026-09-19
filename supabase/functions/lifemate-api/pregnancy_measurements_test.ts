@@ -1,4 +1,8 @@
-import { assertEquals, assertThrows } from "jsr:@std/assert@1.0.14";
+import {
+  assertEquals,
+  assertRejects,
+  assertThrows,
+} from "jsr:@std/assert@1.0.14";
 import {
   createPregnancyMeasurementObservation,
   normalizePregnancyMeasurementType,
@@ -34,6 +38,7 @@ Deno.test("Cocoon pregnancy measurement creation fixes trusted source provenance
   let capturedApplicationCode: string | undefined;
 
   const created = await createPregnancyMeasurementObservation(
+    async () => {},
     async (appUserId, body, trustedApplicationCode) => {
       capturedUserId = appUserId;
       capturedBody = body;
@@ -59,3 +64,38 @@ Deno.test("Cocoon pregnancy measurement creation fixes trusted source provenance
   assertEquals(capturedApplicationCode, "cocoonmate");
   assertEquals(created.sourceApplicationCode, "cocoonmate");
 });
+
+
+Deno.test(
+  "Cocoon pregnancy measurement authorizes before canonical observation write",
+  async () => {
+    let createCalled = false;
+    const denied = new ApiError(
+      403,
+      "pregnancy_access_denied",
+      "Pregnancy measurement access is not granted.",
+    );
+
+    const error = await assertRejects(
+      () =>
+        createPregnancyMeasurementObservation(
+          async () => {
+            throw denied;
+          },
+          async () => {
+            createCalled = true;
+            return {};
+          },
+          "22222222-2222-4222-8222-222222222222",
+          {
+            observationType: "weight",
+            valuePrimary: 70,
+          },
+        ),
+      ApiError,
+    );
+
+    assertEquals(error.code, "pregnancy_access_denied");
+    assertEquals(createCalled, false);
+  },
+);
