@@ -9,13 +9,15 @@ import { ApiError } from "./validation.ts";
 import { createWomenCalendarStore } from "./women_calendar.ts";
 
 const databaseUrl = Deno.env.get("TEST_DATABASE_URL");
+const fixtureDatabaseUrl = Deno.env.get("TEST_ADMIN_DATABASE_URL") ??
+  databaseUrl;
 if (!databaseUrl) {
   throw new Error(
     "TEST_DATABASE_URL is required for Person caregiver Women Calendar tests.",
   );
 }
 
-const fixtureSql = postgres(databaseUrl, {
+const fixtureSql = postgres(fixtureDatabaseUrl!, {
   max: 1,
   prepare: false,
   idle_timeout: 5,
