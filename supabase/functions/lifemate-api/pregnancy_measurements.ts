@@ -1,6 +1,9 @@
 import { createCocoonIdentityResolver } from "./cocoon_identity.ts";
 import { getLifeMateSql } from "./database_client.ts";
-import { createHealthObservationStore } from "./health_observations.ts";
+import {
+  createHealthObservationStore,
+  healthObservationMetricSchema,
+} from "./health_observations.ts";
 import { json } from "./http.ts";
 import { createPregnancyAuthorization } from "./pregnancy_authorization.ts";
 import { createPregnancyStore } from "./pregnancy_store.ts";
@@ -40,6 +43,75 @@ export function normalizePregnancyMeasurementType(
     );
   }
   return normalized as MeasurementType;
+}
+
+type MeasurementFieldSemantic =
+  | "weight"
+  | "systolic"
+  | "diastolic"
+  | "blood_glucose";
+
+type PregnancyMeasurementSchemaItem = {
+  observationType: MeasurementType;
+  fields: Array<{
+    valueKey: "valuePrimary" | "valueSecondary";
+    semantic: MeasurementFieldSemantic;
+    unit: string;
+  }>;
+};
+
+export function pregnancyMeasurementSchema(): PregnancyMeasurementSchemaItem[] {
+  const weight = healthObservationMetricSchema("weight");
+  const pressure = healthObservationMetricSchema("blood_pressure");
+  const glucose = healthObservationMetricSchema("blood_glucose");
+
+  if (
+    weight.unitPrimary == null ||
+    pressure.unitPrimary == null ||
+    pressure.unitSecondary == null ||
+    !pressure.hasSecondaryValue ||
+    glucose.unitPrimary == null
+  ) {
+    throw new Error("Canonical pregnancy measurement schema is incomplete.");
+  }
+
+  return [
+    {
+      observationType: "weight",
+      fields: [
+        {
+          valueKey: "valuePrimary",
+          semantic: "weight",
+          unit: weight.unitPrimary,
+        },
+      ],
+    },
+    {
+      observationType: "blood_pressure",
+      fields: [
+        {
+          valueKey: "valuePrimary",
+          semantic: "systolic",
+          unit: pressure.unitPrimary,
+        },
+        {
+          valueKey: "valueSecondary",
+          semantic: "diastolic",
+          unit: pressure.unitSecondary,
+        },
+      ],
+    },
+    {
+      observationType: "blood_glucose",
+      fields: [
+        {
+          valueKey: "valuePrimary",
+          semantic: "blood_glucose",
+          unit: glucose.unitPrimary,
+        },
+      ],
+    },
+  ];
 }
 
 /// Delegates pregnancy measurement creation to the canonical health-observation
@@ -282,6 +354,17 @@ export function createPregnancyMeasurementRouteHandler(databaseUrl: string) {
     path: string;
     appUserId: string;
   }): Promise<Response | null> => {
+    if (
+      request.method === "GET" &&
+      path === "/api/v1/cocoon/pregnancy/measurements/schema"
+    ) {
+      await context(appUserId, false);
+      return json({
+        contractVersion: 1,
+        measurementTypes: pregnancyMeasurementSchema(),
+      });
+    }
+
     if (
       request.method === "GET" &&
       path === "/api/v1/cocoon/pregnancy/measurements"
