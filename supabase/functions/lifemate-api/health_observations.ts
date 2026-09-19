@@ -74,6 +74,17 @@ const metricDefinitions: Record<string, MetricDefinition> = {
   note: { unitPrimary: null },
 };
 
+export function healthObservationMetricUnits(
+  observationType: string,
+): { unitPrimary: string | null; unitSecondary: string | null } | null {
+  const definition = metricDefinitions[observationType];
+  if (!definition) return null;
+  return {
+    unitPrimary: definition.unitPrimary,
+    unitSecondary: definition.unitSecondary ?? null,
+  };
+}
+
 export function normalizeHealthObservationInput(
   body: Record<string, unknown>,
   now = new Date(),
