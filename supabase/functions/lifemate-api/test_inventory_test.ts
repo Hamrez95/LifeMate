@@ -19,8 +19,21 @@ Deno.test("all LifeMate API unit tests are type-checked and executed by canonica
   }
   unitTests.sort();
 
-  const testTokens = new Set(testTask.split(/\s+/));
-  const checkTokens = new Set(checkTask.split(/\s+/));
+  const rawTestTokens = testTask.split(/\s+/).filter(Boolean);
+  const rawCheckTokens = checkTask.split(/\s+/).filter(Boolean);
+  const testTokens = new Set(rawTestTokens);
+  const checkTokens = new Set(rawCheckTokens);
+
+  assertEquals(
+    rawTestTokens.length,
+    testTokens.size,
+    "deno task test must not contain duplicate file entries.",
+  );
+  assertEquals(
+    rawCheckTokens.length,
+    checkTokens.size,
+    "deno task check must not contain duplicate file entries.",
+  );
   assertEquals(
     unitTests.filter((name) => !testTokens.has(name)),
     [],
