@@ -14,6 +14,14 @@ import {
 
 type MeasurementType = "weight" | "blood_pressure" | "blood_glucose";
 
+type CreateOwnerObservation = (
+  appUserId: string,
+  body: Record<string, unknown>,
+  trustedApplicationCode?: string,
+) => Promise<Record<string, unknown>>;
+
+type EnsureOwnerMeasurementAccess = () => Promise<void>;
+
 const supportedMeasurementTypes = new Set<MeasurementType>([
   "weight",
   "blood_pressure",
@@ -32,6 +40,30 @@ export function normalizePregnancyMeasurementType(
     );
   }
   return normalized as MeasurementType;
+}
+
+/// Delegates pregnancy measurement creation to the canonical health-observation
+/// domain while fixing provenance to the trusted CocoonMate application.
+/// Client-provided provenance fields cannot select the trusted application code.
+export async function createPregnancyMeasurementObservation(
+  ensureOwnerAccess: EnsureOwnerMeasurementAccess,
+  createOwnerObservation: CreateOwnerObservation,
+  appUserId: string,
+  body: Record<string, unknown>,
+): Promise<Record<string, unknown>> {
+  // Authorization/active-episode validation must happen before the canonical
+  // health observation write. Link authorization is intentionally repeated
+  // afterwards so an episode/access change between the two steps still fails
+  // closed while an ambiguous transport retry can recover by request id.
+  await ensureOwnerAccess();
+  const measurementType = normalizePregnancyMeasurementType(
+    body.observationType,
+  );
+  return await createOwnerObservation(
+    appUserId,
+    { ...body, observationType: measurementType },
+    "cocoonmate",
+  );
 }
 
 export function createPregnancyMeasurementRouteHandler(databaseUrl: string) {
@@ -181,13 +213,13 @@ export function createPregnancyMeasurementRouteHandler(databaseUrl: string) {
       path === "/api/v1/cocoon/pregnancy/measurements"
     ) {
       const body = await readJsonObject(request);
-      const measurementType = normalizePregnancyMeasurementType(
-        body.observationType,
-      );
-      const created = await observations.createOwnerObservation(
+      const created = await createPregnancyMeasurementObservation(
+        async () => {
+          await context(appUserId, true);
+        },
+        observations.createOwnerObservation,
         appUserId,
-        { ...body, observationType: measurementType },
-        "cocoonmate",
+        body,
       );
       const link = await linkExisting(appUserId, created.id);
       return json({

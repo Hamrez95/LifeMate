@@ -1,5 +1,12 @@
-import { assertEquals, assertThrows } from "jsr:@std/assert@1.0.14";
-import { normalizePregnancyMeasurementType } from "./pregnancy_measurements.ts";
+import {
+  assertEquals,
+  assertRejects,
+  assertThrows,
+} from "jsr:@std/assert@1.0.14";
+import {
+  createPregnancyMeasurementObservation,
+  normalizePregnancyMeasurementType,
+} from "./pregnancy_measurements.ts";
 import { ApiError } from "./validation.ts";
 
 Deno.test("Cocoon pregnancy measurements reuse only approved canonical observation types", () => {
@@ -24,3 +31,70 @@ Deno.test("Cocoon pregnancy measurements reject unsupported observation expansio
     assertEquals(error.code, "pregnancy_measurement_type_invalid");
   }
 });
+
+Deno.test("Cocoon pregnancy measurement creation fixes trusted source provenance", async () => {
+  let capturedUserId = "";
+  let capturedBody: Record<string, unknown> = {};
+  let capturedApplicationCode: string | undefined;
+
+  const created = await createPregnancyMeasurementObservation(
+    async () => {},
+    async (appUserId, body, trustedApplicationCode) => {
+      capturedUserId = appUserId;
+      capturedBody = body;
+      capturedApplicationCode = trustedApplicationCode;
+      return {
+        id: "11111111-1111-4111-8111-111111111111",
+        observationType: body.observationType,
+        sourceApplicationCode: trustedApplicationCode,
+      };
+    },
+    "22222222-2222-4222-8222-222222222222",
+    {
+      observationType: " BLOOD_PRESSURE ",
+      valuePrimary: 120,
+      valueSecondary: 80,
+      sourceApplicationCode: "spoofed-client-app",
+    },
+  );
+
+  assertEquals(capturedUserId, "22222222-2222-4222-8222-222222222222");
+  assertEquals(capturedBody.observationType, "blood_pressure");
+  assertEquals(capturedBody.sourceApplicationCode, "spoofed-client-app");
+  assertEquals(capturedApplicationCode, "cocoonmate");
+  assertEquals(created.sourceApplicationCode, "cocoonmate");
+});
+
+Deno.test(
+  "Cocoon pregnancy measurement authorizes before canonical observation write",
+  async () => {
+    let createCalled = false;
+    const denied = new ApiError(
+      403,
+      "pregnancy_access_denied",
+      "Pregnancy measurement access is not granted.",
+    );
+
+    const error = await assertRejects(
+      () =>
+        createPregnancyMeasurementObservation(
+          async () => {
+            throw denied;
+          },
+          async () => {
+            createCalled = true;
+            return {};
+          },
+          "22222222-2222-4222-8222-222222222222",
+          {
+            observationType: "weight",
+            valuePrimary: 70,
+          },
+        ),
+      ApiError,
+    );
+
+    assertEquals(error.code, "pregnancy_access_denied");
+    assertEquals(createCalled, false);
+  },
+);
