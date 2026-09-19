@@ -36,6 +36,7 @@ Deno.test({
     const otherAccountId = crypto.randomUUID();
     const otherPersonId = crypto.randomUUID();
     const episodeId = crypto.randomUUID();
+    const otherEpisodeId = crypto.randomUUID();
 
     const capture = createPregnancyCaptureRouteHandler(databaseUrl);
     const measurements = createPregnancyMeasurementRouteHandler(databaseUrl);
@@ -554,6 +555,77 @@ Deno.test({
           }),
         409,
         "active_pregnancy_required",
+      );
+
+      await adminSql`
+        insert into pregnancy.episodes(
+          id,mother_person_id,status,activated_at_utc,
+          creation_idempotency_key_hash
+        ) values (
+          ${otherEpisodeId}::uuid,${otherPersonId}::uuid,'active',now(),
+          ${crypto.randomUUID().replaceAll("-", "").repeat(2)}
+        )
+      `;
+
+      const unrelatedMeasurements = await measurements({
+        request: getRequest(
+          "/api/v1/cocoon/pregnancy/measurements",
+          { fromDate: localDate, toDate: localDate },
+        ),
+        path: "/api/v1/cocoon/pregnancy/measurements",
+        appUserId: otherAppUserId,
+      });
+      const unrelatedMeasurementBody = await unrelatedMeasurements!.json() as
+        Record<string, unknown>;
+      assertEquals(unrelatedMeasurementBody.episodeId, otherEpisodeId);
+      assertEquals(
+        (unrelatedMeasurementBody.items as Array<Record<string, unknown>>)
+          .length,
+        0,
+      );
+
+      const unrelatedTreatments = await treatments({
+        request: getRequest(
+          "/api/v1/cocoon/pregnancy/treatments",
+          { fromDate: localDate, toDate: localDate },
+        ),
+        path: "/api/v1/cocoon/pregnancy/treatments",
+        appUserId: otherAppUserId,
+      });
+      const unrelatedTreatmentBody = await unrelatedTreatments!.json() as
+        Record<string, unknown>;
+      assertEquals(unrelatedTreatmentBody.episodeId, otherEpisodeId);
+      assertEquals(
+        (unrelatedTreatmentBody.treatmentPlans as Array<Record<string, unknown>>)
+          .length,
+        0,
+      );
+      assertEquals(
+        (unrelatedTreatmentBody.doseOccurrences as Array<Record<string, unknown>>)
+          .length,
+        0,
+      );
+
+      const unrelatedRecords = await records({
+        request: getRequest(
+          "/api/v1/cocoon/pregnancy/records",
+          {
+            fromDate: localDate,
+            toDate: localDate,
+            categories: "measurements,medications",
+          },
+        ),
+        path: "/api/v1/cocoon/pregnancy/records",
+        appUserId: otherAppUserId,
+      });
+      const unrelatedRecordBody = await unrelatedRecords!.json() as Record<
+        string,
+        unknown
+      >;
+      assertEquals(unrelatedRecordBody.episodeId, otherEpisodeId);
+      assertEquals(
+        (unrelatedRecordBody.items as Array<Record<string, unknown>>).length,
+        0,
       );
 
       const persisted = await adminSql`
