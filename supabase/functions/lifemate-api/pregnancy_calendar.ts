@@ -204,10 +204,15 @@ export function createPregnancyCalendarRouteHandler(databaseUrl: string) {
           "A canonical care event payload is required.",
         );
       }
-      // Create in the shared care-event domain first. Both the outer mutation
-      // coordinator and care-event clientRequestId make retries safe. Linking is
-      // idempotent, so a retry repairs a transient link failure without creating
-      // a second appointment.
+      // Validate the pregnancy-only link metadata before creating shared
+      // domain state. A deterministic request error must never leave an orphan
+      // Care Event behind.
+      const classification = normalizePregnancyCalendarClassification(
+        body.classification,
+      );
+      // Create in the shared care-event domain first. careEvent clientRequestId
+      // keeps retries safe, while linking remains idempotent so a retry can
+      // repair a transient link failure without creating a second appointment.
       const created = await careEvents.createCareEvent(
         appUserId,
         careEventBody as Record<string, unknown>,
@@ -219,7 +224,7 @@ export function createPregnancyCalendarRouteHandler(databaseUrl: string) {
       const link = await linkExisting(
         appUserId,
         seriesId,
-        body.classification,
+        classification,
       );
       return json({
         contractVersion: 1,
