@@ -223,7 +223,7 @@ function boundedLimit(value: string | null): number {
   return parsed;
 }
 
-async function responseBody(
+export async function readPregnancyRecordSourceBody(
   response: Promise<Response | null>,
 ): Promise<Row | null> {
   try {
@@ -446,28 +446,28 @@ export function createPregnancyRecordsRouteHandler(databaseUrl: string) {
       await Promise.all([
         categories.has("check_ins") || categories.has("symptoms") ||
           categories.has("moods")
-          ? responseBody(captures({
+          ? readPregnancyRecordSourceBody(captures({
             request: sourceRequest("/api/v1/cocoon/pregnancy/daily-captures"),
             path: "/api/v1/cocoon/pregnancy/daily-captures",
             appUserId,
           }))
           : Promise.resolve(null),
         categories.has("measurements")
-          ? responseBody(measurements({
+          ? readPregnancyRecordSourceBody(measurements({
             request: sourceRequest("/api/v1/cocoon/pregnancy/measurements"),
             path: "/api/v1/cocoon/pregnancy/measurements",
             appUserId,
           }))
           : Promise.resolve(null),
         categories.has("appointments")
-          ? responseBody(calendar({
+          ? readPregnancyRecordSourceBody(calendar({
             request: sourceRequest("/api/v1/cocoon/pregnancy/calendar"),
             path: "/api/v1/cocoon/pregnancy/calendar",
             appUserId,
           }))
           : Promise.resolve(null),
         categories.has("medications")
-          ? responseBody(treatments({
+          ? readPregnancyRecordSourceBody(treatments({
             request: sourceRequest("/api/v1/cocoon/pregnancy/treatments"),
             path: "/api/v1/cocoon/pregnancy/treatments",
             appUserId,
