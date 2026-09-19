@@ -284,11 +284,34 @@ export function createIdentityResolver(
     }
     const tokenRow = tokenRows[0];
     if (!tokenRow) return null;
+    if (tokenRow.account_status === "DeletionPending") {
+      throw new ApiError(
+        409,
+        "account_deletion_pending",
+        "Account deletion is still being processed.",
+      );
+    }
+    if (
+      tokenRow.account_status === "Deleted" ||
+      tokenRow.app_user_status === "Deleted"
+    ) {
+      throw new ApiError(
+        409,
+        "account_deleted",
+        "The previous LifeMate account has been deleted.",
+      );
+    }
     if (
       tokenRow.account_status !== "Active" ||
-      !tokenRow.app_user_id ||
       tokenRow.app_user_status !== "Active"
     ) {
+      throw new ApiError(
+        409,
+        "account_disabled",
+        "The LifeMate account is not active.",
+      );
+    }
+    if (!tokenRow.app_user_id) {
       throw new ApiError(
         409,
         "identity_account_mapping_missing",
