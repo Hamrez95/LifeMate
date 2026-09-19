@@ -80,7 +80,7 @@ export function createPersonCareEventManagementStore(
       const id = crypto.randomUUID();
       const recurrenceJson = input.recurrence == null
         ? null
-        : JSON.stringify(input.recurrence);
+        : tx.json(input.recurrence);
       const rows = await tx`
         insert into lifemate.care_events
           (id,patient_person_id,created_by_user_id,client_request_id,event_type,title,
@@ -148,7 +148,7 @@ export function createPersonCareEventManagementStore(
       }
       const recurrenceJson = input.recurrence == null
         ? null
-        : JSON.stringify(input.recurrence);
+        : tx.json(input.recurrence);
       const rows = await tx`
         update lifemate.care_events set
           event_type=${input.eventType},title=${input.title},provider_name=${input.providerName},
