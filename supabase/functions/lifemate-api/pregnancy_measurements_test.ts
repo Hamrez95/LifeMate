@@ -1,5 +1,8 @@
 import { assertEquals, assertThrows } from "jsr:@std/assert@1.0.14";
-import { normalizePregnancyMeasurementType } from "./pregnancy_measurements.ts";
+import {
+  normalizePregnancyMeasurementType,
+  pregnancyMeasurementInputSchema,
+} from "./pregnancy_measurements.ts";
 import { ApiError } from "./validation.ts";
 
 Deno.test("Cocoon pregnancy measurements reuse only approved canonical observation types", () => {
@@ -23,4 +26,45 @@ Deno.test("Cocoon pregnancy measurements reject unsupported observation expansio
     assertEquals(error.status, 400);
     assertEquals(error.code, "pregnancy_measurement_type_invalid");
   }
+});
+
+
+Deno.test("Cocoon pregnancy measurement input schema reuses canonical units without clinical thresholds", () => {
+  assertEquals(pregnancyMeasurementInputSchema(), [
+    {
+      observationType: "weight",
+      fields: [
+        {
+          wireField: "valuePrimary",
+          semanticRole: "weight",
+          unit: "kg",
+        },
+      ],
+    },
+    {
+      observationType: "blood_pressure",
+      fields: [
+        {
+          wireField: "valuePrimary",
+          semanticRole: "systolic",
+          unit: "mmHg",
+        },
+        {
+          wireField: "valueSecondary",
+          semanticRole: "diastolic",
+          unit: "mmHg",
+        },
+      ],
+    },
+    {
+      observationType: "blood_glucose",
+      fields: [
+        {
+          wireField: "valuePrimary",
+          semanticRole: "blood_glucose",
+          unit: "mg/dL",
+        },
+      ],
+    },
+  ]);
 });
