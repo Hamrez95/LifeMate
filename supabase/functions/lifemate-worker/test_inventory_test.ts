@@ -41,4 +41,36 @@ Deno.test("all Worker unit tests are type-checked and executed", async () => {
     [],
     "Worker unit tests must be type-checked by deno task check.",
   );
+  assertEquals(
+    checkTokens.has("index.ts"),
+    true,
+    "Worker production entrypoint must stay in deno task check.",
+  );
+
+  const integrationTask = config.tasks?.["test:integration"] ?? "";
+  const rawIntegrationTokens = integrationTask.split(/\s+/).filter(Boolean);
+  const integrationTokens = new Set(rawIntegrationTokens);
+  const integrationTests: string[] = [];
+  for await (const entry of Deno.readDir(".")) {
+    if (entry.isFile && entry.name.endsWith("_integration_test.ts")) {
+      integrationTests.push(entry.name);
+    }
+  }
+  integrationTests.sort();
+
+  assertEquals(
+    rawIntegrationTokens.length,
+    integrationTokens.size,
+    "deno task test:integration must not contain duplicate file entries.",
+  );
+  assertEquals(
+    integrationTests.filter((name) => !integrationTokens.has(name)),
+    [],
+    "Worker integration tests must be executed by deno task test:integration.",
+  );
+  assertEquals(
+    integrationTests.filter((name) => !checkTokens.has(name)),
+    [],
+    "Worker integration tests must be type-checked by deno task check.",
+  );
 });
