@@ -41,6 +41,10 @@ type TokenCandidate = {
 };
 
 type LegacyLookupRow = { app_user_id: string };
+type LegacyBootstrapStateRow = {
+  app_user_status: string;
+  account_status: string | null;
+};
 
 export function readIdentityLookupMode(
   readEnvironment: EnvironmentReader = (name) => Deno.env.get(name),
@@ -134,6 +138,75 @@ export function createIdentityResolver(
     // live token lookup evidence are complete, production advances to
     // token-only and this raw-subject fallback can be retired separately.
     return await requireLegacyIdentity(auth);
+  }
+
+  /**
+   * Checks whether bootstrap may continue without creating a new raw-identity
+   * dependency outside the identity resolver boundary.
+   *
+   * DeletionPending must fail closed so an idempotent bootstrap cannot revive a
+   * deleting account. Once deletion is completed, the canonical token is purged
+   * and the legacy raw subject is replaced by a tombstone value, so the same
+   * provider identity is intentionally treated as a fresh registration.
+   */
+  async function assertBootstrapAllowed(
+    auth: ResolvableAuthUser,
+  ): Promise<void> {
+    if (lookupMode === "legacy") {
+      await assertLegacyBootstrapAllowed(auth.id);
+      return;
+    }
+
+    const keys = identityLinkKeys;
+    if (!keys) {
+      throw new Error("Token-based identity lookup key is unavailable.");
+    }
+
+    const active = await tokenCandidate(keys.active, auth.id);
+    let activeRow: TokenLookupRow | null = null;
+    let previousRow: TokenLookupRow | null = null;
+
+    if (keys.previous) {
+      const previous = await tokenCandidate(keys.previous, auth.id);
+      const candidateRows = await lookupRotationCandidates(
+        sql(),
+        active,
+        previous,
+      );
+      activeRow = requireSingleTokenRow(
+        candidateRows.filter((row) =>
+          Number(row.token_key_version) === active.keyVersion
+        ),
+      );
+      previousRow = requireSingleTokenRow(
+        candidateRows.filter((row) =>
+          Number(row.token_key_version) === previous.keyVersion
+        ),
+      );
+      if (
+        activeRow &&
+        previousRow &&
+        activeRow.account_id !== previousRow.account_id
+      ) {
+        throw new ApiError(
+          409,
+          "identity_token_rotation_conflict",
+          "The LifeMate identity mapping is inconsistent during key rotation.",
+        );
+      }
+    } else {
+      activeRow = requireSingleTokenRow(await lookupToken(sql(), active));
+    }
+
+    const selected = activeRow ?? previousRow;
+    if (!selected) {
+      if (lookupMode === "prefer-token") {
+        await assertLegacyBootstrapAllowed(auth.id);
+      }
+      return;
+    }
+
+    assertBootstrapState(selected.account_status, selected.app_user_status);
   }
 
   async function resolveTokenAppUserId(
@@ -272,7 +345,7 @@ export function createIdentityResolver(
     return rows;
   }
 
-  function requireUsableTokenRow(
+  function requireSingleTokenRow(
     tokenRows: TokenLookupRow[],
   ): TokenLookupRow | null {
     if (tokenRows.length > 1) {
@@ -282,7 +355,13 @@ export function createIdentityResolver(
         "The LifeMate identity mapping is ambiguous.",
       );
     }
-    const tokenRow = tokenRows[0];
+    return tokenRows[0] ?? null;
+  }
+
+  function requireUsableTokenRow(
+    tokenRows: TokenLookupRow[],
+  ): TokenLookupRow | null {
+    const tokenRow = requireSingleTokenRow(tokenRows);
     if (!tokenRow) return null;
     if (
       tokenRow.account_status !== "Active" ||
@@ -296,6 +375,73 @@ export function createIdentityResolver(
       );
     }
     return tokenRow;
+  }
+
+  function assertBootstrapState(
+    accountStatus: string | null,
+    appUserStatus: string | null,
+  ): void {
+    if (accountStatus === "DeletionPending") {
+      throw new ApiError(
+        409,
+        "account_deletion_pending",
+        "Account deletion is still being processed.",
+      );
+    }
+
+    if (accountStatus === "Deleted" || appUserStatus === "Deleted") {
+      throw new ApiError(
+        409,
+        "account_deleted",
+        "The previous LifeMate account has been deleted.",
+      );
+    }
+
+    if (
+      appUserStatus !== "Active" ||
+      (accountStatus != null && accountStatus !== "Active")
+    ) {
+      throw new ApiError(
+        409,
+        "account_disabled",
+        "The LifeMate account is not active.",
+      );
+    }
+  }
+
+  async function assertLegacyBootstrapAllowed(
+    authSubject: string,
+  ): Promise<void> {
+    const rows = await sql()<LegacyBootstrapStateRow[]>`
+      select
+        u.status as app_user_status,
+        a.status as account_status
+      from lifemate.app_users u
+      left join lateral (
+        select candidate.status
+        from identity.accounts candidate
+        where candidate.legacy_app_user_id=u.id
+           or (candidate.legacy_app_user_id is null and candidate.id=u.id)
+        order by case when candidate.legacy_app_user_id=u.id then 0 else 1 end,
+                 candidate.updated_at_utc desc,
+                 candidate.id
+        limit 1
+      ) a on true
+      where u.auth_subject=${authSubject}
+      limit 2
+    `;
+
+    if (rows.length > 1) {
+      throw new ApiError(
+        409,
+        "bootstrap_identity_ambiguous",
+        "The LifeMate identity mapping is inconsistent.",
+      );
+    }
+
+    const row = rows[0];
+    if (!row) return;
+    assertBootstrapState(row.account_status, row.app_user_status);
   }
 
   async function upsertActiveToken(
@@ -345,5 +491,5 @@ export function createIdentityResolver(
     return { auth, appUserId: rows[0].app_user_id };
   }
 
-  return { lookupMode, requireIdentity };
+  return { lookupMode, requireIdentity, assertBootstrapAllowed };
 }
