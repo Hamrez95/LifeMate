@@ -177,7 +177,7 @@ Deno.test({
         ApiError,
       );
       assertEquals(broken.status, 409);
-      assertEquals(broken.code, "identity_account_mapping_missing");
+      assertEquals(broken.code, "account_disabled");
       const finalAudits = await admin`
         select count(*)::int as count
         from lifemate.audit_logs
