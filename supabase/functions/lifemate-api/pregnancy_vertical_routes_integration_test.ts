@@ -7,7 +7,9 @@ import { closeLifeMateSqlClientsForTest } from "./database_client.ts";
 import { createPregnancyCaptureRouteHandler } from "./pregnancy_capture.ts";
 import { createPregnancyMeasurementRouteHandler } from "./pregnancy_measurements.ts";
 import { createPregnancyRecordsRouteHandler } from "./pregnancy_records.ts";
-import { createPregnancyTreatmentRouteHandler } from "./pregnancy_treatments.ts";\nimport { createPersonMedicationStore } from "./person_medications.ts";\nimport { createPersonTreatmentPlanStore } from "./person_treatment_plans.ts";
+import { createPregnancyTreatmentRouteHandler } from "./pregnancy_treatments.ts";
+import { createPersonMedicationStore } from "./person_medications.ts";
+import { createPersonTreatmentPlanStore } from "./person_treatment_plans.ts";
 import { ApiError } from "./validation.ts";
 
 const databaseUrl = Deno.env.get("TEST_DATABASE_URL");
@@ -41,7 +43,9 @@ Deno.test({
     const capture = createPregnancyCaptureRouteHandler(databaseUrl);
     const measurements = createPregnancyMeasurementRouteHandler(databaseUrl);
     const treatments = createPregnancyTreatmentRouteHandler(databaseUrl);
-    const records = createPregnancyRecordsRouteHandler(databaseUrl);\n    const medications = createPersonMedicationStore(databaseUrl);\n    const treatmentPlans = createPersonTreatmentPlanStore(databaseUrl);
+    const records = createPregnancyRecordsRouteHandler(databaseUrl);
+    const medications = createPersonMedicationStore(databaseUrl);
+    const treatmentPlans = createPersonTreatmentPlanStore(databaseUrl);
 
     const observedAtUtc = new Date(Date.now() - 60_000).toISOString();
     const localDate = observedAtUtc.slice(0, 10);
@@ -50,7 +54,9 @@ Deno.test({
     const moodRequestId = crypto.randomUUID();
     const measurementRequestId = crypto.randomUUID();
 
-    let observationId: string | null = null;\n    let medicationId: string | null = null;\n    let treatmentPlanId: string | null = null;
+    let observationId: string | null = null;
+    let medicationId: string | null = null;
+    let treatmentPlanId: string | null = null;
 
     try {
       await seedIdentity(
