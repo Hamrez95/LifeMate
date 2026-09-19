@@ -575,8 +575,8 @@ Deno.test({
         path: "/api/v1/cocoon/pregnancy/measurements",
         appUserId: otherAppUserId,
       });
-      const unrelatedMeasurementBody = await unrelatedMeasurements!.json() as
-        Record<string, unknown>;
+      const unrelatedMeasurementBody = await unrelatedMeasurements!
+        .json() as Record<string, unknown>;
       assertEquals(unrelatedMeasurementBody.episodeId, otherEpisodeId);
       assertEquals(
         (unrelatedMeasurementBody.items as Array<Record<string, unknown>>)
@@ -592,8 +592,8 @@ Deno.test({
         path: "/api/v1/cocoon/pregnancy/treatments",
         appUserId: otherAppUserId,
       });
-      const unrelatedTreatmentBody = await unrelatedTreatments!.json() as
-        Record<string, unknown>;
+      const unrelatedTreatmentBody = await unrelatedTreatments!
+        .json() as Record<string, unknown>;
       assertEquals(unrelatedTreatmentBody.episodeId, otherEpisodeId);
       assertEquals(
         (unrelatedTreatmentBody.treatmentPlans as Array<
