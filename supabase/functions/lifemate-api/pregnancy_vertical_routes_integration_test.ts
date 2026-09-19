@@ -596,12 +596,16 @@ Deno.test({
         Record<string, unknown>;
       assertEquals(unrelatedTreatmentBody.episodeId, otherEpisodeId);
       assertEquals(
-        (unrelatedTreatmentBody.treatmentPlans as Array<Record<string, unknown>>)
+        (unrelatedTreatmentBody.treatmentPlans as Array<
+          Record<string, unknown>
+        >)
           .length,
         0,
       );
       assertEquals(
-        (unrelatedTreatmentBody.doseOccurrences as Array<Record<string, unknown>>)
+        (unrelatedTreatmentBody.doseOccurrences as Array<
+          Record<string, unknown>
+        >)
           .length,
         0,
       );
