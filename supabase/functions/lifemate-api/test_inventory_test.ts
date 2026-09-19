@@ -7,17 +7,26 @@ Deno.test("all LifeMate API unit tests are type-checked and executed by canonica
   const testTask = config.tasks?.test ?? "";
   const checkTask = config.tasks?.check ?? "";
   const unitTests: string[] = [];
+  const integrationTests: string[] = [];
 
   for await (const entry of Deno.readDir(".")) {
-    if (
-      entry.isFile &&
-      entry.name.endsWith("_test.ts") &&
-      !entry.name.endsWith("_integration_test.ts")
-    ) {
+    if (!entry.isFile || !entry.name.endsWith("_test.ts")) continue;
+    if (entry.name.endsWith("_integration_test.ts")) {
+      integrationTests.push(entry.name);
+    } else {
       unitTests.push(entry.name);
     }
   }
   unitTests.sort();
+  integrationTests.sort();
+
+  const executableIntegrationTokens = new Set<string>();
+  for (const command of Object.values(config.tasks ?? {})) {
+    if (!command.includes("deno test")) continue;
+    for (const token of command.split(/\s+/).filter(Boolean)) {
+      executableIntegrationTokens.add(token);
+    }
+  }
 
   const rawTestTokens = testTask.split(/\s+/).filter(Boolean);
   const rawCheckTokens = checkTask.split(/\s+/).filter(Boolean);
@@ -43,5 +52,15 @@ Deno.test("all LifeMate API unit tests are type-checked and executed by canonica
     unitTests.filter((name) => !checkTokens.has(name)),
     [],
     "LifeMate API unit tests must be type-checked by deno task check.",
+  );
+  assertEquals(
+    integrationTests.filter((name) => !executableIntegrationTokens.has(name)),
+    [],
+    "LifeMate API integration tests must be executed by at least one canonical deno test task.",
+  );
+  assertEquals(
+    integrationTests.filter((name) => !checkTokens.has(name)),
+    [],
+    "LifeMate API integration tests must be type-checked by deno task check.",
   );
 });
