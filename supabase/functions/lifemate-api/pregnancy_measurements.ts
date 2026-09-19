@@ -20,6 +20,8 @@ type CreateOwnerObservation = (
   trustedApplicationCode?: string,
 ) => Promise<Record<string, unknown>>;
 
+type EnsureOwnerMeasurementAccess = () => Promise<void>;
+
 const supportedMeasurementTypes = new Set<MeasurementType>([
   "weight",
   "blood_pressure",
@@ -44,10 +46,16 @@ export function normalizePregnancyMeasurementType(
 /// domain while fixing provenance to the trusted CocoonMate application.
 /// Client-provided provenance fields cannot select the trusted application code.
 export async function createPregnancyMeasurementObservation(
+  ensureOwnerAccess: EnsureOwnerMeasurementAccess,
   createOwnerObservation: CreateOwnerObservation,
   appUserId: string,
   body: Record<string, unknown>,
 ): Promise<Record<string, unknown>> {
+  // Authorization/active-episode validation must happen before the canonical
+  // health observation write. Link authorization is intentionally repeated
+  // afterwards so an episode/access change between the two steps still fails
+  // closed while an ambiguous transport retry can recover by request id.
+  await ensureOwnerAccess();
   const measurementType = normalizePregnancyMeasurementType(
     body.observationType,
   );
@@ -206,6 +214,9 @@ export function createPregnancyMeasurementRouteHandler(databaseUrl: string) {
     ) {
       const body = await readJsonObject(request);
       const created = await createPregnancyMeasurementObservation(
+        async () => {
+          await context(appUserId, true);
+        },
         observations.createOwnerObservation,
         appUserId,
         body,
