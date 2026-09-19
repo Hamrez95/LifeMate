@@ -269,8 +269,8 @@ Deno.test({
       >;
       assertEquals(sharedSummary.mood, "good");
       assertEquals(sharedSummary.energyLevel, 4);
-      assertEquals(sharedSummary.painLevel, 1);
-      assertEquals(sharedSummary.symptoms, ["fatigue"]);
+      assertEquals("painLevel" in sharedSummary, false);
+      assertEquals("symptoms" in sharedSummary, false);
       assertEquals("privateNotes" in sharedSummary, false);
       assertEquals("shareSummaryWithCompanion" in sharedSummary, false);
 
@@ -400,9 +400,9 @@ async function cleanupWomenCalendarRun(
          or caregiver_user_id in ${tx(userIds)}
          or revoked_by_user_id in ${tx(userIds)}
     `;
-    const relationshipIds = relationshipRows.map((row: Record<string, unknown>) =>
-      String(row.id)
-    );
+    const relationshipIds = relationshipRows.map((
+      row: Record<string, unknown>,
+    ) => String(row.id));
     if (relationshipIds.length > 0) {
       await tx`
         delete from lifemate.women_companion_privacy_scopes
