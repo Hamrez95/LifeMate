@@ -278,7 +278,8 @@ Deno.test({
         patient.appUserId,
       );
       assertEquals(
-        (legacyFlagOffSummary.episodes as Array<Record<string, unknown>>).length,
+        (legacyFlagOffSummary.episodes as Array<Record<string, unknown>>)
+          .length,
         1,
       );
       await fixtureSql`
