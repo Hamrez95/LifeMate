@@ -74,6 +74,32 @@ const metricDefinitions: Record<string, MetricDefinition> = {
   note: { unitPrimary: null },
 };
 
+export type HealthObservationMetricSchema = {
+  unitPrimary: string | null;
+  unitSecondary: string | null;
+  hasSecondaryValue: boolean;
+};
+
+export function healthObservationMetricSchema(
+  observationType: string,
+): HealthObservationMetricSchema {
+  const normalized = observationType.trim().toLowerCase();
+  const definition = metricDefinitions[normalized];
+  if (!definition || normalized === "note") {
+    throw new ApiError(
+      400,
+      "invalid_observationType",
+      "Unsupported health observation type.",
+    );
+  }
+  return {
+    unitPrimary: definition.unitPrimary,
+    unitSecondary: definition.unitSecondary ?? null,
+    hasSecondaryValue: definition.secondary != null,
+  };
+}
+
+
 export function normalizeHealthObservationInput(
   body: Record<string, unknown>,
   now = new Date(),
