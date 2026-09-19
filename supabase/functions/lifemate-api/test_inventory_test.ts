@@ -28,6 +28,15 @@ Deno.test("all LifeMate API unit tests are type-checked and executed by canonica
     }
   }
 
+  const workflowOwnedIntegrationTests = new Set([
+    "database_only_breach_proof_integration_test.ts",
+    "runtime_onboarding_control_integration_test.ts",
+    "treatment_dose_owner_retirement_integration_test.ts",
+    "women_calendar_episode_daily_owner_retirement_integration_test.ts",
+    "women_calendar_profile_owner_retirement_integration_test.ts",
+    "women_calendar_profile_person_primary_integration_test.ts",
+  ]);
+
   const rawTestTokens = testTask.split(/\s+/).filter(Boolean);
   const rawCheckTokens = checkTask.split(/\s+/).filter(Boolean);
   const testTokens = new Set(rawTestTokens);
@@ -54,9 +63,12 @@ Deno.test("all LifeMate API unit tests are type-checked and executed by canonica
     "LifeMate API unit tests must be type-checked by deno task check.",
   );
   assertEquals(
-    integrationTests.filter((name) => !executableIntegrationTokens.has(name)),
+    integrationTests.filter((name) =>
+      !executableIntegrationTokens.has(name) &&
+      !workflowOwnedIntegrationTests.has(name)
+    ),
     [],
-    "LifeMate API integration tests must be executed by at least one canonical deno test task.",
+    "LifeMate API integration tests must be executed by a canonical deno test task or explicitly owned by a dedicated workflow.",
   );
   assertEquals(
     integrationTests.filter((name) => !checkTokens.has(name)),
