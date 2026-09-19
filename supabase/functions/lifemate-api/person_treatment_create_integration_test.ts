@@ -148,6 +148,10 @@ Deno.test({
       assertEquals(persisted[0].recurrence_rule.unit, "hour");
       assertEquals(Number(persisted[0].recurrence_rule.interval), 8);
       assertEquals(
+        "maxOccurrences" in persisted[0].recurrence_rule,
+        false,
+      );
+      assertEquals(
         String(persisted[0].recurrence_start_local_time).slice(0, 5),
         "09:15",
       );
