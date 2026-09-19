@@ -124,6 +124,26 @@ function captureRow(row: Row) {
   };
 }
 
+function sameCaptureReplayContext(
+  row: Row,
+  context: CaptureContext,
+  observed: { observedAt: Date; timeZone: string; localDate: string },
+): boolean {
+  return String(row.episode_id) === context.episodeId &&
+    new Date(row.observed_at_utc).toISOString() ===
+      observed.observedAt.toISOString() &&
+    String(row.local_date).slice(0, 10) === observed.localDate &&
+    String(row.time_zone) === observed.timeZone;
+}
+
+function normalizedStoredNote(value: unknown): string | null {
+  return value == null ? null : String(value);
+}
+
+function idempotencyReuse(message: string): never {
+  throw new ApiError(409, "idempotency_key_reused", message);
+}
+
 export function createPregnancyCaptureRouteHandler(databaseUrl: string) {
   const sql = getLifeMateSql(databaseUrl);
   const identity = createCocoonIdentityResolver(databaseUrl);
@@ -167,7 +187,18 @@ export function createPregnancyCaptureRouteHandler(databaseUrl: string) {
           and client_request_id=${requestId}::uuid
         limit 1
       `;
-      if (prior[0]) return captureRow(prior[0]);
+      if (prior[0]) {
+        if (
+          !sameCaptureReplayContext(prior[0], context, observed) ||
+          String(prior[0].feeling) !== feeling ||
+          String(prior[0].energy) !== energy
+        ) {
+          idempotencyReuse(
+            "clientRequestId was already used for a different daily check-in.",
+          );
+        }
+        return captureRow(prior[0]);
+      }
 
       const existing = await tx`
         select id from pregnancy.daily_check_ins
@@ -218,12 +249,12 @@ export function createPregnancyCaptureRouteHandler(databaseUrl: string) {
       `;
       if (prior[0]) {
         if (
+          !sameCaptureReplayContext(prior[0], context, observed) ||
           String(prior[0].symptom_code) !== symptomCode ||
-          String(prior[0].intensity) !== intensity
+          String(prior[0].intensity) !== intensity ||
+          normalizedStoredNote(prior[0].note) !== note
         ) {
-          throw new ApiError(
-            409,
-            "idempotency_key_reused",
+          idempotencyReuse(
             "clientRequestId was already used for a different symptom report.",
           );
         }
@@ -259,10 +290,11 @@ export function createPregnancyCaptureRouteHandler(databaseUrl: string) {
         limit 1
       `;
       if (prior[0]) {
-        if (String(prior[0].mood_code) !== moodCode) {
-          throw new ApiError(
-            409,
-            "idempotency_key_reused",
+        if (
+          !sameCaptureReplayContext(prior[0], context, observed) ||
+          String(prior[0].mood_code) !== moodCode
+        ) {
+          idempotencyReuse(
             "clientRequestId was already used for a different mood entry.",
           );
         }
