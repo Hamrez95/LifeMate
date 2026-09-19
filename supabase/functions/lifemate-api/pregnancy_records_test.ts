@@ -1,10 +1,12 @@
-import { assertEquals } from "jsr:@std/assert@1.0.14";
+import { assertEquals, assertRejects } from "jsr:@std/assert@1.0.14";
 import {
   decodePregnancyRecordsCursor,
   encodePregnancyRecordsCursor,
   paginatePregnancyRecords,
+  readPregnancyRecordSourceBody,
   type PregnancyRecordItem,
 } from "./pregnancy_records.ts";
+import { ApiError } from "./validation.ts";
 
 function record(id: string, occurredAtUtc: string): PregnancyRecordItem {
   return {
@@ -82,4 +84,34 @@ Deno.test("pregnancy records empty input returns a truthful empty page", () => {
     items: [],
     nextCursor: null,
   });
+});
+
+
+Deno.test("pregnancy records suppress unauthorized source metadata", async () => {
+  const body = await readPregnancyRecordSourceBody(
+    Promise.reject(
+      new ApiError(
+        403,
+        "pregnancy_access_denied",
+        "Pregnancy source access is not granted.",
+      ),
+    ),
+  );
+  assertEquals(body, null);
+});
+
+Deno.test("pregnancy records do not hide non-authorization source failures", async () => {
+  await assertRejects(
+    () =>
+      readPregnancyRecordSourceBody(
+        Promise.reject(
+          new ApiError(
+            404,
+            "health_observation_not_found",
+            "Health observation was not found.",
+          ),
+        ),
+      ),
+    ApiError,
+  );
 });
