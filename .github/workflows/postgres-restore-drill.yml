@@ -118,7 +118,10 @@ jobs:
             'lifemate_edge_runtime',
             'lifemate_worker_runtime',
             'lifemate_admin_runtime',
-            'lifemate_backup_reader'
+            'lifemate_backup_reader',
+            'anon',
+            'authenticated',
+            'service_role'
           )
           order by rolname;
           SQL
