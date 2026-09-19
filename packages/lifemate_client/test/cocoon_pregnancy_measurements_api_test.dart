@@ -32,6 +32,80 @@ void main() {
     'version': 1,
   };
 
+  test('loads canonical measurement field schema without mutation headers', () async {
+    late http.Request captured;
+    final api = CocoonPregnancyMeasurementsApiClient(
+      baseUri: Uri.parse('https://example.test'),
+      accessToken: () => 'token',
+      httpClient: MockClient((request) async {
+        captured = request;
+        return http.Response(
+          jsonEncode({
+            'contractVersion': 1,
+            'measurementTypes': [
+              {
+                'observationType': 'weight',
+                'fields': [
+                  {
+                    'valueKey': 'valuePrimary',
+                    'semantic': 'weight',
+                    'unit': 'kg',
+                  },
+                ],
+              },
+              {
+                'observationType': 'blood_pressure',
+                'fields': [
+                  {
+                    'valueKey': 'valuePrimary',
+                    'semantic': 'systolic',
+                    'unit': 'mmHg',
+                  },
+                  {
+                    'valueKey': 'valueSecondary',
+                    'semantic': 'diastolic',
+                    'unit': 'mmHg',
+                  },
+                ],
+              },
+              {
+                'observationType': 'blood_glucose',
+                'fields': [
+                  {
+                    'valueKey': 'valuePrimary',
+                    'semantic': 'blood_glucose',
+                    'unit': 'mg/dL',
+                  },
+                ],
+              },
+            ],
+          }),
+          200,
+        );
+      }),
+    );
+
+    final result = await api.schema();
+
+    expect(captured.method, 'GET');
+    expect(
+      captured.url.path,
+      '/api/v1/cocoon/pregnancy/measurements/schema',
+    );
+    expect(captured.headers.containsKey('Idempotency-Key'), isFalse);
+    expect(result.contractVersion, 1);
+    expect(result.measurementTypes, hasLength(3));
+    final pressure = result.measurementTypes.singleWhere(
+      (item) => item.type == CocoonPregnancyMeasurementType.bloodPressure,
+    );
+    expect(
+      pressure.fields.map((field) => field.semantic),
+      ['systolic', 'diastolic'],
+    );
+    expect(pressure.fields.map((field) => field.unit), ['mmHg', 'mmHg']);
+    api.close();
+  });
+
   test('lists only the canonical pregnancy measurement projection', () async {
     late http.Request captured;
     final api = CocoonPregnancyMeasurementsApiClient(
