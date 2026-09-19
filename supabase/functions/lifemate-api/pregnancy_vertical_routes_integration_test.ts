@@ -129,6 +129,31 @@ Deno.test({
         "daily_check_in_exists",
       );
 
+      await assertApiError(
+        () =>
+          capture({
+            request: postRequest("/api/v1/cocoon/pregnancy/symptoms", {
+              clientRequestId: crypto.randomUUID(),
+              observedAtUtc,
+              localDate,
+              timeZone: "UTC",
+              symptomCode: "free text symptom must be rejected",
+              intensity: "mild",
+              note: "must never persist",
+            }),
+            path: "/api/v1/cocoon/pregnancy/symptoms",
+            appUserId,
+          }),
+        400,
+        "invalid_symptomCode",
+      );
+      const symptomsAfterInvalid = await adminSql`
+        select count(*)::int as count
+        from pregnancy.symptom_reports
+        where mother_person_id=${personId}::uuid
+      `;
+      assertEquals(Number(symptomsAfterInvalid[0].count), 0);
+
       const symptom = await capture({
         request: postRequest("/api/v1/cocoon/pregnancy/symptoms", {
           clientRequestId: symptomRequestId,
@@ -144,6 +169,31 @@ Deno.test({
       });
       assertEquals(symptom?.status, 201);
 
+      await assertApiError(
+        () =>
+          capture({
+            request: postRequest("/api/v1/cocoon/pregnancy/symptoms", {
+              clientRequestId: symptomRequestId,
+              observedAtUtc,
+              localDate,
+              timeZone: "UTC",
+              symptomCode: "nausea.morning",
+              intensity: "strong",
+              note: "changed retry must conflict",
+            }),
+            path: "/api/v1/cocoon/pregnancy/symptoms",
+            appUserId,
+          }),
+        409,
+        "idempotency_key_reused",
+      );
+      const symptomsAfterConflict = await adminSql`
+        select count(*)::int as count
+        from pregnancy.symptom_reports
+        where mother_person_id=${personId}::uuid
+      `;
+      assertEquals(Number(symptomsAfterConflict[0].count), 1);
+
       const mood = await capture({
         request: postRequest("/api/v1/cocoon/pregnancy/moods", {
           clientRequestId: moodRequestId,
@@ -156,6 +206,30 @@ Deno.test({
         appUserId,
       });
       assertEquals(mood?.status, 201);
+
+      await assertApiError(
+        () =>
+          measurements({
+            request: postRequest("/api/v1/cocoon/pregnancy/measurements", {
+              clientRequestId: crypto.randomUUID(),
+              observationType: "heart_rate",
+              valuePrimary: 80,
+              observedAtUtc,
+              observedLocalDate: localDate,
+              timeZone: "UTC",
+            }),
+            path: "/api/v1/cocoon/pregnancy/measurements",
+            appUserId,
+          }),
+        400,
+        "pregnancy_measurement_type_invalid",
+      );
+      const observationsAfterInvalid = await adminSql`
+        select count(*)::int as count
+        from lifemate.health_observations
+        where person_id=${personId}::uuid
+      `;
+      assertEquals(Number(observationsAfterInvalid[0].count), 0);
 
       const measurement = await measurements({
         request: postRequest("/api/v1/cocoon/pregnancy/measurements", {
