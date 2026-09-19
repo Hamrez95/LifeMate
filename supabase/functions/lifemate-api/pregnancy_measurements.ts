@@ -318,7 +318,9 @@ export function createPregnancyMeasurementRouteHandler(databaseUrl: string) {
           body,
         );
         if (!owner) {
-          throw new Error("Pregnancy measurement owner context was not resolved.");
+          throw new Error(
+            "Pregnancy measurement owner context was not resolved.",
+          );
         }
         const link = await linkExistingInTransaction(
           tx,
