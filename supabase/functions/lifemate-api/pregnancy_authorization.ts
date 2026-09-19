@@ -25,13 +25,16 @@ export function isOwnerOnlyPregnancyScope(scope: PregnancyScope): boolean {
 export function createPregnancyAuthorization(databaseUrl: string) {
   const sql = getLifeMateSql(databaseUrl);
 
-  async function hasAccess(args: {
-    callerAccountId: string;
-    subjectPersonId: string;
-    episodeId: string | null;
-    scope: PregnancyScope;
-  }): Promise<boolean> {
-    const rows = await sql`
+  async function hasAccessWithConnection(
+    connection: any,
+    args: {
+      callerAccountId: string;
+      subjectPersonId: string;
+      episodeId: string | null;
+      scope: PregnancyScope;
+    },
+  ): Promise<boolean> {
+    const rows = await connection`
       select security.can_access_pregnancy_scope(
         ${args.callerAccountId}::uuid,
         ${args.subjectPersonId}::uuid,
@@ -43,13 +46,25 @@ export function createPregnancyAuthorization(databaseUrl: string) {
     return rows[0]?.allowed === true;
   }
 
-  async function requireAccess(args: {
+  async function hasAccess(args: {
     callerAccountId: string;
     subjectPersonId: string;
     episodeId: string | null;
     scope: PregnancyScope;
-  }): Promise<void> {
-    if (!(await hasAccess(args))) {
+  }): Promise<boolean> {
+    return await hasAccessWithConnection(sql, args);
+  }
+
+  async function requireAccessWithConnection(
+    connection: any,
+    args: {
+      callerAccountId: string;
+      subjectPersonId: string;
+      episodeId: string | null;
+      scope: PregnancyScope;
+    },
+  ): Promise<void> {
+    if (!(await hasAccessWithConnection(connection, args))) {
       throw new ApiError(
         403,
         "pregnancy_access_denied",
@@ -58,5 +73,19 @@ export function createPregnancyAuthorization(databaseUrl: string) {
     }
   }
 
-  return { hasAccess, requireAccess };
+  async function requireAccess(args: {
+    callerAccountId: string;
+    subjectPersonId: string;
+    episodeId: string | null;
+    scope: PregnancyScope;
+  }): Promise<void> {
+    await requireAccessWithConnection(sql, args);
+  }
+
+  return {
+    hasAccess,
+    hasAccessWithConnection,
+    requireAccess,
+    requireAccessWithConnection,
+  };
 }
