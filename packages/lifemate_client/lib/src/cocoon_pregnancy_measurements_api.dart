@@ -34,6 +34,19 @@ enum CocoonPregnancyMeasurementSemanticRole {
   final String wireValue;
 }
 
+T _enumByWire<T>(
+  Iterable<T> values,
+  Object? wireValue,
+  String Function(T value) wireOf,
+  String label,
+) {
+  final normalized = wireValue?.toString().trim() ?? '';
+  for (final value in values) {
+    if (wireOf(value) == normalized) return value;
+  }
+  throw FormatException('Unknown $label: $normalized');
+}
+
 class CocoonPregnancyMeasurementFieldSchema {
   const CocoonPregnancyMeasurementFieldSchema({
     required this.wireField,
@@ -366,19 +379,6 @@ class CocoonPregnancyMeasurementsApiClient {
       throw const FormatException('LifeMate API returned a non-object payload.');
     }
     return decoded;
-  }
-
-  static T _enumByWire<T>(
-    Iterable<T> values,
-    Object? wireValue,
-    String Function(T value) wireOf,
-    String label,
-  ) {
-    final normalized = wireValue?.toString().trim() ?? '';
-    for (final value in values) {
-      if (wireOf(value) == normalized) return value;
-    }
-    throw FormatException('Unknown $label: $normalized');
   }
 
   static String _required(String value, String name) {
