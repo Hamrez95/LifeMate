@@ -44,6 +44,7 @@ Deno.test({
     const route = createPregnancyCalendarRouteHandler(databaseUrl);
     const careEvents = createCareEventStore(databaseUrl);
     let ownerEventId: string | null = null;
+    let repairEventId: string | null = null;
     let otherEventId: string | null = null;
     let conflictEventId: string | null = null;
 
@@ -188,6 +189,68 @@ Deno.test({
       assertEquals(links[0].classification, "prenatal");
       assertEquals(links[0].linked_by_account_id, ownerAccountId);
 
+      // Model a transient failure after the canonical Care Event committed but
+      // before the pregnancy link committed. Retrying the same logical request
+      // must reuse that event and repair only the missing link.
+      const repairRequestId = crypto.randomUUID();
+      const repairDate = new Date(
+        Date.parse(`${targetDate}T00:00:00Z`) + 24 * 60 * 60 * 1000,
+      ).toISOString().slice(0, 10);
+      const repairCareEvent = {
+        clientRequestId: repairRequestId,
+        eventType: "injection",
+        title: "Transient pregnancy link repair fixture",
+        medicationName: "Synthetic injection",
+        doseText: "fixture dose",
+        scheduledLocalDate: repairDate,
+        scheduledLocalTime: "10:30",
+        timeZone: "Asia/Tehran",
+        patientReminderMinutesBefore: 15,
+        caregiverReminderMinutesBefore: 45,
+      };
+      const precreatedRepairEvent = await careEvents.createCareEvent(
+        ownerAppUserId,
+        repairCareEvent,
+      );
+      repairEventId = String(
+        precreatedRepairEvent.seriesId ?? precreatedRepairEvent.id,
+      );
+      const beforeRepairLinks = await sql`
+        select count(*)::int as count
+        from pregnancy.care_event_links
+        where care_event_id=${repairEventId}::uuid
+      `;
+      assertEquals(Number(beforeRepairLinks[0].count), 0);
+
+      const repaired = await route({
+        request: postRequest(
+          "/api/v1/cocoon/pregnancy/calendar/events",
+          { classification: "other", careEvent: repairCareEvent },
+        ),
+        path: "/api/v1/cocoon/pregnancy/calendar/events",
+        appUserId: ownerAppUserId,
+      });
+      assertEquals(repaired?.status, 201);
+      const repairedBody = await repaired!.json() as Record<string, unknown>;
+      const repairedEvent = repairedBody.careEvent as Record<string, unknown>;
+      assertEquals(
+        String(repairedEvent.seriesId ?? repairedEvent.id),
+        repairEventId,
+      );
+      const repairedState = await sql`
+        select
+          (select count(*)::int
+           from lifemate.care_events
+           where patient_person_id=${ownerPersonId}::uuid
+             and client_request_id=${repairRequestId}::uuid) as event_count,
+          (select count(*)::int
+           from pregnancy.care_event_links
+           where care_event_id=${repairEventId}::uuid
+             and episode_id=${ownerEpisodeId}::uuid) as link_count
+      `;
+      assertEquals(Number(repairedState[0].event_count), 1);
+      assertEquals(Number(repairedState[0].link_count), 1);
+
       await assertApiError(
         () =>
           route({
@@ -207,8 +270,10 @@ Deno.test({
 
       const conflictCreated = await careEvents.createCareEvent(ownerAppUserId, {
         clientRequestId: crypto.randomUUID(),
-        eventType: "appointment",
-        title: "Already linked pregnancy appointment",
+        eventType: "injection",
+        title: "Already linked pregnancy injection",
+        medicationName: "Synthetic injection",
+        doseText: "fixture dose",
         providerName: "Synthetic clinician",
         specialty: "integration",
         reason: "Already-linked conflict fixture",
@@ -332,7 +397,12 @@ Deno.test({
         )
       `.catch(() => undefined);
       for (
-        const eventId of [ownerEventId, otherEventId, conflictEventId]
+        const eventId of [
+          ownerEventId,
+          repairEventId,
+          otherEventId,
+          conflictEventId,
+        ]
       ) {
         if (!eventId) continue;
         await sql`
