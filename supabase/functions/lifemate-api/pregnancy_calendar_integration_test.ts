@@ -36,11 +36,16 @@ Deno.test({
     const otherAccountId = crypto.randomUUID();
     const otherPersonId = crypto.randomUUID();
     const ownerEpisodeId = crypto.randomUUID();
+    const endedEpisodeId = crypto.randomUUID();
     const targetDate = futureLocalDate();
+    const outOfRangeDate = new Date(
+      Date.parse(`${targetDate}T00:00:00Z`) + 32 * 24 * 60 * 60 * 1000,
+    ).toISOString().slice(0, 10);
     const route = createPregnancyCalendarRouteHandler(databaseUrl);
     const careEvents = createCareEventStore(databaseUrl);
     let ownerEventId: string | null = null;
     let otherEventId: string | null = null;
+    let conflictEventId: string | null = null;
 
     try {
       await seedIdentity(
@@ -82,6 +87,48 @@ Deno.test({
           caregiverReminderMinutesBefore: 45,
         },
       };
+
+      const invalidClassificationRequestId = crypto.randomUUID();
+      await assertApiError(
+        () =>
+          route({
+            request: postRequest(
+              "/api/v1/cocoon/pregnancy/calendar/events",
+              {
+                classification: "not_a_calendar_classification",
+                careEvent: {
+                  ...body.careEvent,
+                  clientRequestId: invalidClassificationRequestId,
+                },
+              },
+            ),
+            path: "/api/v1/cocoon/pregnancy/calendar/events",
+            appUserId: ownerAppUserId,
+          }),
+        400,
+        "pregnancy_calendar_classification_invalid",
+      );
+      const invalidMutationRows = await sql`
+        select count(*)::int as count
+        from lifemate.care_events
+        where patient_person_id=${ownerPersonId}::uuid
+          and client_request_id=${invalidClassificationRequestId}::uuid
+      `;
+      assertEquals(Number(invalidMutationRows[0].count), 0);
+
+      await assertApiError(
+        () =>
+          route({
+            request: getRequest(
+              "/api/v1/cocoon/pregnancy/calendar",
+              { fromDate: targetDate, toDate: outOfRangeDate },
+            ),
+            path: "/api/v1/cocoon/pregnancy/calendar",
+            appUserId: ownerAppUserId,
+          }),
+        400,
+        "invalid_date_range",
+      );
 
       const first = await route({
         request: postRequest(
@@ -140,6 +187,80 @@ Deno.test({
       assertEquals(links[0].episode_id, ownerEpisodeId);
       assertEquals(links[0].classification, "prenatal");
       assertEquals(links[0].linked_by_account_id, ownerAccountId);
+
+      await assertApiError(
+        () =>
+          route({
+            request: postRequest(
+              "/api/v1/cocoon/pregnancy/calendar/links",
+              {
+                careEventId: crypto.randomUUID(),
+                classification: "checkup",
+              },
+            ),
+            path: "/api/v1/cocoon/pregnancy/calendar/links",
+            appUserId: ownerAppUserId,
+          }),
+        404,
+        "care_event_not_found",
+      );
+
+      const conflictCreated = await careEvents.createCareEvent(ownerAppUserId, {
+        clientRequestId: crypto.randomUUID(),
+        eventType: "appointment",
+        title: "Already linked pregnancy appointment",
+        providerName: "Synthetic clinician",
+        specialty: "integration",
+        reason: "Already-linked conflict fixture",
+        scheduledLocalDate: targetDate,
+        scheduledLocalTime: "10:00",
+        timeZone: "Asia/Tehran",
+        patientReminderMinutesBefore: 15,
+        caregiverReminderMinutesBefore: 45,
+      });
+      conflictEventId = String(conflictCreated.seriesId ?? conflictCreated.id);
+      await sql`
+        insert into pregnancy.episodes(
+          id,mother_person_id,status,activated_at_utc,ended_at_utc,outcome,
+          creation_idempotency_key_hash
+        ) values (
+          ${endedEpisodeId}::uuid,${ownerPersonId}::uuid,'ended',
+          now()-interval '2 days',now()-interval '1 day','other',
+          ${crypto.randomUUID().replaceAll("-", "").repeat(2)}
+        )
+      `;
+      await sql`
+        insert into pregnancy.care_event_links(
+          episode_id,care_event_id,classification,linked_by_account_id
+        ) values (
+          ${endedEpisodeId}::uuid,${conflictEventId}::uuid,'checkup',
+          ${ownerAccountId}::uuid
+        )
+      `;
+      await assertApiError(
+        () =>
+          route({
+            request: postRequest(
+              "/api/v1/cocoon/pregnancy/calendar/links",
+              {
+                careEventId: conflictEventId,
+                classification: "ultrasound",
+              },
+            ),
+            path: "/api/v1/cocoon/pregnancy/calendar/links",
+            appUserId: ownerAppUserId,
+          }),
+        409,
+        "care_event_already_linked",
+      );
+      const preservedConflictLink = await sql`
+        select episode_id::text,classification
+        from pregnancy.care_event_links
+        where care_event_id=${conflictEventId}::uuid
+      `;
+      assertEquals(preservedConflictLink.length, 1);
+      assertEquals(preservedConflictLink[0].episode_id, endedEpisodeId);
+      assertEquals(preservedConflictLink[0].classification, "checkup");
 
       const otherCreated = await careEvents.createCareEvent(otherAppUserId, {
         clientRequestId: crypto.randomUUID(),
@@ -210,7 +331,9 @@ Deno.test({
           ${ownerPersonId}::uuid,${otherPersonId}::uuid
         )
       `.catch(() => undefined);
-      for (const eventId of [ownerEventId, otherEventId]) {
+      for (
+        const eventId of [ownerEventId, otherEventId, conflictEventId]
+      ) {
         if (!eventId) continue;
         await sql`
           delete from lifemate.audit_logs
