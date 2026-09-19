@@ -271,10 +271,15 @@ Deno.test({
         set can_view_women_calendar=false,updated_at_utc=now()
         where id=${relationshipId}::uuid
       `;
-      await assertApiError(
-        () => women.getCareSummary(caregiver.appUserId, patient.appUserId),
-        403,
-        "women_calendar_access_denied",
+      // The legacy relationship flag is presentation compatibility only.
+      // Explicit granular privacy scopes remain the authorization boundary.
+      const legacyFlagOffSummary = await women.getCareSummary(
+        caregiver.appUserId,
+        patient.appUserId,
+      );
+      assertEquals(
+        (legacyFlagOffSummary.episodes as Array<Record<string, unknown>>).length,
+        1,
       );
       await fixtureSql`
         update lifemate.care_relationships
