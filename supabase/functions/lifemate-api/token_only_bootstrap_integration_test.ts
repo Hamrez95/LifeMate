@@ -160,6 +160,31 @@ Deno.test({
       `;
       assertEquals(Number(appUserCount[0]?.count), 1);
 
+      // Deletion-pending canonical Accounts remain explicit in token-only mode;
+      // bootstrap must not fall back to the retired raw subject.
+      await admin`
+        update identity.accounts
+        set status='DeletionPending',updated_at_utc=now()
+        where id=${remappedAccountId}::uuid
+      `;
+      const pending = await assertRejects(
+        () =>
+          db.bootstrapUser(auth, {
+            displayName: "must stay pending",
+            locale: "fa",
+            timeZone: "Asia/Tehran",
+          }),
+        ApiError,
+      );
+      assertEquals(pending.status, 409);
+      assertEquals(pending.code, "account_deletion_pending");
+
+      await admin`
+        update identity.accounts
+        set status='Active',updated_at_utc=now()
+        where id=${remappedAccountId}::uuid
+      `;
+
       // Disabled canonical Accounts are an explicit bootstrap state and must
       // fail closed rather than falling through to a fresh legacy bootstrap.
       await admin`
