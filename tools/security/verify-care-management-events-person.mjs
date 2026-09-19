@@ -56,8 +56,7 @@ for (const forbidden of ["patient_user_id", "{ patientUserId }"]) {
 }
 for (const marker of [
   "self_person_id_for_legacy_app_user",
-  "patient_person_id = ${patientPersonId}::uuid",
-  "(id, patient_person_id, created_by_user_id, client_request_id",
+  "(id,patient_person_id,created_by_user_id,client_request_id",
   "${caregiverAppUserId}::uuid",
   "client_request_id = ${input.clientRequestId}::uuid",
   "'care_event', ${eventId}::uuid",
@@ -66,10 +65,16 @@ for (const marker of [
     throw new Error(`Person Care Event store contract missing: ${marker}`);
   }
 }
-if (!store.includes("const metadata = eventType == null ? null : { eventType }")) {
-  throw new Error(
-    "Care Event audit metadata must keep event semantics without patient AppUser identity.",
-  );
+for (const [label, pattern] of [
+  ["care-event Person ownership", /patient_person_id\s*=\s*\$\{personId\}::uuid/],
+  [
+    "care-event audit metadata serialization",
+    /const metadata\s*=\s*eventType\s*==\s*null\s*\?\s*null\s*:\s*JSON\.stringify\(\{\s*eventType\s*\}\)/,
+  ],
+]) {
+  if (!pattern.test(store)) {
+    throw new Error(`Person Care Event store contract missing semantic boundary: ${label}`);
+  }
 }
 
 // The staged relationship permission/consent boundary intentionally remains
