@@ -66,13 +66,20 @@ for (const marker of [
   "(id, owner_person_id, name",
   "insert into lifemate.treatment_plans",
   "(id, patient_person_id, medication_id",
-  "patient_person_id = ${patientPersonId}::uuid",
-  "owner_person_id = ${patientPersonId}::uuid",
   "metadata_json, created_at_utc",
   "'treatment_plan', ${treatmentPlanId}::uuid, null, now()",
 ]) {
   if (!store.includes(marker)) {
     throw new Error(`Person Treatment store contract missing: ${marker}`);
+  }
+}
+
+for (const [label, pattern] of [
+  ["treatment Person ownership", /patient_person_id\s*=\s*\$\{patientPersonId\}::uuid/],
+  ["medication Person ownership", /owner_person_id\s*=\s*\$\{patientPersonId\}::uuid/],
+]) {
+  if (!pattern.test(store)) {
+    throw new Error(`Person Treatment store contract missing semantic boundary: ${label}`);
   }
 }
 
