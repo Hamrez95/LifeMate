@@ -1,18 +1,19 @@
 # Living Camp raster avatar fallback
 
-This small two-family raster package is a visual bridge, not completion of
-#1074. It makes the Camp feel inhabited while the real reusable Rive asset is
-authored.
+This twelve-variant raster package is a visual bridge, not completion of #1074.
+It makes the Camp feel inhabited while the real reusable Rive asset is authored.
 
 ## Included assets
 
-- `adult_female_idle.png`
-- `adult_male_idle.png`
+- 2 families × 6 age bands: `age_2`, `age_10`, `age_20`, `age_30`, `age_50`,
+  `age_70`
+- every variant has one named transparent `idle` PNG in
+  `assets/living_camp/v1/raster/actors/`
 
-Both are 256 × 384 PNGs with transparent backgrounds. Their combined runtime
-size is approximately 162 KiB. They are original generated illustration
-exports for LifeMate's internal prototype use; no third-party character source
-material was used.
+All variants are 256 × 384 PNGs with transparent backgrounds. The full runtime
+pack remains roughly 1.1 MiB. They are original generated illustration exports
+for LifeMate's internal prototype use; no third-party character source material
+was used.
 
 ## Intentional limitations
 

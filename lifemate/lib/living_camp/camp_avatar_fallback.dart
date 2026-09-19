@@ -8,13 +8,20 @@ import 'package:flutter/material.dart';
 /// replace this widget without changing actor identity or world placement.
 enum CampAvatarFamily { adultFeminine, adultMasculine }
 
+enum CampAvatarAgeBand { age2, age10, age20, age30, age50, age70 }
+
 enum CampAvatarAction { idle, walk, drink, wellness }
 
 @immutable
 class CampAvatarFallbackAsset {
-  const CampAvatarFallbackAsset({required this.family, required this.path});
+  const CampAvatarFallbackAsset({
+    required this.family,
+    required this.ageBand,
+    required this.path,
+  });
 
   final CampAvatarFamily family;
+  final CampAvatarAgeBand ageBand;
   final String path;
 }
 
@@ -24,11 +31,63 @@ class CampAvatarFallbackCatalog {
   static const assets = <CampAvatarFallbackAsset>[
     CampAvatarFallbackAsset(
       family: CampAvatarFamily.adultFeminine,
+      ageBand: CampAvatarAgeBand.age2,
+      path: 'assets/living_camp/v1/raster/actors/female_age_2_idle.png',
+    ),
+    CampAvatarFallbackAsset(
+      family: CampAvatarFamily.adultFeminine,
+      ageBand: CampAvatarAgeBand.age10,
+      path: 'assets/living_camp/v1/raster/actors/female_age_10_idle.png',
+    ),
+    CampAvatarFallbackAsset(
+      family: CampAvatarFamily.adultFeminine,
+      ageBand: CampAvatarAgeBand.age20,
+      path: 'assets/living_camp/v1/raster/actors/female_age_20_idle.png',
+    ),
+    CampAvatarFallbackAsset(
+      family: CampAvatarFamily.adultFeminine,
+      ageBand: CampAvatarAgeBand.age30,
       path: 'assets/living_camp/v1/raster/actors/adult_female_idle.png',
     ),
     CampAvatarFallbackAsset(
       family: CampAvatarFamily.adultMasculine,
+      ageBand: CampAvatarAgeBand.age2,
+      path: 'assets/living_camp/v1/raster/actors/male_age_2_idle.png',
+    ),
+    CampAvatarFallbackAsset(
+      family: CampAvatarFamily.adultMasculine,
+      ageBand: CampAvatarAgeBand.age10,
+      path: 'assets/living_camp/v1/raster/actors/male_age_10_idle.png',
+    ),
+    CampAvatarFallbackAsset(
+      family: CampAvatarFamily.adultMasculine,
+      ageBand: CampAvatarAgeBand.age20,
+      path: 'assets/living_camp/v1/raster/actors/male_age_20_idle.png',
+    ),
+    CampAvatarFallbackAsset(
+      family: CampAvatarFamily.adultMasculine,
+      ageBand: CampAvatarAgeBand.age30,
       path: 'assets/living_camp/v1/raster/actors/adult_male_idle.png',
+    ),
+    CampAvatarFallbackAsset(
+      family: CampAvatarFamily.adultFeminine,
+      ageBand: CampAvatarAgeBand.age50,
+      path: 'assets/living_camp/v1/raster/actors/female_age_50_idle.png',
+    ),
+    CampAvatarFallbackAsset(
+      family: CampAvatarFamily.adultFeminine,
+      ageBand: CampAvatarAgeBand.age70,
+      path: 'assets/living_camp/v1/raster/actors/female_age_70_idle.png',
+    ),
+    CampAvatarFallbackAsset(
+      family: CampAvatarFamily.adultMasculine,
+      ageBand: CampAvatarAgeBand.age50,
+      path: 'assets/living_camp/v1/raster/actors/male_age_50_idle.png',
+    ),
+    CampAvatarFallbackAsset(
+      family: CampAvatarFamily.adultMasculine,
+      ageBand: CampAvatarAgeBand.age70,
+      path: 'assets/living_camp/v1/raster/actors/male_age_70_idle.png',
     ),
   ];
 
@@ -36,8 +95,15 @@ class CampAvatarFallbackCatalog {
   /// remains owned by the versioned Rive contract, not by this raster layer.
   static CampAvatarFallbackAsset resolve({
     required CampAvatarFamily family,
+    CampAvatarAgeBand ageBand = CampAvatarAgeBand.age30,
     CampAvatarAction action = CampAvatarAction.idle,
-  }) => assets.firstWhere((asset) => asset.family == family);
+  }) => assets.firstWhere(
+    (asset) => asset.family == family && asset.ageBand == ageBand,
+    orElse: () => assets.firstWhere(
+      (asset) =>
+          asset.family == family && asset.ageBand == CampAvatarAgeBand.age30,
+    ),
+  );
 }
 
 class CampAvatarFallback extends StatefulWidget {
@@ -45,10 +111,12 @@ class CampAvatarFallback extends StatefulWidget {
     super.key,
     required this.family,
     required this.motionEnabled,
+    this.ageBand = CampAvatarAgeBand.age30,
     this.action = CampAvatarAction.idle,
   });
 
   final CampAvatarFamily family;
+  final CampAvatarAgeBand ageBand;
   final CampAvatarAction action;
   final bool motionEnabled;
 
@@ -97,6 +165,7 @@ class _CampAvatarFallbackState extends State<CampAvatarFallback>
   Widget build(BuildContext context) {
     final asset = CampAvatarFallbackCatalog.resolve(
       family: widget.family,
+      ageBand: widget.ageBand,
       action: widget.action,
     );
     return ExcludeSemantics(
