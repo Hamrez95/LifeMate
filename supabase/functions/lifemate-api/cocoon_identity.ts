@@ -9,8 +9,11 @@ export type CocoonCanonicalIdentity = {
 export function createCocoonIdentityResolver(databaseUrl: string) {
   const sql = getLifeMateSql(databaseUrl);
 
-  async function resolve(appUserId: string): Promise<CocoonCanonicalIdentity> {
-    const rows = await sql`
+  async function resolveWithConnection(
+    connection: any,
+    appUserId: string,
+  ): Promise<CocoonCanonicalIdentity> {
+    const rows = await connection`
       select
         identity.account_id_for_legacy_app_user(${appUserId}::uuid)::text
           as account_id,
@@ -33,5 +36,9 @@ export function createCocoonIdentityResolver(databaseUrl: string) {
     return { accountId, personId };
   }
 
-  return { resolve };
+  async function resolve(appUserId: string): Promise<CocoonCanonicalIdentity> {
+    return await resolveWithConnection(sql, appUserId);
+  }
+
+  return { resolve, resolveWithConnection };
 }
