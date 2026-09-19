@@ -106,7 +106,9 @@ export function createLifeMateDatabase(
 
     const acceptances = parseLegalAcceptances(body.legalAcceptances);
     await privacyPreferences.assertAcceptancesCurrent(acceptances);
-    await bootstrapAccountState.assertAllowed(auth.id);
+    if (identityResolver.lookupMode !== "token-only") {
+      await bootstrapAccountState.assertAllowed(auth.id);
+    }
 
     const bootstrapBody = { ...body };
     delete bootstrapBody.legalAcceptances;
