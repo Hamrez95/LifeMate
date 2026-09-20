@@ -104,6 +104,7 @@ class CampZonePresentation {
   final int? stage;
   final String? variant;
   final CampZoneAvailability availability;
+
   /// Localized normalized wording from a reviewed presentation adapter.
   /// It must not contain raw enrollment, consent, or health details.
   final String? stateLabel;
