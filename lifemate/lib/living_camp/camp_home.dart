@@ -25,6 +25,7 @@ class CampHome extends StatelessWidget {
   final VoidCallback? onOpenCareMate;
   final VoidCallback? onOpenReproductiveContext;
   final VoidCallback? onOpenFitMate;
+
   /// Normalized snapshot from a reviewed adapter; Camp only renders it.
   final List<CampZonePresentation>? zonePresentations;
   final CampEnvironmentPreferences environmentPreferences;
