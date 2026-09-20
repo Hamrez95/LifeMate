@@ -265,7 +265,8 @@ class CampSceneRenderer extends StatelessWidget {
       child: Semantics(
         button: true,
         enabled: onZoneTap != null,
-        label: '${zone.semanticLabel}, ${statePresentation.label}',
+        label: zone.semanticLabel,
+        hint: statePresentation.label,
         child: GestureDetector(
           key: ValueKey<String>('camp-zone-hit-${zone.zoneId}'),
           behavior: HitTestBehavior.opaque,
@@ -332,24 +333,27 @@ class _ZoneStateBadge extends StatelessWidget {
     return IgnorePointer(
       child: Align(
         alignment: Alignment.topCenter,
-        child: Container(
-          margin: const EdgeInsets.all(8),
-          padding: const EdgeInsetsDirectional.fromSTEB(8, 5, 10, 5),
-          decoration: BoxDecoration(
-            color: colors.surface.withValues(alpha: 0.92),
-            borderRadius: BorderRadius.circular(999),
-            border: Border.all(color: colors.outlineVariant),
-          ),
-          child: Row(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              Icon(icon, size: 14),
-              const SizedBox(width: 4),
-              Text(
-                presentation.label,
-                style: Theme.of(context).textTheme.labelSmall,
-              ),
-            ],
+        child: FittedBox(
+          fit: BoxFit.scaleDown,
+          child: Container(
+            margin: const EdgeInsets.all(8),
+            padding: const EdgeInsetsDirectional.fromSTEB(8, 5, 10, 5),
+            decoration: BoxDecoration(
+              color: colors.surface.withValues(alpha: 0.92),
+              borderRadius: BorderRadius.circular(999),
+              border: Border.all(color: colors.outlineVariant),
+            ),
+            child: Row(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Icon(icon, size: 14),
+                const SizedBox(width: 4),
+                Text(
+                  presentation.label,
+                  style: Theme.of(context).textTheme.labelSmall,
+                ),
+              ],
+            ),
           ),
         ),
       ),
