@@ -51,8 +51,8 @@ void main() {
       ),
     );
 
-    expect(find.bySemanticsLabel('LifeMate home, Available'), findsOneWidget);
-    await tester.tap(find.bySemanticsLabel('LifeMate home, Available'));
+    expect(find.bySemanticsLabel('LifeMate home'), findsOneWidget);
+    await tester.tap(find.bySemanticsLabel('LifeMate home'));
     expect(tapped, 'lifemate_home');
   });
 
@@ -89,9 +89,9 @@ void main() {
       ),
     );
 
-    expect(find.bySemanticsLabel('CareMate, Locked'), findsOneWidget);
+    expect(find.bySemanticsLabel('CareMate'), findsOneWidget);
     expect(find.text('Locked'), findsOneWidget);
-    await tester.tap(find.bySemanticsLabel('CareMate, Locked'));
+    await tester.tap(find.bySemanticsLabel('CareMate'));
     expect(taps, 1);
   });
 
@@ -131,11 +131,11 @@ void main() {
       );
 
       expect(
-        find.bySemanticsLabel('WellMate, Currently closed'),
+        find.bySemanticsLabel('WellMate'),
         findsOneWidget,
       );
       expect(find.text('Currently closed'), findsOneWidget);
-      await tester.tap(find.bySemanticsLabel('WellMate, Currently closed'));
+      await tester.tap(find.bySemanticsLabel('WellMate'));
       expect(taps, 1);
     },
   );
