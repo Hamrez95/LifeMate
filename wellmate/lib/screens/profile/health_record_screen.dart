@@ -21,6 +21,7 @@ class HealthRecordScreen extends StatefulWidget {
 class _HealthRecordScreenState extends State<HealthRecordScreen> {
   late Future<LifeMateHealthDocumentPage> _documents;
   LifeMateHealthDocumentCategory? _selectedCategory;
+  String? _selectedSourceProduct;
   String? _openingDocumentId;
 
   @override
@@ -32,6 +33,7 @@ class _HealthRecordScreenState extends State<HealthRecordScreen> {
   Future<LifeMateHealthDocumentPage> _load({String? cursor}) =>
       context.read<LifeMateApiClient>().getHealthDocumentPage(
         category: _selectedCategory,
+        sourceProduct: _selectedSourceProduct,
         cursor: cursor,
       );
 
@@ -41,6 +43,14 @@ class _HealthRecordScreenState extends State<HealthRecordScreen> {
     if (_selectedCategory == value) return;
     setState(() {
       _selectedCategory = value;
+      _documents = _load();
+    });
+  }
+
+  void _selectSourceProduct(String? value) {
+    if (_selectedSourceProduct == value) return;
+    setState(() {
+      _selectedSourceProduct = value;
       _documents = _load();
     });
   }
@@ -129,13 +139,21 @@ class _HealthRecordScreenState extends State<HealthRecordScreen> {
                     selected: _selectedCategory,
                     onSelected: _selectCategory,
                   ),
+                  const SizedBox(height: 12),
+                  _SourceProductFilter(
+                    selected: _selectedSourceProduct,
+                    onSelected: _selectSourceProduct,
+                  ),
                   const SizedBox(height: 16),
                   if (loading)
                     const _DocumentLoadingState()
                   else if (snapshot.hasError)
                     _DocumentErrorState(onRetry: _refresh)
                   else if (documents.isEmpty)
-                    _DocumentEmptyState(filtered: _selectedCategory != null)
+                    _DocumentEmptyState(
+                      filtered: _selectedCategory != null ||
+                          _selectedSourceProduct != null,
+                    )
                   else ...[
                     Text(
                       LifeMateRuntimeLocale.select(
@@ -344,6 +362,51 @@ class _CategoryFilter extends StatelessWidget {
             const SizedBox(width: 8),
           ],
         ],
+      ),
+    );
+  }
+}
+
+class _SourceProductFilter extends StatelessWidget {
+  const _SourceProductFilter({required this.selected, required this.onSelected});
+
+  final String? selected;
+  final ValueChanged<String?> onSelected;
+
+  @override
+  Widget build(BuildContext context) {
+    const sources = <String?>[null, 'wellmate', 'caremate', 'cocoonmate'];
+    return Semantics(
+      label: _healthRecordText(fa: 'فیلتر برنامه', en: 'Product filter'),
+      child: SingleChildScrollView(
+        scrollDirection: Axis.horizontal,
+        child: Row(
+          children: [
+            for (final source in sources) ...[
+              ChoiceChip(
+                key: ValueKey<String>(
+                  'health-record-source-${source ?? 'all'}',
+                ),
+                label: Text(_sourceProductLabel(source)),
+                selected: selected == source,
+                onSelected: (_) => onSelected(source),
+                selectedColor: AppColors.primary.withValues(alpha: 0.18),
+                labelStyle: TextStyle(
+                  color: selected == source
+                      ? AppColors.darkBlue
+                      : AppColors.textSecondary,
+                  fontWeight: FontWeight.w800,
+                ),
+                side: BorderSide(
+                  color: selected == source
+                      ? AppColors.primary.withValues(alpha: 0.36)
+                      : Colors.transparent,
+                ),
+              ),
+              const SizedBox(width: 8),
+            ],
+          ],
+        ),
       ),
     );
   }
@@ -612,6 +675,14 @@ String _healthRecordText(
   {required String fa,
   required String en,
 }) => LifeMateRuntimeLocale.select(fa: fa, en: en);
+
+String _sourceProductLabel(String? source) => switch (source) {
+  null => _healthRecordText(fa: 'همهٔ برنامه‌ها', en: 'All products'),
+  'wellmate' => 'WellMate',
+  'caremate' => 'CareMate',
+  'cocoonmate' => 'CocoonMate',
+  _ => source,
+};
 
 IconData _documentIcon(LifeMateHealthDocument document) =>
     switch (document.category) {
