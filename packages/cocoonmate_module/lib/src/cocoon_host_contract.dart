@@ -89,6 +89,8 @@ class CocoonModuleConfig {
     this.onOpenQuickAdd,
     this.checkInSyncState = CocoonCheckInSyncState.idle,
     this.onSubmitCheckIn,
+    this.moodSubmitState = CocoonMoodSubmitState.idle,
+    this.onSubmitMood,
     this.symptomOptions = const [],
     this.symptomCatalogState = CocoonSymptomCatalogState.ready,
     this.symptomSubmitState = CocoonSymptomSubmitState.idle,
@@ -155,6 +157,9 @@ class CocoonModuleConfig {
   final CocoonCheckInSyncState checkInSyncState;
   final Future<CocoonCheckInSubmitResult> Function(CocoonCheckInDraft draft)?
       onSubmitCheckIn;
+  final CocoonMoodSubmitState moodSubmitState;
+  final Future<CocoonGate3MutationResult> Function(CocoonPregnancyMood mood)?
+      onSubmitMood;
   final List<CocoonSymptomOption> symptomOptions;
   final CocoonSymptomCatalogState symptomCatalogState;
   final CocoonSymptomSubmitState symptomSubmitState;

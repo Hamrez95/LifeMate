@@ -204,6 +204,7 @@ class _CocoonAuthenticatedHostState extends State<CocoonAuthenticatedHost>
       onRetryRecords: () => _refreshGate3ReadModels(),
       checkInSyncState: _checkInSyncState,
       onSubmitCheckIn: _gate3MutationAdapter == null ? null : _submitCheckIn,
+      onSubmitMood: _gate3MutationAdapter == null ? null : _submitMood,
     ),
   );
 
@@ -353,6 +354,20 @@ class _CocoonAuthenticatedHostState extends State<CocoonAuthenticatedHost>
       }
       rethrow;
     }
+  }
+
+  Future<CocoonGate3MutationResult> _submitMood(
+    CocoonPregnancyMood mood,
+  ) async {
+    final adapter = _gate3MutationAdapter;
+    if (adapter == null) {
+      throw StateError('Gate-3 mutation adapter is unavailable.');
+    }
+    final result = await adapter.submitMood(mood: mood);
+    if (result.disposition == CocoonGate3MutationDisposition.confirmed) {
+      await _refreshGate3ReadModels();
+    }
+    return result;
   }
 
   void _markGate3ReadModelsStale() {

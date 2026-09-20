@@ -700,6 +700,36 @@ void main() {
     expect(find.text('بارداری'), findsOneWidget);
     expect(tester.takeException(), isNull);
   });
+  testWidgets('mood capture stays non-diagnostic and distinguishes queued save', (
+    tester,
+  ) async {
+    CocoonPregnancyMood? submitted;
+    await tester.pumpWidget(
+      MaterialApp(
+        theme: CocoonTheme.light(),
+        home: CocoonMoodLogScreen(
+          fa: true,
+          submitState: CocoonMoodSubmitState.idle,
+          onSubmit: (mood) async {
+            submitted = mood;
+            return const CocoonGate3MutationResult(
+              clientRequestId: 'synthetic-request',
+              disposition: CocoonGate3MutationDisposition.queued,
+            );
+          },
+        ),
+      ),
+    );
+
+    expect(find.textContaining('نه تشخیص پزشکی'), findsOneWidget);
+    await tester.tap(find.text('خیلی خوب'));
+    await tester.tap(find.text('ثبت حال روحی'));
+    await tester.pump();
+
+    expect(submitted, CocoonPregnancyMood.veryGood);
+    expect(find.text('ثبت شد و در انتظار همگام‌سازی است.'), findsOneWidget);
+    expect(tester.takeException(), isNull);
+  });
 }
 
 void _noop() {}
