@@ -35,6 +35,7 @@ class LifeMateShell extends StatefulWidget {
   final TodaySnapshotSource? todaySource;
   final NotificationCenterSource? notificationSource;
   final CampCompanionSelectionSource? campCompanionSource;
+
   /// Privacy-safe localized snapshot from a reviewed Camp presentation adapter.
   final List<CampZonePresentation>? campZonePresentations;
 
@@ -208,9 +209,8 @@ class _LifeMateShellState extends State<LifeMateShell> {
         onOpenToday: _showTodayPeek,
         onOpenWellMate: () => _openModule(LifeMateModuleId.wellMate),
         onOpenCareMate: () => _openModule(LifeMateModuleId.careMate),
-        onOpenReproductiveContext: () => _openModule(
-          LifeMateModuleId.womenHealth,
-        ),
+        onOpenReproductiveContext: () =>
+            _openModule(LifeMateModuleId.womenHealth),
         onOpenFitMate: () => _openModule(LifeMateModuleId.fitMate),
         zonePresentations: widget.campZonePresentations,
       ),
