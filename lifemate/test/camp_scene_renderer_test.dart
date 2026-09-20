@@ -130,10 +130,7 @@ void main() {
         ),
       );
 
-      expect(
-        find.bySemanticsLabel('WellMate'),
-        findsOneWidget,
-      );
+      expect(find.bySemanticsLabel('WellMate'), findsOneWidget);
       expect(find.text('Currently closed'), findsOneWidget);
       await tester.tap(find.bySemanticsLabel('WellMate'));
       expect(taps, 1);
