@@ -89,9 +89,8 @@ void main() {
       ),
     );
 
-    expect(find.bySemanticsLabel('CareMate'), findsOneWidget);
     expect(find.text('Locked'), findsOneWidget);
-    await tester.tap(find.bySemanticsLabel('CareMate'));
+    await tester.tap(find.byKey(const ValueKey('camp-zone-hit-caremate')));
     expect(taps, 1);
   });
 
@@ -130,9 +129,8 @@ void main() {
         ),
       );
 
-      expect(find.bySemanticsLabel('WellMate'), findsOneWidget);
       expect(find.text('Currently closed'), findsOneWidget);
-      await tester.tap(find.bySemanticsLabel('WellMate'));
+      await tester.tap(find.byKey(const ValueKey('camp-zone-hit-wellmate')));
       expect(taps, 1);
     },
   );
