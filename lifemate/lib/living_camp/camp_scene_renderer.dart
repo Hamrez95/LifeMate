@@ -97,12 +97,29 @@ class CampZonePresentation {
     this.stage,
     this.variant,
     this.availability = CampZoneAvailability.active,
+    this.stateLabel,
   });
 
   final String zoneId;
   final int? stage;
   final String? variant;
   final CampZoneAvailability availability;
+  /// Localized normalized wording from a reviewed presentation adapter.
+  /// It must not contain raw enrollment, consent, or health details.
+  final String? stateLabel;
+}
+
+/// Presentation-only state. Camp never derives it from raw domain records;
+/// `stage` remains independent so expiry never erases a zone's visual stage.
+@immutable
+class CampZoneStatePresentation {
+  const CampZoneStatePresentation({
+    required this.availability,
+    required this.label,
+  });
+
+  final CampZoneAvailability availability;
+  final String label;
 }
 
 @immutable
@@ -237,7 +254,7 @@ class CampSceneRenderer extends StatelessWidget {
       stage: presentation.stage,
       variant: presentation.variant,
     );
-    final enabled = presentation.availability == CampZoneAvailability.active;
+    final statePresentation = _statePresentation(presentation);
 
     return Positioned(
       left: topLeft.dx,
@@ -246,22 +263,92 @@ class CampSceneRenderer extends StatelessWidget {
       height: zone.bounds.height * scale,
       child: Semantics(
         button: true,
-        enabled: enabled,
-        label: zone.semanticLabel,
+        enabled: onZoneTap != null,
+        label: '${zone.semanticLabel}, ${statePresentation.label}',
         child: GestureDetector(
           key: ValueKey<String>('camp-zone-hit-${zone.zoneId}'),
           behavior: HitTestBehavior.opaque,
-          onTap: enabled && onZoneTap != null
-              ? () => onZoneTap!(zone.zoneId)
-              : null,
-          child: Opacity(
-            opacity: switch (presentation.availability) {
-              CampZoneAvailability.active => 1,
-              CampZoneAvailability.locked => 0.72,
-              CampZoneAvailability.expired => 0.58,
-              CampZoneAvailability.unavailable => 0.45,
-            },
-            child: visual.builder(context),
+          onTap: onZoneTap == null ? null : () => onZoneTap!(zone.zoneId),
+          child: Stack(
+            fit: StackFit.expand,
+            children: [
+              Opacity(
+                opacity: switch (presentation.availability) {
+                  CampZoneAvailability.active => 1,
+                  CampZoneAvailability.locked => 0.72,
+                  CampZoneAvailability.expired => 0.58,
+                  CampZoneAvailability.unavailable => 0.45,
+                },
+                child: visual.builder(context),
+              ),
+              if (presentation.availability != CampZoneAvailability.active)
+                _ZoneStateBadge(presentation: statePresentation),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
+  CampZoneStatePresentation _statePresentation(
+    CampZonePresentation presentation,
+  ) {
+    return switch (presentation.availability) {
+      CampZoneAvailability.active => CampZoneStatePresentation(
+        availability: CampZoneAvailability.active,
+        label: presentation.stateLabel ?? 'Available',
+      ),
+      CampZoneAvailability.locked => CampZoneStatePresentation(
+        availability: CampZoneAvailability.locked,
+        label: presentation.stateLabel ?? 'Locked',
+      ),
+      CampZoneAvailability.expired => CampZoneStatePresentation(
+        availability: CampZoneAvailability.expired,
+        label: presentation.stateLabel ?? 'Currently closed',
+      ),
+      CampZoneAvailability.unavailable => CampZoneStatePresentation(
+        availability: CampZoneAvailability.unavailable,
+        label: presentation.stateLabel ?? 'Coming soon',
+      ),
+    };
+  }
+}
+
+class _ZoneStateBadge extends StatelessWidget {
+  const _ZoneStateBadge({required this.presentation});
+
+  final CampZoneStatePresentation presentation;
+
+  @override
+  Widget build(BuildContext context) {
+    final colors = Theme.of(context).colorScheme;
+    final icon = switch (presentation.availability) {
+      CampZoneAvailability.locked => Icons.lock_outline_rounded,
+      CampZoneAvailability.expired => Icons.nights_stay_outlined,
+      CampZoneAvailability.unavailable => Icons.construction_outlined,
+      CampZoneAvailability.active => Icons.check_circle_outline,
+    };
+    return IgnorePointer(
+      child: Align(
+        alignment: Alignment.topCenter,
+        child: Container(
+          margin: const EdgeInsets.all(8),
+          padding: const EdgeInsetsDirectional.fromSTEB(8, 5, 10, 5),
+          decoration: BoxDecoration(
+            color: colors.surface.withValues(alpha: 0.92),
+            borderRadius: BorderRadius.circular(999),
+            border: Border.all(color: colors.outlineVariant),
+          ),
+          child: Row(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Icon(icon, size: 14),
+              const SizedBox(width: 4),
+              Text(
+                presentation.label,
+                style: Theme.of(context).textTheme.labelSmall,
+              ),
+            ],
           ),
         ),
       ),
