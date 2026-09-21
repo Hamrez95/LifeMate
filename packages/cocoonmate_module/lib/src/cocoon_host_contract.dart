@@ -89,6 +89,8 @@ class CocoonModuleConfig {
     this.onOpenQuickAdd,
     this.checkInSyncState = CocoonCheckInSyncState.idle,
     this.onSubmitCheckIn,
+    this.moodSubmitState = CocoonMoodSubmitState.idle,
+    this.onSubmitMood,
     this.symptomOptions = const [],
     this.symptomCatalogState = CocoonSymptomCatalogState.ready,
     this.symptomSubmitState = CocoonSymptomSubmitState.idle,
@@ -136,9 +138,10 @@ class CocoonModuleConfig {
   final String timezone;
   final Future<CocoonPregnancyDateSelection?> Function(
     CocoonDatingSource source,
-  )? pickPregnancyDate;
+  )?
+  pickPregnancyDate;
   final Future<bool> Function(CocoonPregnancySetupDraft draft)?
-      activatePregnancy;
+  activatePregnancy;
   final CocoonCalendarLoadState calendarState;
   final List<CocoonCalendarItem> calendarItems;
   final DateTime? calendarAsOfLocalDate;
@@ -154,7 +157,10 @@ class CocoonModuleConfig {
   final ValueChanged<CocoonQuickAddKind>? onOpenQuickAdd;
   final CocoonCheckInSyncState checkInSyncState;
   final Future<CocoonCheckInSubmitResult> Function(CocoonCheckInDraft draft)?
-      onSubmitCheckIn;
+  onSubmitCheckIn;
+  final CocoonMoodSubmitState moodSubmitState;
+  final Future<CocoonGate3MutationResult> Function(CocoonPregnancyMood mood)?
+  onSubmitMood;
   final List<CocoonSymptomOption> symptomOptions;
   final CocoonSymptomCatalogState symptomCatalogState;
   final CocoonSymptomSubmitState symptomSubmitState;
@@ -164,19 +170,19 @@ class CocoonModuleConfig {
   final List<CocoonMeasurementOption> measurementOptions;
   final CocoonMeasurementSubmitState measurementSubmitState;
   final Future<void> Function(CocoonMeasurementDraft draft)?
-      onSubmitMeasurement;
+  onSubmitMeasurement;
   final List<CocoonMedicationOption> medicationOptions;
   final String medicationInitialTimeLabel;
   final CocoonMedicationSubmitState medicationSubmitState;
   final Future<String?> Function()? onPickMedicationTime;
   final Future<void> Function(CocoonMedicationLogDraft draft)?
-      onSubmitMedication;
+  onSubmitMedication;
   final CocoonReminderLoadState reminderLoadState;
   final CocoonReminderSaveState reminderSaveState;
   final CocoonReminderSettingsViewData? reminderData;
   final VoidCallback? onRetryReminders;
   final Future<void> Function(CocoonReminderPreferences preferences)?
-      onSaveReminders;
+  onSaveReminders;
   final VoidCallback? onRequestNotificationPermission;
   final VoidCallback? onOpenNotificationSettings;
   final VoidCallback? onOpenAppointmentReminders;
