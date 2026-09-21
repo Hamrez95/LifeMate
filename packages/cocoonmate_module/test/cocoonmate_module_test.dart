@@ -553,12 +553,12 @@ void main() {
     );
 
     final measurementAction = find.text('اندازه‌گیری');
-    await tester.tap(
-      find.ancestor(
-        of: measurementAction,
-        matching: find.byType(InkWell),
-      ).first,
-    );
+    final measurementTile = find.ancestor(
+      of: measurementAction,
+      matching: find.byType(InkWell),
+    ).first;
+    await tester.ensureVisible(measurementTile);
+    await tester.tap(measurementTile);
     await tester.pumpAndSettle();
     expect(find.text('ثبت اندازه‌گیری'), findsWidgets);
     expect(find.text('وزن'), findsOneWidget);
