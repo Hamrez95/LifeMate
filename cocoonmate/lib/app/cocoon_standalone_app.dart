@@ -138,6 +138,9 @@ class _CocoonAuthenticatedHostState extends State<CocoonAuthenticatedHost>
   CocoonCheckInSyncState _checkInSyncState = CocoonCheckInSyncState.idle;
   CocoonMeasurementSubmitState _measurementSubmitState =
       CocoonMeasurementSubmitState.idle;
+  List<CocoonMedicationOption> _medicationOptions = const [];
+  CocoonMedicationSubmitState _medicationSubmitState =
+      CocoonMedicationSubmitState.idle;
 
   late final LifeMateRemoteConfigClient? _runtimeClient =
       widget.runtimeLoader == null
@@ -160,6 +163,20 @@ class _CocoonAuthenticatedHostState extends State<CocoonAuthenticatedHost>
           accessToken: () => LifeMateAuth.currentAccessToken,
         )
       : null;
+  late final CocoonPregnancyTreatmentsApiClient? _treatmentsClient =
+      widget.bootstrapLoader == null
+      ? CocoonPregnancyTreatmentsApiClient(
+          baseUri: widget.config.apiBaseUri,
+          accessToken: () => LifeMateAuth.currentAccessToken,
+        )
+      : null;
+  late final LifeMateApiClient? _treatmentMutationClient =
+      widget.bootstrapLoader == null
+      ? LifeMateApiClient(
+          baseUri: widget.config.apiBaseUri,
+          accessToken: () => LifeMateAuth.currentAccessToken,
+        )
+      : null;
 
   @override
   void initState() {
@@ -173,6 +190,8 @@ class _CocoonAuthenticatedHostState extends State<CocoonAuthenticatedHost>
     _runtimeClient?.close();
     _pregnancyClient?.close();
     _gate3ReadModelLoader?.close();
+    _treatmentsClient?.close();
+    _treatmentMutationClient?.close();
     if (_ownsGate3MutationAdapter) _gate3MutationAdapter?.close();
     super.dispose();
   }
@@ -211,6 +230,14 @@ class _CocoonAuthenticatedHostState extends State<CocoonAuthenticatedHost>
       onSubmitMeasurement: _gate3MutationAdapter == null
           ? null
           : _submitMeasurement,
+      medicationOptions: _medicationOptions,
+      medicationSubmitState: _medicationSubmitState,
+      onPickMedicationTime: _treatmentMutationClient == null
+          ? null
+          : _pickMedicationTime,
+      onSubmitMedication: _treatmentMutationClient == null
+          ? null
+          : _submitMedication,
     ),
   );
 
@@ -303,10 +330,107 @@ class _CocoonAuthenticatedHostState extends State<CocoonAuthenticatedHost>
         _recordsState = values.recordsState;
         _records = values.records;
       });
+      await _refreshMedicationOptions();
     } catch (_) {
       _markGate3ReadModelsStale();
     } finally {
       _refreshingGate3 = false;
+    }
+  }
+
+  Future<void> _refreshMedicationOptions() async {
+    final client = _treatmentsClient;
+    if (client == null || _entryState != CocoonEntryState.activePregnancy) {
+      return;
+    }
+    final today = DateTime.now();
+    try {
+      final context = await client.list(
+        fromDate: DateTime(today.year, today.month, today.day),
+        toDate: DateTime(today.year, today.month, today.day + 1),
+      );
+      final plans = {
+        for (final plan in context.typedTreatmentPlans) plan.id: plan,
+      };
+      final options = context.typedDoseOccurrences
+          .where((occurrence) => occurrence.status == 'scheduled')
+          .map((occurrence) {
+            final plan = plans[occurrence.treatmentPlanId];
+            if (plan == null) return null;
+            return CocoonMedicationOption(
+              occurrenceId: occurrence.id,
+              occurrenceVersion: occurrence.version,
+              name: plan.medicationName,
+              doseLabel: plan.doseText,
+            );
+          })
+          .whereType<CocoonMedicationOption>()
+          .toList(growable: false);
+      if (mounted) setState(() => _medicationOptions = options);
+    } catch (_) {
+      if (mounted) setState(() => _medicationOptions = const []);
+    }
+  }
+
+  Future<DateTime?> _pickMedicationTime() async {
+    final now = DateTime.now();
+    final picked = await showTimePicker(
+      context: context,
+      initialTime: TimeOfDay.fromDateTime(now),
+    );
+    if (picked == null) return null;
+    return DateTime(
+      now.year,
+      now.month,
+      now.day,
+      picked.hour,
+      picked.minute,
+    ).toUtc();
+  }
+
+  Future<void> _submitMedication(CocoonMedicationLogDraft draft) async {
+    final client = _treatmentMutationClient;
+    if (client == null) {
+      throw StateError('Shared treatment mutation client is unavailable.');
+    }
+    if (mounted) {
+      setState(
+        () => _medicationSubmitState = CocoonMedicationSubmitState.submitting,
+      );
+    }
+    try {
+      await client.reportDose(
+        occurrenceId: draft.occurrenceId,
+        clientRequestId: LifeMateApiClient.createClientRequestId(),
+        version: draft.occurrenceVersion,
+        status: switch (draft.action) {
+          CocoonMedicationLogAction.taken => 'taken',
+          CocoonMedicationLogAction.skipped => 'skipped',
+        },
+        occurredAtUtc: draft.occurredAtUtc,
+      );
+      await _refreshGate3ReadModels();
+      if (mounted) {
+        setState(
+          () => _medicationSubmitState = CocoonMedicationSubmitState.confirmed,
+        );
+      }
+    } on LifeMateApiException catch (error) {
+      if (mounted) {
+        setState(() {
+          _medicationSubmitState = error.statusCode == 0
+              ? CocoonMedicationSubmitState.offline
+              : CocoonMedicationSubmitState.error;
+        });
+      }
+      rethrow;
+    } catch (_) {
+      if (mounted) {
+        setState(
+          () => _medicationSubmitState = CocoonMedicationSubmitState.error,
+        );
+      }
+      rethrow;
     }
   }
 
