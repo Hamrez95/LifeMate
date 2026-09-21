@@ -729,7 +729,7 @@ void main() {
       );
 
       expect(find.textContaining('نه تشخیص پزشکی'), findsOneWidget);
-      final veryGood = find.bySemanticsLabel('خیلی خوب');
+      final veryGood = find.byType(OutlinedButton).last;
       await tester.ensureVisible(veryGood);
       await tester.tap(veryGood);
       await tester.pump();
