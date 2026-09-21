@@ -19,6 +19,7 @@ part 'src/cocoon_appointment_form.dart';
 part 'src/cocoon_appointment_detail.dart';
 part 'src/cocoon_quick_add.dart';
 part 'src/cocoon_quick_checkin.dart';
+part 'src/cocoon_mood_log.dart';
 part 'src/cocoon_symptom_log.dart';
 part 'src/cocoon_measurement_log.dart';
 part 'src/cocoon_medication_log.dart';
