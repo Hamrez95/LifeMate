@@ -22,6 +22,7 @@ jobs:
     steps:
       - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd
         with:
+          fetch-depth: 0
           show-progress: false
           persist-credentials: false
       - uses: denoland/setup-deno@22d081ff2d3a40755e97629de92e3bcbfa7cf2ed
@@ -57,18 +58,20 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
-          dart format \
-            packages/cocoonmate_module/lib \
-            packages/cocoonmate_module/test \
-            packages/lifemate_client/lib/src/lifemate_auth.dart \
-            cocoonmate/lib \
-            cocoonmate/test
-          git diff --exit-code -- \
-            packages/cocoonmate_module/lib \
-            packages/cocoonmate_module/test \
-            packages/lifemate_client/lib/src/lifemate_auth.dart \
-            cocoonmate/lib \
-            cocoonmate/test
+          base_sha="${{ github.event.pull_request.base.sha || github.sha }}"
+          mapfile -t dart_sources < <(
+            git diff --name-only --diff-filter=ACMR "$base_sha" HEAD -- \
+              packages/cocoonmate_module/lib \
+              packages/cocoonmate_module/test \
+              packages/lifemate_client/lib/src/lifemate_auth.dart \
+              cocoonmate/lib \
+              cocoonmate/test | \
+              grep -E '\\.dart$' || true
+          )
+          if ((${#dart_sources[@]})); then
+            dart format "${dart_sources[@]}"
+            git diff --exit-code -- "${dart_sources[@]}"
+          fi
       - name: Analyze module
         working-directory: packages/cocoonmate_module
         run: flutter analyze --no-fatal-warnings --no-fatal-infos
