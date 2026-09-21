@@ -136,6 +136,8 @@ class _CocoonAuthenticatedHostState extends State<CocoonAuthenticatedHost>
   CocoonRecordsState _recordsState = CocoonRecordsState.loading;
   List<CocoonRecordViewData> _records = const [];
   CocoonCheckInSyncState _checkInSyncState = CocoonCheckInSyncState.idle;
+  CocoonMeasurementSubmitState _measurementSubmitState =
+      CocoonMeasurementSubmitState.idle;
 
   late final LifeMateRemoteConfigClient? _runtimeClient =
       widget.runtimeLoader == null
@@ -204,6 +206,11 @@ class _CocoonAuthenticatedHostState extends State<CocoonAuthenticatedHost>
       onRetryRecords: () => _refreshGate3ReadModels(),
       checkInSyncState: _checkInSyncState,
       onSubmitCheckIn: _gate3MutationAdapter == null ? null : _submitCheckIn,
+      measurementOptions: _measurementOptions,
+      measurementSubmitState: _measurementSubmitState,
+      onSubmitMeasurement: _gate3MutationAdapter == null
+          ? null
+          : _submitMeasurement,
     ),
   );
 
@@ -355,6 +362,118 @@ class _CocoonAuthenticatedHostState extends State<CocoonAuthenticatedHost>
     }
   }
 
+  List<CocoonMeasurementOption> get _measurementOptions {
+    final fa = widget.locale.languageCode == 'fa';
+    String label(String en, String faValue) => fa ? faValue : en;
+    CocoonMeasurementFieldSpec field(
+      String id,
+      String en,
+      String faValue,
+      String unit,
+    ) => CocoonMeasurementFieldSpec(
+      id: id,
+      label: label(en, faValue),
+      unit: unit,
+    );
+    return [
+      CocoonMeasurementOption(
+        id: CocoonPregnancyMeasurementType.weight.wireValue,
+        label: label('Weight', 'وزن'),
+        icon: Icons.monitor_weight_outlined,
+        fields: [field('primary', 'Weight', 'وزن', 'kg')],
+      ),
+      CocoonMeasurementOption(
+        id: CocoonPregnancyMeasurementType.bloodPressure.wireValue,
+        label: label('Blood pressure', 'فشار خون'),
+        icon: Icons.favorite_outline_rounded,
+        fields: [
+          field('primary', 'Systolic', 'سیستولیک', 'mmHg'),
+          field('secondary', 'Diastolic', 'دیاستولیک', 'mmHg'),
+        ],
+      ),
+      CocoonMeasurementOption(
+        id: CocoonPregnancyMeasurementType.bloodGlucose.wireValue,
+        label: label('Blood glucose', 'قند خون'),
+        icon: Icons.water_drop_outlined,
+        fields: [field('primary', 'Glucose', 'قند خون', 'mg/dL')],
+      ),
+    ];
+  }
+
+  Future<void> _submitMeasurement(CocoonMeasurementDraft draft) async {
+    final adapter = _gate3MutationAdapter;
+    if (adapter == null) {
+      throw StateError('Gate-3 mutation adapter is unavailable.');
+    }
+    CocoonPregnancyMeasurementType? type;
+    for (final candidate in CocoonPregnancyMeasurementType.values) {
+      if (candidate.wireValue == draft.metricId) {
+        type = candidate;
+        break;
+      }
+    }
+    final primary = double.tryParse(draft.values['primary']?.trim() ?? '');
+    final secondary = draft.values.containsKey('secondary')
+        ? double.tryParse(draft.values['secondary']?.trim() ?? '')
+        : null;
+    if (type == null ||
+        primary == null ||
+        (draft.values.containsKey('secondary') && secondary == null)) {
+      if (mounted) {
+        setState(
+          () => _measurementSubmitState = CocoonMeasurementSubmitState.error,
+        );
+      }
+      throw ArgumentError(
+        'Measurement draft is not a supported numeric observation.',
+      );
+    }
+    if (mounted) {
+      setState(
+        () => _measurementSubmitState = CocoonMeasurementSubmitState.submitting,
+      );
+    }
+    try {
+      final result = await adapter.submitMeasurement(
+        type: type,
+        valuePrimary: primary,
+        valueSecondary: secondary,
+        note: draft.note,
+      );
+      if (result.disposition == CocoonGate3MutationDisposition.queued) {
+        if (mounted) {
+          setState(
+            () => _measurementSubmitState = CocoonMeasurementSubmitState.queued,
+          );
+        }
+        return;
+      }
+      await _refreshGate3ReadModels();
+      if (mounted) {
+        setState(
+          () =>
+              _measurementSubmitState = CocoonMeasurementSubmitState.confirmed,
+        );
+      }
+    } on LifeMateApiException catch (error) {
+      if (mounted) {
+        setState(() {
+          _measurementSubmitState = error.statusCode == 0
+              ? CocoonMeasurementSubmitState.offline
+              : CocoonMeasurementSubmitState.error;
+        });
+      }
+      rethrow;
+    } catch (_) {
+      if (mounted) {
+        setState(
+          () => _measurementSubmitState = CocoonMeasurementSubmitState.error,
+        );
+      }
+      rethrow;
+    }
+  }
+
   void _markGate3ReadModelsStale() {
     if (!mounted) return;
     setState(() {
@@ -372,6 +491,7 @@ class _CocoonAuthenticatedHostState extends State<CocoonAuthenticatedHost>
       _recordsState = CocoonRecordsState.loading;
       _records = const [];
       _checkInSyncState = CocoonCheckInSyncState.idle;
+      _measurementSubmitState = CocoonMeasurementSubmitState.idle;
     });
   }
 
