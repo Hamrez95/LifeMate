@@ -569,14 +569,15 @@ void main() {
           fa: true,
           options: const [
             CocoonMedicationOption(
-              id: 'care-plan-item',
+              occurrenceId: '00000000-0000-4000-8000-000000000001',
+              occurrenceVersion: 1,
               name: 'مکمل برنامه مراقبتی',
               doseLabel: 'طبق دستور ثبت‌شده',
             ),
           ],
           initialTimeLabel: '۰۹:۳۰',
           submitState: CocoonMedicationSubmitState.idle,
-          onPickTime: () async => '۱۰:۰۰',
+          onPickTime: () async => DateTime.utc(2026, 9, 21, 10),
           onSubmit: (_) async {},
         ),
       ),
