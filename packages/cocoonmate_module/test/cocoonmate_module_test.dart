@@ -552,7 +552,9 @@ void main() {
       ),
     );
 
-    await tester.tap(find.text('اندازه‌گیری'));
+    final measurementAction = find.text('اندازه‌گیری');
+    await tester.ensureVisible(measurementAction);
+    await tester.tap(measurementAction);
     await tester.pumpAndSettle();
     expect(find.text('ثبت اندازه‌گیری'), findsWidgets);
     expect(find.text('وزن'), findsOneWidget);
@@ -722,8 +724,12 @@ void main() {
       );
 
       expect(find.textContaining('نه تشخیص پزشکی'), findsOneWidget);
-      await tester.tap(find.text('خیلی خوب'));
-      await tester.tap(find.text('ثبت حال روحی'));
+      final veryGood = find.text('خیلی خوب');
+      await tester.ensureVisible(veryGood);
+      await tester.tap(veryGood);
+      final saveMood = find.text('ثبت حال روحی');
+      await tester.ensureVisible(saveMood);
+      await tester.tap(saveMood);
       await tester.pump();
 
       expect(submitted, CocoonPregnancyMood.veryGood);
