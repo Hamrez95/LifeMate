@@ -32,9 +32,9 @@ class FakeHost implements CocoonHostContract {
 }
 
 Widget appFor(FakeHost host) => MaterialApp(
-      theme: CocoonTheme.light(),
-      home: CocoonMateModule(config: CocoonModuleConfig(host: host)),
-    );
+  theme: CocoonTheme.light(),
+  home: CocoonMateModule(config: CocoonModuleConfig(host: host)),
+);
 
 void main() {
   testWidgets('module mounts under a host and uses Persian RTL', (
@@ -135,25 +135,25 @@ void main() {
     expect(find.byType(CustomScrollView), findsOneWidget);
   });
 
-  testWidgets('calendar presents gestational timeline without invented events',
-      (
-    tester,
-  ) async {
-    final host = FakeHost(
-      CocoonEntryState.activePregnancy,
-      const Locale('fa'),
-      pregnancySnapshot: _pregnancyAtWeek(23, 4),
-    );
+  testWidgets(
+    'calendar presents gestational timeline without invented events',
+    (tester) async {
+      final host = FakeHost(
+        CocoonEntryState.activePregnancy,
+        const Locale('fa'),
+        pregnancySnapshot: _pregnancyAtWeek(23, 4),
+      );
 
-    await tester.pumpWidget(appFor(host));
-    await tester.tap(find.text('تقویم'));
-    await tester.pumpAndSettle();
+      await tester.pumpWidget(appFor(host));
+      await tester.tap(find.text('تقویم'));
+      await tester.pumpAndSettle();
 
-    expect(find.text('مسیر بارداری'), findsOneWidget);
-    expect(find.text('هفته‌ی ۲۳ و روز ۴'), findsOneWidget);
-    expect(find.text('برنامه‌ای ثبت نشده'), findsOneWidget);
-    expect(tester.takeException(), isNull);
-  });
+      expect(find.text('مسیر بارداری'), findsOneWidget);
+      expect(find.text('هفته‌ی ۲۳ و روز ۴'), findsOneWidget);
+      expect(find.text('برنامه‌ای ثبت نشده'), findsOneWidget);
+      expect(tester.takeException(), isNull);
+    },
+  );
 
   testWidgets('quick check-in supports selection and external submission', (
     tester,
@@ -552,7 +552,13 @@ void main() {
       ),
     );
 
-    await tester.tap(find.text('اندازه‌گیری'));
+    final measurementAction = find.text('اندازه‌گیری');
+    await tester.tap(
+      find.ancestor(
+        of: measurementAction,
+        matching: find.byType(InkWell),
+      ).first,
+    );
     await tester.pumpAndSettle();
     expect(find.text('ثبت اندازه‌گیری'), findsWidgets);
     expect(find.text('وزن'), findsOneWidget);
@@ -701,6 +707,45 @@ void main() {
     expect(find.text('بارداری'), findsOneWidget);
     expect(tester.takeException(), isNull);
   });
+  testWidgets(
+    'mood capture stays non-diagnostic and distinguishes queued save',
+    (tester) async {
+      CocoonPregnancyMood? submitted;
+      await tester.pumpWidget(
+        MaterialApp(
+          theme: CocoonTheme.light(),
+          home: CocoonMoodLogScreen(
+            fa: true,
+            submitState: CocoonMoodSubmitState.idle,
+            onSubmit: (mood) async {
+              submitted = mood;
+              return const CocoonGate3MutationResult(
+                clientRequestId: 'synthetic-request',
+                disposition: CocoonGate3MutationDisposition.queued,
+              );
+            },
+          ),
+        ),
+      );
+
+      expect(find.textContaining('نه تشخیص پزشکی'), findsOneWidget);
+      await tester.tap(
+        find.byType(OutlinedButton).last,
+      );
+      final saveMood = find.text('ثبت حال روحی');
+      await tester.tap(
+        find.ancestor(
+          of: saveMood,
+          matching: find.byType(FilledButton),
+        ),
+      );
+      await tester.pump();
+
+      expect(submitted, CocoonPregnancyMood.veryGood);
+      expect(find.text('ثبت شد و در انتظار همگام‌سازی است.'), findsOneWidget);
+      expect(tester.takeException(), isNull);
+    },
+  );
 }
 
 void _noop() {}
