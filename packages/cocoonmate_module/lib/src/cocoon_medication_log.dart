@@ -13,27 +13,33 @@ enum CocoonMedicationSubmitState {
 
 class CocoonMedicationOption {
   const CocoonMedicationOption({
-    required this.id,
+    required this.occurrenceId,
+    required this.occurrenceVersion,
     required this.name,
     required this.doseLabel,
   });
 
-  final String id;
+  /// Canonical dose-occurrence identity. This is deliberately not a medication
+  /// or treatment-plan id: adherence is a fact about one scheduled dose.
+  final String occurrenceId;
+  final int occurrenceVersion;
   final String name;
   final String doseLabel;
 }
 
 class CocoonMedicationLogDraft {
   const CocoonMedicationLogDraft({
-    required this.medicationId,
+    required this.occurrenceId,
+    required this.occurrenceVersion,
     required this.action,
-    required this.timeLabel,
+    required this.occurredAtUtc,
     this.note,
   });
 
-  final String medicationId;
+  final String occurrenceId;
+  final int occurrenceVersion;
   final CocoonMedicationLogAction action;
-  final String timeLabel;
+  final DateTime occurredAtUtc;
   final String? note;
 }
 
@@ -52,7 +58,7 @@ class CocoonMedicationLogScreen extends StatefulWidget {
   final List<CocoonMedicationOption> options;
   final String initialTimeLabel;
   final CocoonMedicationSubmitState submitState;
-  final Future<String?> Function() onPickTime;
+  final Future<DateTime?> Function() onPickTime;
   final Future<void> Function(CocoonMedicationLogDraft draft) onSubmit;
 
   @override
@@ -62,8 +68,8 @@ class CocoonMedicationLogScreen extends StatefulWidget {
 
 class _CocoonMedicationLogScreenState extends State<CocoonMedicationLogScreen> {
   final _note = TextEditingController();
-  String? _medicationId;
-  late String _timeLabel = widget.initialTimeLabel;
+  String? _occurrenceId;
+  late DateTime _occurredAtUtc = DateTime.now().toUtc();
   CocoonMedicationLogAction _action = CocoonMedicationLogAction.taken;
   bool _showErrors = false;
 
@@ -114,14 +120,15 @@ class _CocoonMedicationLogScreenState extends State<CocoonMedicationLogScreen> {
                         for (final option in widget.options) ...[
                           _MedicationOptionTile(
                             option: option,
-                            selected: _medicationId == option.id,
+                            selected: _occurrenceId == option.occurrenceId,
                             enabled: !_busy,
-                            onTap: () =>
-                                setState(() => _medicationId = option.id),
+                            onTap: () => setState(
+                              () => _occurrenceId = option.occurrenceId,
+                            ),
                           ),
                           const SizedBox(height: 10),
                         ],
-                      if (_showErrors && _medicationId == null) ...[
+                      if (_showErrors && _occurrenceId == null) ...[
                         const SizedBox(height: 4),
                         Text(
                           t('Choose an item to continue',
@@ -162,8 +169,8 @@ class _CocoonMedicationLogScreenState extends State<CocoonMedicationLogScreen> {
                         Semantics(
                           button: true,
                           label: t(
-                            'Recorded time, $_timeLabel',
-                            'زمان ثبت، $_timeLabel',
+                            'Recorded time, ${_timeLabel(_occurredAtUtc)}',
+                            'زمان ثبت، ${_timeLabel(_occurredAtUtc)}',
                           ),
                           child: InkWell(
                             onTap: _busy ? null : _pickTime,
@@ -192,7 +199,7 @@ class _CocoonMedicationLogScreenState extends State<CocoonMedicationLogScreen> {
                                               .labelMedium,
                                         ),
                                         Text(
-                                          _timeLabel,
+                                          _timeLabel(_occurredAtUtc),
                                           style: Theme.of(context)
                                               .textTheme
                                               .titleMedium,
@@ -264,23 +271,36 @@ class _CocoonMedicationLogScreenState extends State<CocoonMedicationLogScreen> {
 
   Future<void> _pickTime() async {
     final value = await widget.onPickTime();
-    if (value != null && mounted) setState(() => _timeLabel = value);
+    if (value != null && mounted) {
+      setState(() => _occurredAtUtc = value.toUtc());
+    }
   }
 
   Future<void> _submit() async {
-    if (_medicationId == null) {
+    final occurrenceId = _occurrenceId;
+    if (occurrenceId == null) {
       setState(() => _showErrors = true);
       return;
     }
     final note = _note.text.trim();
     await widget.onSubmit(
       CocoonMedicationLogDraft(
-        medicationId: _medicationId!,
+        occurrenceId: occurrenceId,
+        occurrenceVersion: widget.options
+            .firstWhere((option) => option.occurrenceId == occurrenceId)
+            .occurrenceVersion,
         action: _action,
-        timeLabel: _timeLabel,
+        occurredAtUtc: _occurredAtUtc,
         note: note.isEmpty ? null : note,
       ),
     );
+  }
+
+  String _timeLabel(DateTime value) {
+    final local = value.toLocal();
+    final hour = local.hour.toString().padLeft(2, '0');
+    final minute = local.minute.toString().padLeft(2, '0');
+    return '$hour:$minute';
   }
 }
 

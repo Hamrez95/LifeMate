@@ -168,7 +168,7 @@ class CocoonModuleConfig {
   final List<CocoonMedicationOption> medicationOptions;
   final String medicationInitialTimeLabel;
   final CocoonMedicationSubmitState medicationSubmitState;
-  final Future<String?> Function()? onPickMedicationTime;
+  final Future<DateTime?> Function()? onPickMedicationTime;
   final Future<void> Function(CocoonMedicationLogDraft draft)?
       onSubmitMedication;
   final CocoonReminderLoadState reminderLoadState;
