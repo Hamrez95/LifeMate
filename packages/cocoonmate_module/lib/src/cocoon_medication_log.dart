@@ -122,8 +122,9 @@ class _CocoonMedicationLogScreenState extends State<CocoonMedicationLogScreen> {
                             option: option,
                             selected: _occurrenceId == option.occurrenceId,
                             enabled: !_busy,
-                            onTap: () =>
-                                setState(() => _occurrenceId = option.occurrenceId),
+                            onTap: () => setState(
+                              () => _occurrenceId = option.occurrenceId,
+                            ),
                           ),
                           const SizedBox(height: 10),
                         ],
@@ -270,7 +271,9 @@ class _CocoonMedicationLogScreenState extends State<CocoonMedicationLogScreen> {
 
   Future<void> _pickTime() async {
     final value = await widget.onPickTime();
-    if (value != null && mounted) setState(() => _occurredAtUtc = value.toUtc());
+    if (value != null && mounted) {
+      setState(() => _occurredAtUtc = value.toUtc());
+    }
   }
 
   Future<void> _submit() async {
