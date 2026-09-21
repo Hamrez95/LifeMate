@@ -729,16 +729,13 @@ void main() {
       );
 
       expect(find.textContaining('نه تشخیص پزشکی'), findsOneWidget);
-      await tester.tap(
-        find.byType(OutlinedButton).last,
-      );
-      final saveMood = find.text('ثبت حال روحی');
-      await tester.tap(
-        find.ancestor(
-          of: saveMood,
-          matching: find.byType(FilledButton),
-        ),
-      );
+      final veryGood = find.bySemanticsLabel('خیلی خوب');
+      await tester.ensureVisible(veryGood);
+      await tester.tap(veryGood);
+      await tester.pump();
+      final saveMood = find.byType(FilledButton);
+      await tester.ensureVisible(saveMood);
+      await tester.tap(saveMood);
       await tester.pump();
 
       expect(submitted, CocoonPregnancyMood.veryGood);
