@@ -1,5 +1,15 @@
 import postgres from "postgres";
 
+declare module "postgres" {
+  interface Sql<TTypes extends Record<string, unknown> = {}> {
+    // postgres.js serializes objects with JSON.stringify at runtime. The
+    // Admin API already validates these request/read-model objects before
+    // persistence, but their structural types are intentionally broader than
+    // postgres.js's recursive JSONValue alias.
+    json(value: object): postgres.Parameter;
+  }
+}
+
 export type AdminSql = ReturnType<typeof postgres>;
 
 const clients = new Map<string, AdminSql>();
@@ -17,6 +27,10 @@ export function getAdminSql(databaseUrl: string): AdminSql {
   clients.set(databaseUrl, client);
   return client;
 }
+
+// Compatibility name used by the privacy/consent store. Both Admin and
+// consent read models intentionally use the same restricted database URL.
+export const getLifeMateSql = getAdminSql;
 
 export function isPostgresUnavailable(error: unknown): boolean {
   if (!error || typeof error !== "object") return false;

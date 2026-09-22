@@ -118,6 +118,10 @@ begin
     execute format('grant select,insert,update,delete on pregnancy.%I to lifemate_edge_runtime', table_name);
     execute format('grant select on pregnancy.%I to lifemate_backup_reader', table_name);
     execute format(
+      'drop policy if exists lifemate_edge_runtime_access on pregnancy.%I',
+      table_name
+    );
+    execute format(
       'create policy lifemate_edge_runtime_access on pregnancy.%I for all to lifemate_edge_runtime using(true) with check(true)',
       table_name
     );

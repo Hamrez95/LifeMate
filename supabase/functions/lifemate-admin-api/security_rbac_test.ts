@@ -133,12 +133,15 @@ Deno.test("RBAC matrix marks assignments on disabled roles as ineffective", () =
 
 Deno.test("RBAC route denies missing security.audit.read before querying store", async () => {
   let queried = false;
-  const handler = createSecurityRbacRouteHandler("unused", {
-    async getRolePermissionMatrix() {
-      queried = true;
-      throw new Error("store must not be queried");
+  const handler = createSecurityRbacRouteHandler(
+    "postgres://unused:unused@127.0.0.1:1/unused",
+    {
+      async getRolePermissionMatrix() {
+        queried = true;
+        throw new Error("store must not be queried");
+      },
     },
-  });
+  );
 
   await assertRejects(
     async () =>
@@ -161,31 +164,34 @@ Deno.test("RBAC route denies missing security.audit.read before querying store",
 });
 
 Deno.test("RBAC route returns canonical matrix to authorized security reader", async () => {
-  const handler = createSecurityRbacRouteHandler("unused", {
-    async getRolePermissionMatrix() {
-      return buildAdminRbacMatrix(
-        [
-          {
-            code: "security",
-            displayName: "Security",
-            rank: 150,
-            status: "Active",
-            isSystem: true,
-          },
-        ],
-        [
-          {
-            code: "security.audit.read",
-            domain: "security",
-            riskLevel: "SENSITIVE",
-            roleAssignable: true,
-            description: "Read security evidence",
-          },
-        ],
-        [{ roleCode: "security", permissionCode: "security.audit.read" }],
-      );
+  const handler = createSecurityRbacRouteHandler(
+    "postgres://unused:unused@127.0.0.1:1/unused",
+    {
+      async getRolePermissionMatrix() {
+        return buildAdminRbacMatrix(
+          [
+            {
+              code: "security",
+              displayName: "Security",
+              rank: 150,
+              status: "Active",
+              isSystem: true,
+            },
+          ],
+          [
+            {
+              code: "security.audit.read",
+              domain: "security",
+              riskLevel: "SENSITIVE",
+              roleAssignable: true,
+              description: "Read security evidence",
+            },
+          ],
+          [{ roleCode: "security", permissionCode: "security.audit.read" }],
+        );
+      },
     },
-  });
+  );
 
   const response = await handler({
     request: new Request(

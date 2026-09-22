@@ -82,6 +82,7 @@ Deno.test("cash planning rejects negative observed cash input", () => {
 
 Deno.test("cash planning route denies admins without finance.read before querying data", async () => {
   let queried = false;
+  const accountId = crypto.randomUUID();
   const handler = createFinanceRouteHandler(
     "unused",
     {
@@ -109,7 +110,9 @@ Deno.test("cash planning route denies admins without finance.read before queryin
           "https://admin.test/api/v1/finance/cash-planning?from=2026-07-01&to=2026-07-31&currency=IRR",
         ),
         path: "/api/v1/finance/cash-planning",
-        admin: { accountId: crypto.randomUUID(), roles: [], permissions: [] },
+        accountId,
+        admin: { accountId, roles: [], permissions: [] },
+        correlationId: crypto.randomUUID(),
         origin: null,
       }),
     Error,

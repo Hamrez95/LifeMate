@@ -7,6 +7,8 @@ import { createGrowthStore } from "./growth.ts";
 import { ApiError } from "./validation.ts";
 
 const databaseUrl = Deno.env.get("TEST_DATABASE_URL");
+const fixtureDatabaseUrl = Deno.env.get("TEST_ADMIN_DATABASE_URL") ??
+  databaseUrl;
 if (!databaseUrl) {
   throw new Error(
     "TEST_DATABASE_URL is required for growth integration tests.",
@@ -20,25 +22,29 @@ Deno.test({
   sanitizeOps: false,
   sanitizeResources: false,
   fn: async () => {
-    const sql = postgres(databaseUrl, { max: 1, prepare: false });
+    const sql = postgres(fixtureDatabaseUrl!, { max: 1, prepare: false });
+    await installProviderExtensionCompatibility(sql);
     const db = createLifeMateDatabase(databaseUrl, contactSecret);
     const growth = createGrowthStore(databaseUrl, contactSecret);
     const suffix = crypto.randomUUID();
+    const phoneSeed = crypto.getRandomValues(new Uint32Array(1))[0] % 9_999_997;
+    const phone = (offset: number) =>
+      `+98912${String(phoneSeed + offset).padStart(7, "0")}`;
 
     const referrerAuth = auth(
       `growth-referrer-${suffix}`,
       `growth-referrer-${suffix}@example.test`,
-      "+989121230201",
+      phone(0),
     );
     const referredAuth = auth(
       `growth-referred-${suffix}`,
       `growth-referred-${suffix}@example.test`,
-      "+989121230202",
+      phone(1),
     );
     const alternateAuth = auth(
       `growth-alternate-${suffix}`,
       `growth-alternate-${suffix}@example.test`,
-      "+989121230203",
+      phone(2),
     );
 
     try {
@@ -187,6 +193,54 @@ Deno.test({
     }
   },
 });
+
+type AdminSql = ReturnType<typeof postgres>;
+
+async function installProviderExtensionCompatibility(
+  sql: AdminSql,
+): Promise<void> {
+  // Growth SQL intentionally targets Supabase's pgcrypto placement in the
+  // `extensions` schema. The raw PostgreSQL integration service installs the
+  // same pgcrypto functions in `public`, so this ephemeral test-only shim
+  // reproduces the provider namespace without changing production migrations or
+  // the shared portability bootstrap.
+  await sql.unsafe(`
+    create schema if not exists extensions;
+
+    create or replace function extensions.gen_random_bytes(integer)
+    returns bytea
+    language plpgsql
+    volatile
+    strict
+    as $fixture$
+    begin
+      return public.gen_random_bytes($1);
+    end
+    $fixture$;
+
+    create or replace function extensions.digest(text, text)
+    returns bytea
+    language plpgsql
+    immutable
+    strict
+    as $fixture$
+    begin
+      return public.digest($1, $2);
+    end
+    $fixture$;
+
+    create or replace function extensions.digest(bytea, text)
+    returns bytea
+    language plpgsql
+    immutable
+    strict
+    as $fixture$
+    begin
+      return public.digest($1, $2);
+    end
+    $fixture$;
+  `);
+}
 
 function auth(subject: string, email: string, phone: string): AuthUser {
   return { id: subject, email, phone, userMetadata: {} };

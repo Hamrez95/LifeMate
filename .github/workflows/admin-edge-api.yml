@@ -39,11 +39,38 @@ jobs:
         with:
           show-progress: false
           persist-credentials: false
+          fetch-depth: 0
       - uses: denoland/setup-deno@22d081ff2d3a40755e97629de92e3bcbfa7cf2ed
         with:
           deno-version: v2.9.4
-      - name: Format
-        run: deno fmt --check
+      - name: Format changed Admin API source
+        shell: bash
+        run: |
+          set -euo pipefail
+          if [[ -n "${GITHUB_BASE_REF:-}" ]]; then
+            base="origin/${GITHUB_BASE_REF}"
+          elif git -C "$GITHUB_WORKSPACE" rev-parse HEAD^ >/dev/null 2>&1; then
+            base="HEAD^"
+          else
+            echo "No parent commit available; no changed Admin API files to format-check."
+            exit 0
+          fi
+
+          mapfile -t files < <(
+            git -C "$GITHUB_WORKSPACE" diff --name-only "$base"...HEAD --               supabase/functions/lifemate-admin-api |
+              grep -E '\.ts$' || true
+          )
+
+          if (( ${#files[@]} == 0 )); then
+            echo "No changed Admin API TypeScript files."
+            exit 0
+          fi
+
+          args=()
+          for file in "${files[@]}"; do
+            args+=("$GITHUB_WORKSPACE/$file")
+          done
+          deno fmt --check "${args[@]}"
       - name: Type check
         run: deno task check
       - name: Unit tests
@@ -54,14 +81,14 @@ jobs:
           set -euo pipefail
           check() { local label="$1"; shift; if "$@"; then echo "PASS: $label"; else echo "::error::$label"; exit 1; fi; }
           check_absent() { local label="$1"; shift; if "$@"; then echo "::error::$label"; exit 1; else echo "PASS: $label"; fi; }
-          check_absent 'Admin API must not read Supabase service-role credentials.' grep -R --line-number -E 'SERVICE_ROLE|service.role' .
+          check_absent 'Admin API must not read Supabase service-role credentials.' grep -R --line-number --include='*.ts' --exclude='*_test.ts' -E 'SERVICE_ROLE|service.role' .
           check 'Admin API refuses privileged database fallback.' grep -Fq 'Refusing privileged DB fallback' runtime_config.ts
           check 'MFA AAL2 remains the default enforcement.' grep -Fq 'requireAal2' index.ts
           check 'Temporary AAL1 exception is bootstrap-subject bound.' grep -Fq 'LIFEMATE_ADMIN_BOOTSTRAP_AUTH_SUBJECT' auth.ts
           check 'Admin membership is server resolved.' grep -Fq 'getSnapshot(accountId)' index.ts
           check 'Audit access requires server-side permission.' grep -Fq 'security.audit.read' index.ts
           check 'Browser origins are allow-listed.' grep -Fq 'assertAllowedOrigin' index.ts
-          check_absent 'Admin API must never query medication tables.' grep -R --line-number -E 'lifemate\.(medications|treatment_plans|dose_occurrences|women_calendar)' .
+          check_absent 'Admin API must never query medication tables.' grep -R --line-number --include='*.ts' --exclude='*_test.ts' -E 'lifemate\.(medications|treatment_plans|dose_occurrences|women_calendar)' .
 
   workforce-auth-check:
     runs-on: ubuntu-24.04

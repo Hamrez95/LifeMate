@@ -39,6 +39,7 @@ Deno.test("finance P&L rejects invalid ranges and currencies", async () => {
 
 Deno.test("finance P&L route denies admins without finance.read before querying data", async () => {
   let queried = false;
+  const accountId = crypto.randomUUID();
   const handler = createFinanceRouteHandler("unused", {
     async getProfitLoss() {
       queried = true;
@@ -50,7 +51,9 @@ Deno.test("finance P&L route denies admins without finance.read before querying 
       await handler({
         request: new Request("https://admin.test/api/v1/finance/profit-loss"),
         path: "/api/v1/finance/profit-loss",
-        admin: { accountId: crypto.randomUUID(), roles: [], permissions: [] },
+        accountId,
+        admin: { accountId, roles: [], permissions: [] },
+        correlationId: crypto.randomUUID(),
         origin: null,
       }),
     Error,
