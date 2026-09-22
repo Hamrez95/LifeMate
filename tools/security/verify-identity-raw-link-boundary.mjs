@@ -131,7 +131,9 @@ requireMarkers(
   [
     'createMedication: personMedications.createMedication',
     'listMedications: personMedications.listMedications',
-    'createTreatmentPlan: personTreatmentPlans.createTreatmentPlan',
+    'createTreatmentPlan:',
+    'personTreatmentCreate.createTreatment(appUserId, body)',
+    'personTreatmentPlans.createTreatmentPlan(appUserId, body)',
     'listTreatmentPlans: personTreatmentPlans.listTreatmentPlans',
     'listDoseOccurrences: personDoseOccurrences.listDoseOccurrences',
     'reportDose: personDoseOccurrences.reportDose',
