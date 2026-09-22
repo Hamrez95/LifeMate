@@ -92,9 +92,13 @@ Deno.test("analytics KPI fallback reads canonical identity and ecosystem snapsho
     product: null,
   });
 
-  assertEquals(queries.length, 2);
+  assertEquals(queries.length, 4);
   assertStringIncludes(queries[0], "identity.accounts");
   assertStringIncludes(queries[1], "identity.accounts");
+  assertStringIncludes(queries[2], "identity.accounts");
+  assertStringIncludes(queries[2], "ecosystem.app_enrollments");
+  assertStringIncludes(queries[3], "identity.accounts");
+  assertStringIncludes(queries[3], "ecosystem.app_enrollments");
   for (const query of queries) {
     assert(!query.includes("lifemate.app_users"));
     assert(!query.includes("lifemate.user_profiles"));
