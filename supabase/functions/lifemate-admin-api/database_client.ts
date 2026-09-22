@@ -8,8 +8,7 @@ type PostgresTransactionCallback = Extract<
   (...args: never[]) => unknown
 >;
 type PostgresTransactionSql = Parameters<PostgresTransactionCallback>[0];
-type UnwrapPromiseArray<T> = T extends unknown[]
-  ? {
+type UnwrapPromiseArray<T> = T extends unknown[] ? {
     [K in keyof T]: T[K] extends Promise<infer R> ? R : T[K];
   }
   : T;
