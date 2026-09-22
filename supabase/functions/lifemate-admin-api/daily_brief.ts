@@ -46,11 +46,23 @@ function evidence(value: KpiValue): DailyBriefEvidence {
   };
 }
 
+function seriesTotal(
+  points: NonNullable<KpiValue["series"]>,
+): number | null {
+  let total = 0;
+  for (const point of points) {
+    if (point.value === null) return null;
+    total += point.value;
+  }
+  return total;
+}
+
 function recentChange(value: KpiValue, evidenceId: string): DailyBriefItem | null {
   const series = value.series;
   if (!series || series.length < 14) return null;
-  const recent = series.slice(-7).reduce((sum, point) => sum + point.value, 0);
-  const previous = series.slice(-14, -7).reduce((sum, point) => sum + point.value, 0);
+  const recent = seriesTotal(series.slice(-7));
+  const previous = seriesTotal(series.slice(-14, -7));
+  if (recent === null || previous === null) return null;
   if (recent === previous) {
     return {
       id: `change:${value.name}`,
