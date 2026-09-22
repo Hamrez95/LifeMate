@@ -12,7 +12,10 @@ import { createPlatformControlMutationRouteHandler } from "./platform_controls_m
 import { createPlatformControlStore } from "./platform_controls_service.ts";
 import { ApiError } from "./validation.ts";
 
-function parseBoolean(value: string | null, field: string): boolean | undefined {
+function parseBoolean(
+  value: string | null,
+  field: string,
+): boolean | undefined {
   if (value == null || value === "") return undefined;
   if (value === "true") return true;
   if (value === "false") return false;

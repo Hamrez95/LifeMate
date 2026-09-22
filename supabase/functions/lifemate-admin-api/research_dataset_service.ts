@@ -1,4 +1,8 @@
-import { type AdminSql, getAdminSql } from "./database_client.ts";
+import {
+  type AdminSql,
+  encodeAdminJson,
+  getAdminSql,
+} from "./database_client.ts";
 import { ApiError } from "./validation.ts";
 
 export type ResearchDatasetKind =
@@ -35,18 +39,34 @@ async function consumeIdempotency<T>(input: {
         for update
       `;
       if (existing.length === 0) {
-        throw new ApiError(409,"idempotency_conflict","Idempotency state changed; retry safely.");
+        throw new ApiError(
+          409,
+          "idempotency_conflict",
+          "Idempotency state changed; retry safely.",
+        );
       }
       if (String(existing[0].request_hash) !== input.requestHash) {
-        throw new ApiError(409,"idempotency_key_reused","Idempotency key was already used with a different request.");
+        throw new ApiError(
+          409,
+          "idempotency_key_reused",
+          "Idempotency key was already used with a different request.",
+        );
       }
-      if (String(existing[0].status) === "Completed") return existing[0].response_json as T;
-      throw new ApiError(409,"request_in_progress","An equivalent research operation is already in progress.");
+      if (String(existing[0].status) === "Completed") {
+        return existing[0].response_json as T;
+      }
+      throw new ApiError(
+        409,
+        "request_in_progress",
+        "An equivalent research operation is already in progress.",
+      );
     }
     const response = await input.work(tx as AdminSql);
     await tx`
       update admin.idempotency_keys
-      set status='Completed',response_status=201,response_json=${tx.json(response as object)},updated_at_utc=now()
+      set status='Completed',response_status=201,response_json=${
+      encodeAdminJson(tx, response)
+    },updated_at_utc=now()
       where actor_account_id=${input.actorAccountId}::uuid
         and operation=${input.operation}
         and idempotency_key=${input.idempotencyKey}
@@ -72,7 +92,9 @@ export function createResearchDatasetStore(databaseUrl: string) {
         datasetVersion: Number(row.dataset_version),
         status: String(row.status),
         privacyPolicyVersion: Number(row.privacy_policy_version),
-        ageBucketYears: row.age_bucket_years == null ? null : Number(row.age_bucket_years),
+        ageBucketYears: row.age_bucket_years == null
+          ? null
+          : Number(row.age_bucket_years),
         minimumCohortSize: Number(row.minimum_cohort_size),
         smallCellThreshold: Number(row.small_cell_threshold),
         quasiIdentifierRules: row.quasi_identifier_rules,
@@ -81,7 +103,11 @@ export function createResearchDatasetStore(databaseUrl: string) {
       }));
     },
 
-    async preview(actorAccountId: string, datasetId: string, jurisdiction = "GLOBAL") {
+    async preview(
+      actorAccountId: string,
+      datasetId: string,
+      jurisdiction = "GLOBAL",
+    ) {
       const rows = await sql`
         select analytics.preview_research_dataset(
           ${actorAccountId}::uuid,
@@ -112,7 +138,9 @@ export function createResearchDatasetStore(databaseUrl: string) {
         status: String(row.status),
         cohortSize: row.cohort_size == null ? null : Number(row.cohort_size),
         reasonCode: row.reason_code == null ? null : String(row.reason_code),
-        artifactSha256: row.artifact_sha256 == null ? null : String(row.artifact_sha256),
+        artifactSha256: row.artifact_sha256 == null
+          ? null
+          : String(row.artifact_sha256),
         artifactExpiresAtUtc: row.artifact_expires_at_utc == null
           ? null
           : new Date(String(row.artifact_expires_at_utc)).toISOString(),
@@ -130,13 +158,18 @@ export function createResearchDatasetStore(databaseUrl: string) {
       `;
       const row = rows[0];
       if (!row) {
-        throw new ApiError(404, "research_export_download_unavailable", "Research export is unavailable or expired.");
+        throw new ApiError(
+          404,
+          "research_export_download_unavailable",
+          "Research export is unavailable or expired.",
+        );
       }
       return {
         objectPath: String(row.storage_object_path),
         artifactSha256: String(row.artifact_sha256),
         format: String(row.export_format),
-        artifactExpiresAtUtc: new Date(String(row.artifact_expires_at_utc)).toISOString(),
+        artifactExpiresAtUtc: new Date(String(row.artifact_expires_at_utc))
+          .toISOString(),
       };
     },
 
