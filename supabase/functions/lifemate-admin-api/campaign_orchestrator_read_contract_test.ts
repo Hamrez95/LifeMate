@@ -28,6 +28,9 @@ Deno.test("execution list and detail require high-risk send permission", async (
     new URL("./campaign_orchestrator_routes.ts", import.meta.url),
   );
   assertStringIncludes(routes, 'requirePermission(admin, "marketing.campaign.send")');
-  assertStringIncludes(routes, "/api/v1/marketing/campaigns/");
-  assertStringIncludes(routes, "/api/v1/marketing/campaign-executions/");
+  assertStringIncludes(routes, "const campaignId = idFromPath(");
+  assertStringIncludes(routes, "const executionId = idFromPath(");
+  const permissionChecks =
+    routes.match(/requirePermission\(admin, "marketing\.campaign\.send"\)/g) ?? [];
+  assert(permissionChecks.length >= 3);
 });
