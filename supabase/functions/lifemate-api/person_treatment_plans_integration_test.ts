@@ -151,19 +151,39 @@ Deno.test({
         timeZone: "Asia/Tehran",
         patientReminderMinutesBefore: 15,
         caregiverReminderMinutesBefore: 45,
-        schedules: [{ dayOfWeek: "monday", localTime: "09:00" }],
+        schedules: [],
+        recurrence: {
+          version: 2,
+          enabled: true,
+          unit: "day",
+          interval: 1,
+          endAt: "2030-01-07T23:59:59",
+        },
+        recurrenceStartLocalTime: "09:00",
       });
       planId = String(created.id);
       assertEquals(created.patientUserId, ownerAppUserId);
 
       const persisted = await fixtureSql`
-        select patient_user_id::text,patient_person_id::text
+        select patient_user_id::text,patient_person_id::text,recurrence_rule
         from lifemate.treatment_plans
         where id=${planId}::uuid
       `;
       assertEquals(persisted.length, 1);
       assertEquals(persisted[0].patient_user_id, null);
       assertEquals(persisted[0].patient_person_id, ownerPersonId);
+      assertEquals(persisted[0].recurrence_rule.enabled, true);
+      assertEquals(persisted[0].recurrence_rule.unit, "day");
+      assertEquals(persisted[0].recurrence_rule.maxOccurrences, null);
+
+      const scheduleRows = await fixtureSql`
+        select day_of_week,local_time::text
+        from lifemate.treatment_schedules
+        where treatment_plan_id=${planId}::uuid
+      `;
+      assertEquals(scheduleRows.length, 1);
+      assertEquals(scheduleRows[0].day_of_week, "recurrence");
+      assertEquals(String(scheduleRows[0].local_time).slice(0, 5), "09:00");
 
       const auditRows = await fixtureSql`
         select action,metadata_json
