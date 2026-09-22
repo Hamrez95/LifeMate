@@ -60,6 +60,7 @@ const relative = (file) => path.relative(repoRoot, file).replaceAll('\\', '/');
 
 const authSubjectAllowlist = new Set([
   'supabase/functions/lifemate-api/database_legacy.ts',
+  'supabase/functions/lifemate-api/bootstrap_account_state.ts',
   'supabase/functions/lifemate-api/identity_bridge.ts',
   'supabase/functions/lifemate-api/identity_resolver.ts',
   'supabase/functions/lifemate-api/idempotency_legacy.ts',
@@ -121,10 +122,21 @@ requireMarkers(
   [
     'createIdentityResolver',
     'createLegacyLifeMateDatabase',
-    'requireIdentity: identityResolver.requireIdentity',
+    'const identity = await identityResolver.requireIdentity(auth);',
+    'await privacyPreferences.requireRegistrationComplete(identity.appUserId);',
+    'requireIdentity,',
   ],
   'database compatibility facade',
 );
+requireMarkers(
+  databaseFacade,
+  [
+    'if (identityResolver.lookupMode !== "token-only")',
+    'await bootstrapAccountState.assertAllowed(auth.id);',
+  ],
+  'token-only bootstrap raw-subject exclusion',
+);
+
 requireMarkers(
   databaseFacade,
   [

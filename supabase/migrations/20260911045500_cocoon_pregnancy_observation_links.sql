@@ -58,6 +58,8 @@ end $$;
 grant select,insert,update,delete on pregnancy.observation_links to lifemate_edge_runtime;
 grant select on pregnancy.observation_links to lifemate_backup_reader;
 
+drop policy if exists lifemate_edge_runtime_access on pregnancy.observation_links;
+
 create policy lifemate_edge_runtime_access
 on pregnancy.observation_links
 for all to lifemate_edge_runtime
