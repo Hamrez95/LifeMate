@@ -14,6 +14,14 @@ import {
 
 type MeasurementType = "weight" | "blood_pressure" | "blood_glucose";
 
+type CreateOwnerObservation = (
+  appUserId: string,
+  body: Record<string, unknown>,
+  trustedApplicationCode?: string,
+) => Promise<Record<string, unknown>>;
+
+type EnsureOwnerMeasurementAccess = () => Promise<void>;
+
 const supportedMeasurementTypes = new Set<MeasurementType>([
   "weight",
   "blood_pressure",
@@ -32,6 +40,30 @@ export function normalizePregnancyMeasurementType(
     );
   }
   return normalized as MeasurementType;
+}
+
+/// Delegates pregnancy measurement creation to the canonical health-observation
+/// domain while fixing provenance to the trusted CocoonMate application.
+/// Client-provided provenance fields cannot select the trusted application code.
+export async function createPregnancyMeasurementObservation(
+  ensureOwnerAccess: EnsureOwnerMeasurementAccess,
+  createOwnerObservation: CreateOwnerObservation,
+  appUserId: string,
+  body: Record<string, unknown>,
+): Promise<Record<string, unknown>> {
+  // Authorization/active-episode validation must happen before the canonical
+  // health observation write. Link authorization is intentionally repeated
+  // afterwards so an episode/access change between the two steps still fails
+  // closed while an ambiguous transport retry can recover by request id.
+  await ensureOwnerAccess();
+  const measurementType = normalizePregnancyMeasurementType(
+    body.observationType,
+  );
+  return await createOwnerObservation(
+    appUserId,
+    { ...body, observationType: measurementType },
+    "cocoonmate",
+  );
 }
 
 export function createPregnancyMeasurementRouteHandler(databaseUrl: string) {
@@ -60,61 +92,149 @@ export function createPregnancyMeasurementRouteHandler(databaseUrl: string) {
     return { accountId, personId, episode };
   }
 
+  type OwnerMutationContext = {
+    accountId: string;
+    personId: string;
+    episodeId: string;
+  };
+
+  async function mutationContext(
+    tx: any,
+    appUserId: string,
+  ): Promise<OwnerMutationContext> {
+    const identityRows = await tx`
+      select
+        identity.account_id_for_legacy_app_user(${appUserId}::uuid)::text
+          as account_id,
+        core.self_person_id_for_legacy_app_user(${appUserId}::uuid)::text
+          as person_id
+    `;
+    const accountId = identityRows[0]?.account_id == null
+      ? null
+      : String(identityRows[0].account_id);
+    const personId = identityRows[0]?.person_id == null
+      ? null
+      : String(identityRows[0].person_id);
+    if (!accountId || !personId) {
+      throw new ApiError(
+        409,
+        "cocoon_person_context_missing",
+        "Cocoon person context is not ready.",
+      );
+    }
+
+    const episodeRows = await tx`
+      select id::text
+      from pregnancy.episodes
+      where mother_person_id=${personId}::uuid
+        and status='active'
+      order by activated_at_utc desc,id
+      limit 1
+      for update
+    `;
+    const episodeId = episodeRows[0]?.id == null
+      ? null
+      : String(episodeRows[0].id);
+    if (!episodeId) {
+      throw new ApiError(
+        409,
+        "active_pregnancy_required",
+        "An active pregnancy is required.",
+      );
+    }
+
+    const accessRows = await tx`
+      select security.can_access_pregnancy_scope(
+        ${accountId}::uuid,
+        ${personId}::uuid,
+        ${episodeId}::uuid,
+        'pregnancy.owner.manage'::varchar,
+        now()
+      ) as allowed
+    `;
+    if (accessRows[0]?.allowed !== true) {
+      throw new ApiError(
+        403,
+        "pregnancy_access_denied",
+        "Pregnancy access is not authorized.",
+      );
+    }
+    return { accountId, personId, episodeId };
+  }
+
+  async function linkExistingInTransaction(
+    tx: any,
+    owner: OwnerMutationContext,
+    observationIdValue: unknown,
+  ) {
+    const observationId = requiredUuid(observationIdValue, "observationId");
+    const rows = await tx`
+      select id, observation_type
+      from lifemate.health_observations
+      where id=${observationId}::uuid
+        and person_id=${owner.personId}::uuid
+      for update
+    `;
+    if (!rows[0]) {
+      throw new ApiError(
+        404,
+        "health_observation_not_found",
+        "Health observation was not found.",
+      );
+    }
+    normalizePregnancyMeasurementType(rows[0].observation_type);
+
+    const prior = await tx`
+      select episode_id::text
+      from pregnancy.observation_links
+      where observation_id=${observationId}::uuid
+      for update
+    `;
+    if (
+      prior[0] &&
+      String(prior[0].episode_id) !== owner.episodeId
+    ) {
+      throw new ApiError(
+        409,
+        "observation_already_linked",
+        "Health observation is already associated with another pregnancy.",
+      );
+    }
+
+    const linked = await tx`
+      insert into pregnancy.observation_links(
+        episode_id,observation_id,linked_by_account_id
+      ) values (
+        ${owner.episodeId}::uuid,
+        ${observationId}::uuid,
+        ${owner.accountId}::uuid
+      )
+      on conflict (episode_id,observation_id) do nothing
+      returning episode_id::text,observation_id::text,created_at_utc
+    `;
+    if (linked[0]) return linked[0];
+
+    const existing = await tx`
+      select episode_id::text,observation_id::text,created_at_utc
+      from pregnancy.observation_links
+      where episode_id=${owner.episodeId}::uuid
+        and observation_id=${observationId}::uuid
+      limit 1
+    `;
+    return existing[0];
+  }
+
   async function linkExisting(
     appUserId: string,
     observationIdValue: unknown,
   ) {
-    const observationId = requiredUuid(observationIdValue, "observationId");
-    const { accountId, personId, episode } = await context(appUserId, true);
     return await sql.begin(async (tx: any) => {
-      const rows = await tx`
-        select id, observation_type
-        from lifemate.health_observations
-        where id=${observationId}::uuid
-          and person_id=${personId}::uuid
-        for update
-      `;
-      if (!rows[0]) {
-        throw new ApiError(
-          404,
-          "health_observation_not_found",
-          "Health observation was not found.",
-        );
-      }
-      normalizePregnancyMeasurementType(rows[0].observation_type);
-
-      const prior = await tx`
-        select episode_id::text
-        from pregnancy.observation_links
-        where observation_id=${observationId}::uuid
-        for update
-      `;
-      if (prior[0] && String(prior[0].episode_id) !== episode.id) {
-        throw new ApiError(
-          409,
-          "observation_already_linked",
-          "Health observation is already associated with another pregnancy.",
-        );
-      }
-
-      const linked = await tx`
-        insert into pregnancy.observation_links(
-          episode_id,observation_id,linked_by_account_id
-        ) values (
-          ${episode.id}::uuid,${observationId}::uuid,${accountId}::uuid
-        )
-        on conflict (episode_id,observation_id) do nothing
-        returning episode_id::text,observation_id::text,created_at_utc
-      `;
-      if (linked[0]) return linked[0];
-      const existing = await tx`
-        select episode_id::text,observation_id::text,created_at_utc
-        from pregnancy.observation_links
-        where episode_id=${episode.id}::uuid
-          and observation_id=${observationId}::uuid
-        limit 1
-      `;
-      return existing[0];
+      const owner = await mutationContext(tx, appUserId);
+      return await linkExistingInTransaction(
+        tx,
+        owner,
+        observationIdValue,
+      );
     });
   }
 
@@ -181,19 +301,38 @@ export function createPregnancyMeasurementRouteHandler(databaseUrl: string) {
       path === "/api/v1/cocoon/pregnancy/measurements"
     ) {
       const body = await readJsonObject(request);
-      const measurementType = normalizePregnancyMeasurementType(
-        body.observationType,
-      );
-      const created = await observations.createOwnerObservation(
-        appUserId,
-        { ...body, observationType: measurementType },
-        "cocoonmate",
-      );
-      const link = await linkExisting(appUserId, created.id);
+      const result = await sql.begin(async (tx: any) => {
+        let owner: OwnerMutationContext | null = null;
+        const created = await createPregnancyMeasurementObservation(
+          async () => {
+            owner = await mutationContext(tx, appUserId);
+          },
+          (userId, normalizedBody, trustedApplicationCode) =>
+            observations.createOwnerObservationInTransaction(
+              tx,
+              userId,
+              normalizedBody,
+              trustedApplicationCode,
+            ),
+          appUserId,
+          body,
+        );
+        if (!owner) {
+          throw new Error(
+            "Pregnancy measurement owner context was not resolved.",
+          );
+        }
+        const link = await linkExistingInTransaction(
+          tx,
+          owner,
+          created.id,
+        );
+        return { created, link };
+      });
       return json({
         contractVersion: 1,
-        episodeId: String(link.episode_id),
-        observation: created,
+        episodeId: String(result.link.episode_id),
+        observation: result.created,
       }, 201);
     }
 
