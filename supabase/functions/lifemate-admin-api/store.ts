@@ -34,6 +34,12 @@ function asStringArray(rows: readonly Row[], key: string): string[] {
     .filter((value): value is string => typeof value === "string");
 }
 
+function asStringArrayValue(value: unknown): string[] {
+  return Array.isArray(value)
+    ? value.filter((item): item is string => typeof item === "string")
+    : [];
+}
+
 function mapAuditEvent(row: Row): AuditEventView {
   return {
     id: String(row.id),
@@ -65,13 +71,48 @@ export function createAdminStore(databaseUrl: string) {
   async function getSnapshot(
     accountId: string,
   ): Promise<AdminCapabilitySnapshot> {
-    const memberRows = await sql`
-      select account_id
-      from admin.members
-      where account_id=${accountId}::uuid and status='Active'
-      limit 1
+    const snapshotRows = await sql`
+      select
+        exists(
+          select 1
+          from admin.members m
+          where m.account_id=${accountId}::uuid
+            and m.status='Active'
+        ) as is_active_member,
+        coalesce(
+          array(
+            select distinct r.code
+            from admin.member_roles mr
+            join admin.roles r on r.id=mr.role_id
+            where mr.account_id=${accountId}::uuid
+              and r.status='Active'
+              and mr.revoked_at_utc is null
+              and mr.starts_at_utc <= now()
+              and (mr.expires_at_utc is null or mr.expires_at_utc > now())
+            order by r.code
+          ),
+          array[]::text[]
+        ) as roles,
+        coalesce(
+          array(
+            select distinct p.code
+            from admin.member_roles mr
+            join admin.roles r on r.id=mr.role_id
+            join admin.role_permissions rp on rp.role_id=r.id
+            join admin.permissions p on p.code=rp.permission_code
+            where mr.account_id=${accountId}::uuid
+              and r.status='Active'
+              and p.role_assignable=true
+              and mr.revoked_at_utc is null
+              and mr.starts_at_utc <= now()
+              and (mr.expires_at_utc is null or mr.expires_at_utc > now())
+            order by p.code
+          ),
+          array[]::text[]
+        ) as permissions
     `;
-    if (!memberRows[0]) {
+    const snapshot = snapshotRows[0] as Row | undefined;
+    if (snapshot?.is_active_member !== true) {
       throw new ApiError(
         403,
         "admin_membership_required",
@@ -79,36 +120,10 @@ export function createAdminStore(databaseUrl: string) {
       );
     }
 
-    const roleRows = await sql`
-      select distinct r.code
-      from admin.member_roles mr
-      join admin.roles r on r.id=mr.role_id
-      where mr.account_id=${accountId}::uuid
-        and r.status='Active'
-        and mr.revoked_at_utc is null
-        and mr.starts_at_utc <= now()
-        and (mr.expires_at_utc is null or mr.expires_at_utc > now())
-      order by r.code
-    `;
-    const permissionRows = await sql`
-      select distinct p.code
-      from admin.member_roles mr
-      join admin.roles r on r.id=mr.role_id
-      join admin.role_permissions rp on rp.role_id=r.id
-      join admin.permissions p on p.code=rp.permission_code
-      where mr.account_id=${accountId}::uuid
-        and r.status='Active'
-        and p.role_assignable=true
-        and mr.revoked_at_utc is null
-        and mr.starts_at_utc <= now()
-        and (mr.expires_at_utc is null or mr.expires_at_utc > now())
-      order by p.code
-    `;
-
     return {
       accountId,
-      roles: asStringArray(roleRows as unknown as Row[], "code"),
-      permissions: asStringArray(permissionRows as unknown as Row[], "code"),
+      roles: asStringArrayValue(snapshot.roles),
+      permissions: asStringArrayValue(snapshot.permissions),
     };
   }
 
