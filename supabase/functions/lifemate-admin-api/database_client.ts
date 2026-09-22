@@ -2,11 +2,33 @@ import postgres from "postgres";
 
 type PostgresSql = ReturnType<typeof postgres>;
 type PostgresJsonResult = ReturnType<PostgresSql["json"]>;
+type PostgresBeginParameters = Parameters<PostgresSql["begin"]>;
+type PostgresTransactionCallback = Extract<
+  PostgresBeginParameters[number],
+  (...args: never[]) => unknown
+>;
+type PostgresTransactionSql = Parameters<PostgresTransactionCallback>[0];
+type UnwrapPromiseArray<T> = T extends unknown[]
+  ? {
+    [K in keyof T]: T[K] extends Promise<infer R> ? R : T[K];
+  }
+  : T;
+
+type AdminTransactionSql = PostgresTransactionSql & {
+  json(value: Parameters<PostgresSql["json"]>[0] | object): PostgresJsonResult;
+};
 
 export type AdminSql = PostgresSql & {
   // postgres serializes plain request/DB JSON objects at runtime, while its
   // current Deno typings reject structurally validated Record/object values.
   json(value: Parameters<PostgresSql["json"]>[0] | object): PostgresJsonResult;
+  begin<T>(
+    callback: (sql: AdminTransactionSql) => T | Promise<T>,
+  ): Promise<UnwrapPromiseArray<T>>;
+  begin<T>(
+    options: string,
+    callback: (sql: AdminTransactionSql) => T | Promise<T>,
+  ): Promise<UnwrapPromiseArray<T>>;
 };
 
 const clients = new Map<string, AdminSql>();
