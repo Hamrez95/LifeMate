@@ -38,7 +38,10 @@ Deno.test("research pseudonymous row export remains explicitly unavailable", () 
     smallCellThreshold: 5,
     rowMode: "Pseudonymous",
   }));
-  assertEquals(error.message, "Pseudonymous row-level research export is not available yet.");
+  assertEquals(
+    error instanceof Error ? error.message : null,
+    "Pseudonymous row-level research export is not available yet.",
+  );
 });
 
 Deno.test("research small cells are marked for suppression", () => {
