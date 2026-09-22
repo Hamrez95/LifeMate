@@ -169,25 +169,25 @@ Deno.test("RBAC route returns canonical matrix to authorized security reader", a
     {
       async getRolePermissionMatrix() {
         return buildAdminRbacMatrix(
-        [
-          {
-            code: "security",
-            displayName: "Security",
-            rank: 150,
-            status: "Active",
-            isSystem: true,
-          },
-        ],
-        [
-          {
-            code: "security.audit.read",
-            domain: "security",
-            riskLevel: "SENSITIVE",
-            roleAssignable: true,
-            description: "Read security evidence",
-          },
-        ],
-        [{ roleCode: "security", permissionCode: "security.audit.read" }],
+          [
+            {
+              code: "security",
+              displayName: "Security",
+              rank: 150,
+              status: "Active",
+              isSystem: true,
+            },
+          ],
+          [
+            {
+              code: "security.audit.read",
+              domain: "security",
+              riskLevel: "SENSITIVE",
+              roleAssignable: true,
+              description: "Read security evidence",
+            },
+          ],
+          [{ roleCode: "security", permissionCode: "security.audit.read" }],
         );
       },
     },
