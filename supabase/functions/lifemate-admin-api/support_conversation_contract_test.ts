@@ -1,7 +1,4 @@
-import {
-  assertFalse,
-  assertStringIncludes,
-} from "jsr:@std/assert@1.0.14";
+import { assertFalse, assertStringIncludes } from "jsr:@std/assert@1.0.14";
 
 Deno.test("Admin support visible-message routes stay permissioned and audited", async () => {
   const routes = await Deno.readTextFile(
@@ -28,8 +25,9 @@ Deno.test("Admin support visible-message routes stay permissioned and audited", 
   // notes. Do not log/persist message body inside Admin audit metadata.
   assertFalse(migration.includes("jsonb_build_object('body'"));
   assertFalse(
-    /insert\s+into\s+support\.ticket_events[\s\S]{0,500}InternalNoteAdded/i.test(
-      migration,
-    ),
+    /insert\s+into\s+support\.ticket_events[\s\S]{0,500}InternalNoteAdded/i
+      .test(
+        migration,
+      ),
   );
 });
