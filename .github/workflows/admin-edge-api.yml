@@ -90,9 +90,9 @@ jobs:
           check() { local label="$1"; shift; if "$@"; then echo "PASS: $label"; else echo "::error::$label"; exit 1; fi; }
           check_absent() { local label="$1"; shift; if "$@"; then echo "::error::$label"; exit 1; else echo "PASS: $label"; fi; }
           check 'Username auth uses Supabase password verification.' grep -Fq 'signInWithPassword' index.ts
-          check 'Self-registration remains pending role assignment.' grep -Fq 'pending_role_assignment' index.ts
+          check_absent 'Public workforce signup stays closed.' grep -R --line-number -E 'action[[:space:]]*===[[:space:]]*["'"']signup["'"']|pending_role_assignment|register_pending_workforce_account' .
           check 'Origin allow-list is mandatory.' grep -Fq 'config.allowedOrigins.has(origin)' index.ts
-          check 'Login/signup are rate limited.' grep -Fq 'consume_workforce_auth_attempt' index.ts
+          check 'Login attempts are rate limited.' grep -Fq 'consume_workforce_auth_attempt' index.ts
           check 'Service-role credential is server-side only.' grep -Fq 'SUPABASE_SERVICE_ROLE_KEY' runtime_config.ts
           check_absent 'Workforce auth must not write Auth password hashes directly.' grep -R --line-number -E 'encrypted_password|insert into auth\.users' .
-          check_absent 'Workforce auth must not grant roles during signup.' grep -R --line-number -E 'insert into admin\.member_roles' .
+          check_absent 'Workforce auth must not grant roles during login.' grep -R --line-number -E 'insert into admin\.member_roles' .
