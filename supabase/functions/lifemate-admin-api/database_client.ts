@@ -3,7 +3,7 @@ import postgres from "postgres";
 type PostgresSql = ReturnType<typeof postgres>;
 type PostgresJsonResult = ReturnType<PostgresSql["json"]>;
 
-export type AdminSql = Omit<PostgresSql, "json"> & {
+export type AdminSql = PostgresSql & {
   // postgres serializes plain request/DB JSON objects at runtime, while its
   // current Deno typings reject structurally validated Record/object values.
   json(value: Parameters<PostgresSql["json"]>[0] | object): PostgresJsonResult;
