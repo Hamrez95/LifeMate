@@ -1,6 +1,13 @@
 import postgres from "postgres";
 
-export type AdminSql = ReturnType<typeof postgres>;
+type PostgresSql = ReturnType<typeof postgres>;
+type PostgresJsonResult = ReturnType<PostgresSql["json"]>;
+
+export type AdminSql = Omit<PostgresSql, "json"> & {
+  // postgres serializes plain request/DB JSON objects at runtime, while its
+  // current Deno typings reject structurally validated Record/object values.
+  json(value: Parameters<PostgresSql["json"]>[0] | object): PostgresJsonResult;
+};
 
 const clients = new Map<string, AdminSql>();
 
@@ -13,10 +20,14 @@ export function getAdminSql(databaseUrl: string): AdminSql {
     idle_timeout: 5,
     connect_timeout: 10,
     prepare: false,
-  });
+  }) as AdminSql;
   clients.set(databaseUrl, client);
   return client;
 }
+
+// Compatibility name used by the privacy/consent store. Both Admin and
+// consent read models intentionally use the same restricted database URL.
+export const getLifeMateSql = getAdminSql;
 
 export function isPostgresUnavailable(error: unknown): boolean {
   if (!error || typeof error !== "object") return false;
