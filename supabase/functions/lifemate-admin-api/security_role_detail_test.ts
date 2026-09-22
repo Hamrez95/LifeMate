@@ -177,7 +177,7 @@ Deno.test("role detail path matcher accepts only bounded role codes", () => {
 Deno.test("role detail route denies missing security.audit.read before querying store", async () => {
   let queried = false;
   const handler = createSecurityRbacRouteHandler(
-    "unused",
+    "postgres://unused:unused@127.0.0.1:1/unused",
     matrixStore(),
     {
       async getRoleDetail() {
@@ -210,7 +210,7 @@ Deno.test("role detail route denies missing security.audit.read before querying 
 Deno.test("role detail route remains read-only for mutation methods", async () => {
   let queried = false;
   const handler = createSecurityRbacRouteHandler(
-    "unused",
+    "postgres://unused:unused@127.0.0.1:1/unused",
     matrixStore(),
     {
       async getRoleDetail() {
@@ -239,7 +239,7 @@ Deno.test("role detail route remains read-only for mutation methods", async () =
 
 Deno.test("role detail route returns traceable effective permissions to authorized reader", async () => {
   const handler = createSecurityRbacRouteHandler(
-    "unused",
+    "postgres://unused:unused@127.0.0.1:1/unused",
     matrixStore(),
     {
       async getRoleDetail(roleCode: string) {
@@ -279,7 +279,7 @@ Deno.test("role detail route returns traceable effective permissions to authoriz
 
 Deno.test("role detail route returns not found for unknown role", async () => {
   const handler = createSecurityRbacRouteHandler(
-    "unused",
+    "postgres://unused:unused@127.0.0.1:1/unused",
     matrixStore(),
     {
       async getRoleDetail() {
