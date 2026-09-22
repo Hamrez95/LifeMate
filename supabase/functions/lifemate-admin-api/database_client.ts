@@ -1,34 +1,16 @@
 import postgres from "postgres";
 
-type PostgresSql = ReturnType<typeof postgres>;
-type PostgresJsonResult = ReturnType<PostgresSql["json"]>;
-type PostgresBeginParameters = Parameters<PostgresSql["begin"]>;
-type PostgresTransactionCallback = Extract<
-  PostgresBeginParameters[number],
-  (...args: never[]) => unknown
->;
-type PostgresTransactionSql = Parameters<PostgresTransactionCallback>[0];
-type UnwrapPromiseArray<T> = T extends unknown[] ? {
-    [K in keyof T]: T[K] extends Promise<infer R> ? R : T[K];
+declare module "postgres" {
+  interface Sql<TTypes extends Record<string, unknown> = {}> {
+    // postgres.js serializes objects with JSON.stringify at runtime. The
+    // Admin API already validates these request/read-model objects before
+    // persistence, but their structural types are intentionally broader than
+    // postgres.js's recursive JSONValue alias.
+    json(value: object): postgres.Parameter;
   }
-  : T;
+}
 
-type AdminTransactionSql = PostgresTransactionSql & {
-  json(value: Parameters<PostgresSql["json"]>[0] | object): PostgresJsonResult;
-};
-
-export type AdminSql = PostgresSql & {
-  // postgres serializes plain request/DB JSON objects at runtime, while its
-  // current Deno typings reject structurally validated Record/object values.
-  json(value: Parameters<PostgresSql["json"]>[0] | object): PostgresJsonResult;
-  begin<T>(
-    callback: (sql: AdminTransactionSql) => T | Promise<T>,
-  ): Promise<UnwrapPromiseArray<T>>;
-  begin<T>(
-    options: string,
-    callback: (sql: AdminTransactionSql) => T | Promise<T>,
-  ): Promise<UnwrapPromiseArray<T>>;
-};
+export type AdminSql = ReturnType<typeof postgres>;
 
 const clients = new Map<string, AdminSql>();
 
@@ -41,7 +23,7 @@ export function getAdminSql(databaseUrl: string): AdminSql {
     idle_timeout: 5,
     connect_timeout: 10,
     prepare: false,
-  }) as AdminSql;
+  });
   clients.set(databaseUrl, client);
   return client;
 }
