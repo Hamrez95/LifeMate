@@ -112,6 +112,7 @@ Deno.test("finance budget comparison preserves missing budget as unavailable rat
 
 Deno.test("finance budget route denies admins without finance.read before querying budget data", async () => {
   let queried = false;
+  const accountId = crypto.randomUUID();
   const handler = createFinanceRouteHandler(
     "unused",
     {
@@ -134,7 +135,9 @@ Deno.test("finance budget route denies admins without finance.read before queryi
           "https://admin.test/api/v1/finance/budget-vs-actual?from=2026-08-01&to=2026-08-31",
         ),
         path: "/api/v1/finance/budget-vs-actual",
-        admin: { accountId: crypto.randomUUID(), roles: [], permissions: [] },
+        accountId,
+        admin: { accountId, roles: [], permissions: [] },
+        correlationId: crypto.randomUUID(),
         origin: null,
       }),
     Error,
