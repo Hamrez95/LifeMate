@@ -279,6 +279,7 @@ class _CocoonShellState extends State<CocoonShell> {
                 : widget.config.calendarState,
             items: widget.config.calendarItems,
             asOfLocalDate: widget.config.calendarAsOfLocalDate,
+            onAddAppointment: widget.config.onAddCalendarAppointment,
             onOpenItem: widget.config.onOpenCalendarItem,
             onOpenWeek: widget.config.onOpenCalendarWeek,
             onRetry: widget.config.onRetryCalendar ?? host.refresh,

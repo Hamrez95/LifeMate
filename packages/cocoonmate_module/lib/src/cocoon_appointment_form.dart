@@ -66,6 +66,7 @@ class CocoonAppointmentFormScreen extends StatefulWidget {
     required this.onSubmit,
     this.initialDate,
     this.initialTime,
+    this.initialDraft,
     super.key,
   });
 
@@ -76,6 +77,7 @@ class CocoonAppointmentFormScreen extends StatefulWidget {
   final Future<void> Function(CocoonAppointmentDraft draft) onSubmit;
   final CocoonAppointmentDateSelection? initialDate;
   final CocoonAppointmentTimeSelection? initialTime;
+  final CocoonAppointmentDraft? initialDraft;
 
   @override
   State<CocoonAppointmentFormScreen> createState() =>
@@ -92,9 +94,14 @@ class _CocoonAppointmentFormScreenState
   CocoonAppointmentDateSelection? _date;
   CocoonAppointmentTimeSelection? _time;
   bool _showErrors = false;
+  CocoonAppointmentSubmitState _localSubmitState =
+      CocoonAppointmentSubmitState.idle;
 
-  bool get _busy =>
-      widget.submitState == CocoonAppointmentSubmitState.submitting;
+  bool get _busy => _submitState == CocoonAppointmentSubmitState.submitting;
+  CocoonAppointmentSubmitState get _submitState =>
+      _localSubmitState == CocoonAppointmentSubmitState.idle
+          ? widget.submitState
+          : _localSubmitState;
   bool get _valid =>
       _title.text.trim().isNotEmpty && _date != null && _time != null;
   String t(String en, String fa) => widget.fa ? fa : en;
@@ -104,6 +111,14 @@ class _CocoonAppointmentFormScreenState
     super.initState();
     _date = widget.initialDate;
     _time = widget.initialTime;
+    final draft = widget.initialDraft;
+    if (draft != null) {
+      _title.text = draft.title;
+      _provider.text = draft.provider ?? '';
+      _location.text = draft.location ?? '';
+      _kind = draft.kind;
+      _reminderMinutes = draft.reminderMinutes;
+    }
   }
 
   @override
@@ -128,12 +143,12 @@ class _CocoonAppointmentFormScreenState
                     crossAxisAlignment: CrossAxisAlignment.stretch,
                     children: [
                       _FormIntroduction(fa: widget.fa),
-                      if (widget.submitState !=
+                      if (_submitState !=
                           CocoonAppointmentSubmitState.idle) ...[
                         const SizedBox(height: 16),
                         _AppointmentFormStatus(
                           fa: widget.fa,
-                          state: widget.submitState,
+                          state: _submitState,
                         ),
                       ],
                       const SizedBox(height: 28),
@@ -322,19 +337,35 @@ class _CocoonAppointmentFormScreenState
       setState(() => _showErrors = true);
       return;
     }
-    await widget.onSubmit(
-      CocoonAppointmentDraft(
-        title: _title.text.trim(),
-        kind: _kind,
-        dateLabel: _date!.displayLabel,
-        timeLabel: _time!.displayLabel,
-        localDate: DateUtils.dateOnly(_date!.localDate),
-        localTime: _time!.localTime,
-        reminderMinutes: _reminderMinutes,
-        provider: _optional(_provider.text),
-        location: _optional(_location.text),
-      ),
+    setState(
+      () => _localSubmitState = CocoonAppointmentSubmitState.submitting,
     );
+    try {
+      await widget.onSubmit(
+        CocoonAppointmentDraft(
+          title: _title.text.trim(),
+          kind: _kind,
+          dateLabel: _date!.displayLabel,
+          timeLabel: _time!.displayLabel,
+          localDate: DateUtils.dateOnly(_date!.localDate),
+          localTime: _time!.localTime,
+          reminderMinutes: _reminderMinutes,
+          provider: _optional(_provider.text),
+          location: _optional(_location.text),
+        ),
+      );
+      if (mounted) {
+        setState(
+          () => _localSubmitState = CocoonAppointmentSubmitState.confirmed,
+        );
+      }
+    } catch (_) {
+      if (mounted) {
+        setState(
+          () => _localSubmitState = CocoonAppointmentSubmitState.error,
+        );
+      }
+    }
   }
 
   String? _optional(String value) {

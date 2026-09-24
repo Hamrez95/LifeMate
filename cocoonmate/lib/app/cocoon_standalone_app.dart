@@ -168,6 +168,20 @@ class _CocoonAuthenticatedHostState extends State<CocoonAuthenticatedHost>
               accessToken: () => LifeMateAuth.currentAccessToken,
             )
           : null;
+  late final CocoonPregnancyCalendarApiClient? _calendarMutationClient =
+      widget.bootstrapLoader == null
+          ? CocoonPregnancyCalendarApiClient(
+              baseUri: widget.config.apiBaseUri,
+              accessToken: () => LifeMateAuth.currentAccessToken,
+            )
+          : null;
+  late final LifeMateEditApi? _calendarEditClient =
+      widget.bootstrapLoader == null
+          ? LifeMateEditApi(
+              baseUri: widget.config.apiBaseUri,
+              accessToken: () => LifeMateAuth.currentAccessToken,
+            )
+          : null;
   late final CocoonPregnancyTreatmentsApiClient? _treatmentsClient =
       widget.bootstrapLoader == null
           ? CocoonPregnancyTreatmentsApiClient(
@@ -202,6 +216,7 @@ class _CocoonAuthenticatedHostState extends State<CocoonAuthenticatedHost>
     _runtimeClient?.close();
     _pregnancyClient?.close();
     _gate3ReadModelLoader?.close();
+    _calendarMutationClient?.close();
     _treatmentsClient?.close();
     _dailyClient?.close();
     _treatmentMutationClient?.close();
@@ -232,6 +247,11 @@ class _CocoonAuthenticatedHostState extends State<CocoonAuthenticatedHost>
           calendarState: _calendarState,
           calendarItems: _calendarItems,
           calendarAsOfLocalDate: _calendarAsOfLocalDate,
+          timezone: _calendarTimeZone,
+          onAddCalendarAppointment:
+              _calendarMutationClient == null ? null : _openNewAppointment,
+          onOpenCalendarItem:
+              _calendarEditClient == null ? null : _openCalendarItem,
           onRetryCalendar: () => _refreshGate3ReadModels(),
           recordsState: _recordsState,
           records: _records,
@@ -361,6 +381,294 @@ class _CocoonAuthenticatedHostState extends State<CocoonAuthenticatedHost>
       _refreshingGate3 = false;
     }
   }
+
+  // CocoonMate's closed-beta locale is Iran. This is an explicit IANA zone in
+  // the canonical care-event contract, never a device-specific abbreviation.
+  // A future profile-settings slice will provide the owner's saved time zone.
+  static const _calendarTimeZone = 'Asia/Tehran';
+
+  Future<void> _openNewAppointment() async {
+    if (!mounted || _calendarMutationClient == null) return;
+    final now = DateTime.now();
+    await Navigator.of(context).push<void>(
+      MaterialPageRoute<void>(
+        builder: (_) => Directionality(
+          textDirection: widget.locale.languageCode == 'fa'
+              ? TextDirection.rtl
+              : TextDirection.ltr,
+          child: CocoonAppointmentFormScreen(
+            fa: widget.locale.languageCode == 'fa',
+            submitState: CocoonAppointmentSubmitState.idle,
+            initialDate: _appointmentDateSelection(now),
+            initialTime: _appointmentTimeSelection(TimeOfDay.fromDateTime(now)),
+            onPickDate: _pickAppointmentDate,
+            onPickTime: _pickAppointmentTime,
+            onSubmit: _submitAppointment,
+          ),
+        ),
+      ),
+    );
+  }
+
+  Future<CocoonAppointmentDateSelection?> _pickAppointmentDate() async {
+    final now = DateTime.now();
+    final selected = await showDatePicker(
+      context: context,
+      initialDate: now,
+      firstDate: DateTime(now.year - 1),
+      lastDate: DateTime(now.year + 5),
+    );
+    return selected == null ? null : _appointmentDateSelection(selected);
+  }
+
+  Future<CocoonAppointmentTimeSelection?> _pickAppointmentTime() async {
+    final selected = await showTimePicker(
+      context: context,
+      initialTime: TimeOfDay.fromDateTime(DateTime.now()),
+    );
+    return selected == null ? null : _appointmentTimeSelection(selected);
+  }
+
+  CocoonAppointmentDateSelection _appointmentDateSelection(DateTime value) {
+    final localizations = MaterialLocalizations.of(context);
+    final date = DateUtils.dateOnly(value);
+    return CocoonAppointmentDateSelection(
+      localDate: date,
+      displayLabel: localizations.formatMediumDate(date),
+      semanticLabel: localizations.formatFullDate(date),
+    );
+  }
+
+  CocoonAppointmentTimeSelection _appointmentTimeSelection(TimeOfDay time) {
+    final localizations = MaterialLocalizations.of(context);
+    return CocoonAppointmentTimeSelection(
+      localTime: time,
+      displayLabel: localizations.formatTimeOfDay(time),
+      semanticLabel: localizations.formatTimeOfDay(
+        time,
+        alwaysUse24HourFormat: true,
+      ),
+    );
+  }
+
+  Future<void> _submitAppointment(CocoonAppointmentDraft draft) async {
+    final client = _calendarMutationClient;
+    if (client == null) {
+      throw StateError('Canonical calendar client is unavailable.');
+    }
+    await client.createEvent(
+      classification: switch (draft.kind) {
+        CocoonAppointmentKind.checkup =>
+          CocoonPregnancyCalendarClassification.checkup,
+        CocoonAppointmentKind.ultrasound =>
+          CocoonPregnancyCalendarClassification.ultrasound,
+        CocoonAppointmentKind.lab =>
+          CocoonPregnancyCalendarClassification.labTest,
+        CocoonAppointmentKind.other =>
+          CocoonPregnancyCalendarClassification.other,
+      },
+      careEvent: <String, dynamic>{
+        'clientRequestId': LifeMateApiClient.createClientRequestId(),
+        'eventType': 'appointment',
+        'title': draft.title,
+        'scheduledLocalDate': _careEventDate(draft.localDate),
+        'scheduledLocalTime': _careEventTime(draft.localTime),
+        'timeZone': _calendarTimeZone,
+        'providerName': draft.provider,
+        'centerName': draft.location,
+        'patientReminderMinutesBefore': draft.reminderMinutes,
+      }..removeWhere((_, value) => value == null),
+    );
+    await _refreshGate3ReadModels();
+  }
+
+  Future<void> _openCalendarItem(CocoonCalendarItem item) async {
+    if (item.kind != CocoonCalendarItemKind.appointment ||
+        _calendarEditClient == null ||
+        !mounted) {
+      return;
+    }
+    try {
+      final event = await _calendarEditClient!.getCareEvent(eventId: item.id);
+      if (!mounted) return;
+      await Navigator.of(context).push<void>(
+        MaterialPageRoute<void>(
+          builder: (_) => Directionality(
+            textDirection: widget.locale.languageCode == 'fa'
+                ? TextDirection.rtl
+                : TextDirection.ltr,
+            child: CocoonAppointmentDetailScreen(
+              fa: widget.locale.languageCode == 'fa',
+              canMutate: true,
+              data: _appointmentDetailData(item, event),
+              onEdit: () => _openEditAppointment(item, event),
+              onCancel: () => _cancelAppointment(item.id),
+            ),
+          ),
+        ),
+      );
+    } on LifeMateApiException {
+      if (mounted) _refreshGate3ReadModels();
+    }
+  }
+
+  CocoonAppointmentDetailViewData _appointmentDetailData(
+    CocoonCalendarItem item,
+    Map<String, dynamic> event,
+  ) =>
+      CocoonAppointmentDetailViewData(
+        appointment: CocoonAppointmentViewData(
+          id: item.id,
+          title: event['title']?.toString().trim().isNotEmpty == true
+              ? event['title'].toString()
+              : item.title,
+          dateLabel: item.dateLabel,
+          timeLabel: item.timeLabel ?? '',
+          status: switch (event['status']?.toString().toLowerCase()) {
+            'completed' => CocoonAppointmentStatus.completed,
+            'cancelled' => CocoonAppointmentStatus.cancelled,
+            _ => CocoonAppointmentStatus.scheduled,
+          },
+          provider: _optionalText(event['providerName']),
+          location: _optionalText(event['centerName']),
+        ),
+        reminderLabel: _reminderLabel(
+          int.tryParse(
+                  event['patientReminderMinutesBefore']?.toString() ?? '') ??
+              30,
+        ),
+        address: _optionalText(event['addressLine']),
+        phone: _optionalText(event['phoneNumber']),
+        note: _optionalText(event['instructions']),
+      );
+
+  Future<void> _cancelAppointment(String eventId) async {
+    final client = _calendarEditClient;
+    if (client == null)
+      throw StateError('Canonical calendar editor is unavailable.');
+    await client.updateCareEventStatus(eventId: eventId, status: 'cancelled');
+    await _refreshGate3ReadModels();
+    if (mounted) Navigator.of(context).pop();
+  }
+
+  Future<void> _openEditAppointment(
+    CocoonCalendarItem item,
+    Map<String, dynamic> event,
+  ) async {
+    if (!mounted) return;
+    final initial = _appointmentDraftFromEvent(item, event);
+    await Navigator.of(context).push<void>(
+      MaterialPageRoute<void>(
+        builder: (_) => Directionality(
+          textDirection: widget.locale.languageCode == 'fa'
+              ? TextDirection.rtl
+              : TextDirection.ltr,
+          child: CocoonAppointmentFormScreen(
+            fa: widget.locale.languageCode == 'fa',
+            submitState: CocoonAppointmentSubmitState.idle,
+            initialDate: _appointmentDateSelection(initial.localDate),
+            initialTime: _appointmentTimeSelection(initial.localTime),
+            initialDraft: initial,
+            onPickDate: _pickAppointmentDate,
+            onPickTime: _pickAppointmentTime,
+            onSubmit: (draft) => _updateAppointment(item, event, draft),
+          ),
+        ),
+      ),
+    );
+  }
+
+  CocoonAppointmentDraft _appointmentDraftFromEvent(
+    CocoonCalendarItem item,
+    Map<String, dynamic> event,
+  ) {
+    final date =
+        DateTime.tryParse(event['scheduledLocalDate']?.toString() ?? '') ??
+            DateTime.now();
+    final timeParts =
+        (event['scheduledLocalTime']?.toString() ?? '00:00').split(':');
+    final hour = int.tryParse(timeParts.first) ?? 0;
+    final minute = timeParts.length > 1 ? int.tryParse(timeParts[1]) ?? 0 : 0;
+    return CocoonAppointmentDraft(
+      title: _optionalText(event['title']) ?? item.title,
+      kind: switch (item.appointmentKind) {
+        CocoonCalendarAppointmentKind.ultrasound =>
+          CocoonAppointmentKind.ultrasound,
+        CocoonCalendarAppointmentKind.lab => CocoonAppointmentKind.lab,
+        _ => CocoonAppointmentKind.checkup,
+      },
+      dateLabel: item.dateLabel,
+      timeLabel: item.timeLabel ?? '',
+      localDate: DateUtils.dateOnly(date),
+      localTime: TimeOfDay(hour: hour, minute: minute),
+      reminderMinutes: int.tryParse(
+              event['patientReminderMinutesBefore']?.toString() ?? '') ??
+          30,
+      provider: _optionalText(event['providerName']),
+      location: _optionalText(event['centerName']),
+    );
+  }
+
+  Future<void> _updateAppointment(
+    CocoonCalendarItem item,
+    Map<String, dynamic> current,
+    CocoonAppointmentDraft draft,
+  ) async {
+    final client = _calendarEditClient;
+    if (client == null)
+      throw StateError('Canonical calendar editor is unavailable.');
+    final version = int.tryParse(current['version']?.toString() ?? '');
+    if (version == null)
+      throw const FormatException('Canonical appointment version is missing.');
+    await client.updateCareEvent(
+      eventId: item.id,
+      version: version,
+      eventType: 'appointment',
+      title: draft.title,
+      providerName: draft.provider,
+      specialty: _optionalText(current['specialty']),
+      scheduledLocalDate: draft.localDate,
+      scheduledLocalTime: _careEventTime(draft.localTime),
+      timeZone: _optionalText(current['timeZone']) ?? _calendarTimeZone,
+      patientReminderMinutesBefore: draft.reminderMinutes,
+      caregiverReminderMinutesBefore: int.tryParse(
+              current['caregiverReminderMinutesBefore']?.toString() ?? '') ??
+          60,
+      centerName: draft.location,
+      addressLine: _optionalText(current['addressLine']),
+      phoneNumber: _optionalText(current['phoneNumber']),
+      reason: _optionalText(current['reason']),
+      instructions: _optionalText(current['instructions']),
+      status: current['status']?.toString().toLowerCase() == 'completed'
+          ? 'completed'
+          : 'scheduled',
+    );
+    await _refreshGate3ReadModels();
+  }
+
+  String _reminderLabel(int minutes) => switch (minutes) {
+        0 =>
+          widget.locale.languageCode == 'fa' ? 'بدون یادآوری' : 'No reminder',
+        30 => widget.locale.languageCode == 'fa'
+            ? '۳۰ دقیقه قبل'
+            : '30 minutes before',
+        60 =>
+          widget.locale.languageCode == 'fa' ? '۱ ساعت قبل' : '1 hour before',
+        _ => widget.locale.languageCode == 'fa'
+            ? '$minutes دقیقه قبل'
+            : '$minutes minutes before',
+      };
+
+  String? _optionalText(Object? value) {
+    final text = value?.toString().trim() ?? '';
+    return text.isEmpty ? null : text;
+  }
+
+  String _careEventDate(DateTime value) =>
+      '${value.year.toString().padLeft(4, '0')}-${value.month.toString().padLeft(2, '0')}-${value.day.toString().padLeft(2, '0')}';
+
+  String _careEventTime(TimeOfDay value) =>
+      '${value.hour.toString().padLeft(2, '0')}:${value.minute.toString().padLeft(2, '0')}';
 
   List<CocoonSymptomOption> get _symptomOptions =>
       _symptomCatalog?.entries

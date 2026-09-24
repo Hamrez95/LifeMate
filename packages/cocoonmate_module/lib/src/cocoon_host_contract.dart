@@ -47,12 +47,23 @@ enum CocoonCalendarLoadState {
 
 enum CocoonCalendarItemKind { appointment, reminder, milestone }
 
+/// UI-level category supplied by the authorized Calendar projection. It is not
+/// clinical advice and must not be inferred from an appointment title.
+enum CocoonCalendarAppointmentKind {
+  checkup,
+  ultrasound,
+  lab,
+  injection,
+  other
+}
+
 class CocoonCalendarItem {
   const CocoonCalendarItem({
     required this.id,
     required this.title,
     required this.dateLabel,
     required this.kind,
+    this.appointmentKind,
     this.timeLabel,
     this.supporting,
     this.pendingSync = false,
@@ -62,6 +73,7 @@ class CocoonCalendarItem {
   final String title;
   final String dateLabel;
   final CocoonCalendarItemKind kind;
+  final CocoonCalendarAppointmentKind? appointmentKind;
   final String? timeLabel;
   final String? supporting;
   final bool pendingSync;
@@ -77,6 +89,7 @@ class CocoonModuleConfig {
     this.calendarState = CocoonCalendarLoadState.empty,
     this.calendarItems = const [],
     this.calendarAsOfLocalDate,
+    this.onAddCalendarAppointment,
     this.onOpenCalendarItem,
     this.onOpenCalendarWeek,
     this.onRetryCalendar,
@@ -144,6 +157,10 @@ class CocoonModuleConfig {
   final CocoonCalendarLoadState calendarState;
   final List<CocoonCalendarItem> calendarItems;
   final DateTime? calendarAsOfLocalDate;
+
+  /// Opens the host-owned canonical appointment flow; the module stores no
+  /// appointment or care-event data itself.
+  final Future<void> Function()? onAddCalendarAppointment;
   final ValueChanged<CocoonCalendarItem>? onOpenCalendarItem;
   final ValueChanged<int>? onOpenCalendarWeek;
   final VoidCallback? onRetryCalendar;
