@@ -34,9 +34,14 @@ Deno.test("pregnancy symptom capture accepts structured codes only", () => {
 });
 
 Deno.test("symptom catalog accepts only a reviewed version and supported locale", () => {
-  assertEquals(requiredCatalogVersion(" pregnancy-symptoms-v2 "), "pregnancy-symptoms-v2");
   assertEquals(
-    requestedCatalogLocale(new Request("https://api.example.test/catalog?locale=fa")),
+    requiredCatalogVersion(" pregnancy-symptoms-v2 "),
+    "pregnancy-symptoms-v2",
+  );
+  assertEquals(
+    requestedCatalogLocale(
+      new Request("https://api.example.test/catalog?locale=fa"),
+    ),
     "fa",
   );
   assertEquals(
@@ -45,7 +50,10 @@ Deno.test("symptom catalog accepts only a reviewed version and supported locale"
   );
   assertEquals(
     assertThrows(
-      () => requestedCatalogLocale(new Request("https://api.example.test/catalog?locale=fr")),
+      () =>
+        requestedCatalogLocale(
+          new Request("https://api.example.test/catalog?locale=fr"),
+        ),
       ApiError,
     ).code,
     "pregnancy_symptom_catalog_locale_invalid",
