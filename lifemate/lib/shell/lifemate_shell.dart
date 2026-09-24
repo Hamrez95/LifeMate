@@ -173,18 +173,30 @@ class _LifeMateShellState extends State<LifeMateShell> {
       onPopInvokedWithResult: _handleBack,
       child: Scaffold(
         appBar: AppBar(
-          title: Text(
-            _destination == ShellDestination.home
-                ? 'LifeMate'
-                : _title(_destination),
-            style: const TextStyle(fontWeight: FontWeight.w800),
-          ),
+          toolbarHeight: 68,
+          title: _destination == ShellDestination.home
+              ? _HomeShellTitle(isPersian: _isPersian)
+              : Text(
+                  _title(_destination),
+                  style: const TextStyle(fontWeight: FontWeight.w800),
+                ),
           actions: [
             IconButton(
               tooltip: _t('Notifications', 'اعلان‌ها'),
               onPressed: _showNotificationCenter,
               icon: const Icon(Icons.notifications_none_rounded),
             ),
+            if (_destination != ShellDestination.you)
+              IconButton(
+                key: const ValueKey('shell-open-profile'),
+                tooltip: _t('Open profile', 'باز کردن پروفایل'),
+                onPressed: () => _select(ShellDestination.you),
+                icon: const CircleAvatar(
+                  radius: 16,
+                  child: Icon(Icons.person_outline_rounded, size: 19),
+                ),
+              ),
+            const SizedBox(width: 8),
           ],
         ),
         body: IndexedStack(
@@ -268,6 +280,53 @@ class _LifeMateShellState extends State<LifeMateShell> {
     ShellDestination.circle => _t('Circle', 'دایره'),
     ShellDestination.you => _t('You', 'شما'),
   };
+}
+
+class _HomeShellTitle extends StatelessWidget {
+  const _HomeShellTitle({required this.isPersian});
+
+  final bool isPersian;
+
+  @override
+  Widget build(BuildContext context) => Row(
+    mainAxisSize: MainAxisSize.max,
+    children: [
+      Container(
+        width: 34,
+        height: 34,
+        decoration: BoxDecoration(
+          color: Theme.of(context).colorScheme.primaryContainer,
+          borderRadius: BorderRadius.circular(12),
+        ),
+        child: Icon(
+          Icons.spa_outlined,
+          size: 20,
+          color: Theme.of(context).colorScheme.onPrimaryContainer,
+        ),
+      ),
+      const SizedBox(width: 9),
+      Flexible(
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            const Text(
+              'LifeMate',
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
+              style: TextStyle(fontSize: 18, fontWeight: FontWeight.w800),
+            ),
+            Text(
+              isPersian ? 'خانهٔ شما' : 'Your space',
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
+              style: Theme.of(context).textTheme.labelSmall,
+            ),
+          ],
+        ),
+      ),
+    ],
+  );
 }
 
 class _StagedDestination extends StatelessWidget {

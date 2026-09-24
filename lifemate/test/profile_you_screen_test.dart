@@ -63,9 +63,13 @@ void main() {
     );
     await tester.pumpAndSettle();
 
-    await tester.tap(find.text('You'));
+    await tester.tap(find.byTooltip('Open profile'));
     await tester.pumpAndSettle();
 
+    expect(
+      tester.widget<NavigationBar>(find.byType(NavigationBar)).selectedIndex,
+      4,
+    );
     expect(find.text('Owner'), findsWidgets);
     expect(find.text('Europe/Berlin'), findsOneWidget);
 
@@ -119,7 +123,7 @@ void main() {
     );
     await tester.pumpAndSettle();
 
-    await tester.tap(find.text('شما'));
+    await tester.tap(find.byTooltip('باز کردن پروفایل'));
     await tester.pumpAndSettle();
 
     final directionality = tester.widget<Directionality>(

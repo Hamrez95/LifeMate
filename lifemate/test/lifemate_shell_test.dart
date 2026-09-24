@@ -5,6 +5,29 @@ import 'package:lifemate/modules/module_registry.dart';
 import 'package:lifemate/shell/lifemate_shell.dart';
 
 void main() {
+  testWidgets('compact header keeps profile and notifications reachable', (
+    tester,
+  ) async {
+    await tester.binding.setSurfaceSize(const Size(320, 700));
+    addTearDown(() => tester.binding.setSurfaceSize(null));
+
+    await tester.pumpWidget(
+      const LifeMateApp(home: LifeMateShell(), localeOverride: Locale('fa')),
+    );
+    expect(find.byTooltip('اعلان‌ها'), findsOneWidget);
+    expect(find.byTooltip('باز کردن پروفایل'), findsOneWidget);
+    expect(tester.takeException(), isNull);
+
+    await tester.tap(find.byTooltip('باز کردن پروفایل'));
+    await tester.pumpAndSettle();
+    expect(
+      tester.widget<NavigationBar>(find.byType(NavigationBar)).selectedIndex,
+      4,
+    );
+    expect(find.text('شما'), findsWidgets);
+    expect(tester.takeException(), isNull);
+  });
+
   testWidgets('renders five primary destinations and switches to Today', (
     tester,
   ) async {
