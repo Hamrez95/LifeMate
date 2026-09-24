@@ -404,6 +404,41 @@ class _LifeMateExperienceGateState extends State<LifeMateExperienceGate>
             );
           }
 
+          // A freshly authenticated account can briefly exist before the
+          // canonical Account -> Person bridge worker has projected its
+          // owner mapping. Keep the session intact and make that state
+          // explicit instead of presenting a generic sync failure. This is
+          // especially important for CocoonMate, which cannot open a
+          // pregnancy workspace without an authoritative Person.
+          final identityMappingPending =
+              apiError?.code == 'identity_person_mapping_missing' ||
+              apiError?.code == 'registration_identity_unavailable';
+          if (identityMappingPending) {
+            return _ExperienceBlockingState(
+              appName: widget.appName,
+              logoAssetPath: widget.logoAssetPath,
+              icon: Icons.person_search_rounded,
+              title: LifeMateRuntimeLocale.select(
+                fa: 'آماده‌سازی حساب ادامه دارد',
+                en: 'Your account is still being prepared',
+              ),
+              message: LifeMateRuntimeLocale.select(
+                fa: 'حساب شما ساخته شده است، اما اتصال امن حساب به پروفایل هنوز کامل نشده. چند ثانیه بعد دوباره تلاش کنید.',
+                en: 'Your account is created, but its secure owner profile is still being prepared. Try again in a few seconds.',
+              ),
+              primaryLabel: LifeMateRuntimeLocale.select(
+                fa: 'بررسی دوباره',
+                en: 'Check again',
+              ),
+              onPrimary: _retryBootstrap,
+              secondaryLabel: LifeMateRuntimeLocale.select(
+                fa: 'خروج از حساب',
+                en: 'Sign out',
+              ),
+              onSecondary: () => _supabase.auth.signOut(),
+            );
+          }
+
           final unauthorized = apiError?.isUnauthorized ?? false;
           return _ExperienceBlockingState(
             appName: widget.appName,
