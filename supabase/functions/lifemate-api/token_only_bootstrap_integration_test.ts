@@ -177,7 +177,7 @@ Deno.test({
         ApiError,
       );
       assertEquals(broken.status, 409);
-      assertEquals(broken.code, "identity_account_mapping_missing");
+      assertEquals(broken.code, "account_disabled");
       const finalAudits = await admin`
         select count(*)::int as count
         from lifemate.audit_logs
@@ -186,6 +186,13 @@ Deno.test({
       assertEquals(Number(finalAudits[0]?.count), 1);
     } finally {
       if (appUserId) {
+        await admin`
+          delete from consent.consent_records
+          where subject_person_id=${remappedPersonId}::uuid
+             or actor_account_id in (
+               ${appUserId}::uuid,${remappedAccountId}::uuid
+             )
+        `.catch(() => undefined);
         await admin`
           delete from identity.external_identity_tokens
           where account_id in (

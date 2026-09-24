@@ -78,6 +78,13 @@ async function createUnequalIdentity(
 
 async function cleanupIdentity(identity: IdentityFixture): Promise<void> {
   await fixtureSql`
+    delete from consent.consent_records
+    where subject_person_id=${identity.personId}::uuid
+       or actor_account_id in (
+         ${identity.appUserId}::uuid,${identity.accountId}::uuid
+       )
+  `.catch(() => undefined);
+  await fixtureSql`
     delete from core.person_profiles where person_id=${identity.personId}::uuid
   `.catch(() => undefined);
   await fixtureSql`
@@ -182,6 +189,12 @@ Deno.test({
           'caregiver-consent-v1',now(),true,false,now(),now()
         )
       `;
+      await fixtureSql`
+        insert into lifemate.women_companion_privacy_scopes(
+          relationship_id,view_period_timing,view_phase_summary,
+          view_shared_wellbeing,view_calendar_detail,version
+        ) values (${relationshipId}::uuid,true,true,true,true,1)
+      `;
       const relationship = await fixtureSql`
         select patient_person_id::text,caregiver_person_id::text
         from lifemate.care_relationships
@@ -257,9 +270,11 @@ Deno.test({
       );
 
       await fixtureSql`
-        update lifemate.care_relationships
-        set can_view_women_calendar=false,updated_at_utc=now()
-        where id=${relationshipId}::uuid
+        update lifemate.women_companion_privacy_scopes
+        set view_period_timing=false,view_phase_summary=false,
+            view_shared_wellbeing=false,view_calendar_detail=false,
+            version=version+1,updated_at_utc=now()
+        where relationship_id=${relationshipId}::uuid
       `;
       await assertApiError(
         () => women.getCareSummary(caregiver.appUserId, patient.appUserId),
@@ -267,9 +282,11 @@ Deno.test({
         "women_calendar_access_denied",
       );
       await fixtureSql`
-        update lifemate.care_relationships
-        set can_view_women_calendar=true,updated_at_utc=now()
-        where id=${relationshipId}::uuid
+        update lifemate.women_companion_privacy_scopes
+        set view_period_timing=true,view_phase_summary=true,
+            view_shared_wellbeing=true,view_calendar_detail=true,
+            version=version+1,updated_at_utc=now()
+        where relationship_id=${relationshipId}::uuid
       `;
 
       const action = await women.recordCareSupportAction(
