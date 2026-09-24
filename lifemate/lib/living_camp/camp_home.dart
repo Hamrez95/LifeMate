@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 
 import 'camp_asset_catalog.dart';
 import 'camp_avatar_fallback.dart';
+import 'camp_vector_avatar.dart';
 import 'camp_environment.dart';
 import 'camp_scene_renderer.dart';
 
@@ -125,11 +126,11 @@ class CampHome extends StatelessWidget {
                   presentations: presentations,
                   actors: [
                     CampSceneActor(
-                      actorId: 'main_avatar_fallback',
+                      actorId: 'main_avatar_vector',
                       anchor: const CampPoint(505, 1060),
                       width: 132,
                       height: 198,
-                      builder: (_) => CampAvatarFallback(
+                      builder: (_) => CampVectorAvatar(
                         family: CampAvatarFamily.adultMasculine,
                         motionEnabled: environment.motionEnabled,
                       ),
