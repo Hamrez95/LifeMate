@@ -63,7 +63,7 @@ function Write-ExternalLine([string]$Text) {
   Write-Host $safe
 }
 function Invoke-External([string]$File, [string[]]$Arguments, [string]$WorkingDirectory = $Script:Root) {
-  if ($File -eq 'flutter') { $File = Get-CommandPath 'flutter' }
+  if ($File -in @('flutter', 'adb', 'bash')) { $File = Get-CommandPath $File }
   if ([string]::IsNullOrWhiteSpace($File)) { throw 'Flutter executable was not found.' }
   $safeArguments = @($Arguments | ForEach-Object { if ($_ -match '^--dart-define=(SUPABASE_PUBLISHABLE_KEY|.*(?:SECRET|TOKEN|PASSWORD|KEY))=') { "--dart-define=$($Matches[1])=[redacted]" } else { $_ } })
   Write-Ui "Running: $File $($safeArguments -join ' ')" Step
@@ -88,6 +88,15 @@ function Get-CommandPath([string]$Name) {
     foreach ($sdkRoot in $sdkRoots) {
       $adb = Join-Path $sdkRoot 'platform-tools\adb.exe'
       if (Test-Path $adb) { return $adb }
+    }
+  }
+  if ($Name -eq 'bash') {
+    $gitRoots = @($env:GIT_INSTALL_ROOT, ${env:ProgramFiles}, ${env:ProgramW6432}) |
+      Where-Object { -not [string]::IsNullOrWhiteSpace($_) } |
+      Select-Object -Unique
+    foreach ($gitRoot in $gitRoots) {
+      $bash = Join-Path $gitRoot 'Git\bin\bash.exe'
+      if (Test-Path $bash) { return $bash }
     }
   }
 }
