@@ -34,13 +34,20 @@ for (const spec of [
 }
 
 for (const [value, message] of [
-  ["- cron: '7,22,37,52 * * * *'", 'critical workflow monitor must poll every 15 minutes'],
+  ["- cron: '17 */6 * * *'", 'critical workflow monitor must use the reviewed six-hour polling cadence'],
   ['workflow_dispatch:', 'critical workflow monitor must support manual evidence runs'],
   ['actions: read', 'monitor must be able to read workflow results'],
   ['issues: write', 'monitor must have narrowly scoped issue-write permission'],
   ['--branch main', 'operational polling must be scoped to main'],
   ['--event "$event"', 'workflow event type must be part of the monitored identity'],
   ['--status completed', 'monitor must evaluate only completed runs'],
+  [".databaseId // \"\"", 'monitor must capture the stable workflow run id'],
+  ['Run ID:', 'incident metadata must include the workflow run id'],
+  ['critical-workflow-run-id:', 'failure updates must carry a machine-readable run marker'],
+  ['gh issue view "$issue_number"', 'existing incidents must be inspected before another update'],
+  ['--json body,comments', 'dedupe must inspect existing incident history'],
+  ['grep -Fq -- "$run_marker"', 'the same workflow run must not be commented twice'],
+  ['grep -Fq -- "- Run: ${run_url}"', 'legacy unmarked incident updates must also dedupe by canonical run URL'],
   ['failure|timed_out|startup_failure|action_required', 'critical failure conclusions must be explicit'],
   ['--state open', 'alert routing must deduplicate against open incidents'],
   ['gh issue comment "$issue_number"', 'repeated failures must update the same incident'],
