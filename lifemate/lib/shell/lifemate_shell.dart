@@ -173,7 +173,12 @@ class _LifeMateShellState extends State<LifeMateShell> {
       onPopInvokedWithResult: _handleBack,
       child: Scaffold(
         appBar: AppBar(
-          title: Text(_title(_destination)),
+          title: Text(
+            _destination == ShellDestination.home
+                ? 'LifeMate'
+                : _title(_destination),
+            style: const TextStyle(fontWeight: FontWeight.w800),
+          ),
           actions: [
             IconButton(
               tooltip: _t('Notifications', 'اعلان‌ها'),
@@ -187,6 +192,8 @@ class _LifeMateShellState extends State<LifeMateShell> {
           children: destinations.map(_buildDestination).toList(growable: false),
         ),
         bottomNavigationBar: NavigationBar(
+          backgroundColor: Theme.of(context).colorScheme.surface,
+          indicatorColor: Theme.of(context).colorScheme.primaryContainer,
           selectedIndex: destinations.indexOf(_destination),
           onDestinationSelected: (index) => _select(destinations[index]),
           destinations: [
