@@ -235,6 +235,7 @@ class _CocoonAuthenticatedHostState extends State<CocoonAuthenticatedHost>
           onRetryCalendar: () => _refreshGate3ReadModels(),
           recordsState: _recordsState,
           records: _records,
+          onOpenRecord: _openRecord,
           onRetryRecords: () => _refreshGate3ReadModels(),
           checkInSyncState: _checkInSyncState,
           onSubmitCheckIn:
@@ -433,6 +434,17 @@ class _CocoonAuthenticatedHostState extends State<CocoonAuthenticatedHost>
             () => _symptomCatalogState = CocoonSymptomCatalogState.offline);
       }
     }
+  }
+
+  void _openRecord(CocoonRecordViewData record) {
+    Navigator.of(context).push(
+      MaterialPageRoute<void>(
+        builder: (_) => CocoonRecordDetailScreen(
+          fa: widget.locale.languageCode == 'fa',
+          record: record,
+        ),
+      ),
+    );
   }
 
   Future<void> _refreshMedicationOptions() async {
