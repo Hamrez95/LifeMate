@@ -3,6 +3,7 @@ import {
   expandLocalRecurrence,
   normalizeRecurrenceRule,
   type RecurrenceRule,
+  serializeRecurrenceRuleForStorage,
 } from "./recurrence_schedule.ts";
 import {
   ApiError,
@@ -85,9 +86,9 @@ export function createPersonCareEventStoreV2(databaseUrl: string) {
       }
 
       const id = crypto.randomUUID();
-      const recurrenceJson = input.recurrence == null
-        ? null
-        : JSON.stringify(input.recurrence);
+      const recurrenceJson = serializeRecurrenceRuleForStorage(
+        input.recurrence,
+      );
       const rows = await tx`
         insert into lifemate.care_events
           (id, patient_person_id, created_by_user_id, client_request_id,

@@ -12,6 +12,14 @@ export type RecurrenceRule = {
   maxOccurrences: number | null;
 };
 
+export function serializeRecurrenceRuleForStorage(
+  rule: RecurrenceRule | null,
+): string | null {
+  if (rule == null) return null;
+  const { maxOccurrences, ...base } = rule;
+  return JSON.stringify(maxOccurrences == null ? base : rule);
+}
+
 function integer(
   value: unknown,
   field: string,

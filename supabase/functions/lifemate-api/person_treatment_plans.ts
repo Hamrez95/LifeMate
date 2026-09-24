@@ -3,6 +3,7 @@ import {
   normalizeRecurrenceRule,
   normalizeRecurrenceStartLocalTime,
   type RecurrenceRule,
+  serializeRecurrenceRuleForStorage,
 } from "./recurrence_schedule.ts";
 import {
   ApiError,
@@ -229,9 +230,7 @@ export function createPersonTreatmentPlanStore(databaseUrl: string) {
       }
 
       const planId = crypto.randomUUID();
-      const recurrenceJson = recurrence == null
-        ? null
-        : JSON.stringify(recurrence);
+      const recurrenceJson = serializeRecurrenceRuleForStorage(recurrence);
       const planRows = await tx`
         insert into lifemate.treatment_plans
           (id, patient_person_id, medication_id, dose_text,

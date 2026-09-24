@@ -1,5 +1,29 @@
 import { assertEquals } from "jsr:@std/assert@1.0.14";
 import { generateCareEventOccurrenceDates } from "./care_events.ts";
+import {
+  normalizeRecurrenceRule,
+  serializeRecurrenceRuleForStorage,
+} from "./recurrence_schedule.ts";
+
+Deno.test("stored recurrence omits an absent max-occurrence limit", () => {
+  const rule = normalizeRecurrenceRule({
+    enabled: true,
+    unit: "month",
+    interval: 6,
+    weekdays: [],
+  });
+  assertEquals(
+    JSON.parse(serializeRecurrenceRuleForStorage(rule)!),
+    {
+      version: 2,
+      enabled: true,
+      unit: "month",
+      interval: 6,
+      weekdays: [],
+      endAt: null,
+    },
+  );
+});
 
 Deno.test("appointment every six months expands deterministically", () => {
   assertEquals(
