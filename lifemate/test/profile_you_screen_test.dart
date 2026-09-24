@@ -61,14 +61,14 @@ void main() {
         localeOverride: const Locale('en'),
       ),
     );
-    await tester.pumpAndSettle();
+    await tester.pump(const Duration(milliseconds: 100));
 
     await tester.tap(find.byTooltip('Open profile'));
     await tester.pumpAndSettle();
 
     expect(
       tester.widget<NavigationBar>(find.byType(NavigationBar)).selectedIndex,
-      4,
+      3,
     );
     expect(find.text('Owner'), findsWidgets);
     expect(find.text('Europe/Berlin'), findsOneWidget);
@@ -121,7 +121,7 @@ void main() {
         localeOverride: const Locale('fa'),
       ),
     );
-    await tester.pumpAndSettle();
+    await tester.pump(const Duration(milliseconds: 100));
 
     await tester.tap(find.byTooltip('باز کردن پروفایل'));
     await tester.pumpAndSettle();

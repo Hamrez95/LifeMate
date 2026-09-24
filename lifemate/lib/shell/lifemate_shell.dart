@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:lifemate_client/lifemate_client.dart';
 
 import '../circle/api_camp_companion_selection_source.dart';
@@ -45,6 +46,7 @@ class LifeMateShell extends StatefulWidget {
 
 class _LifeMateShellState extends State<LifeMateShell> {
   late ShellDestination _destination = widget.initialDestination;
+  bool _overlayOpen = false;
   LifeMateApiClient? _defaultCampCompanionClient;
   ApiCampCompanionSelectionSource? _defaultCampCompanionSource;
 
@@ -98,10 +100,14 @@ class _LifeMateShellState extends State<LifeMateShell> {
   Future<void> _openModule(LifeMateModuleId moduleId) async {
     final module = _moduleRegistry.byId(moduleId);
     if (module == null || !mounted) return;
-
-    await Future<void>.delayed(const Duration(milliseconds: 350));
-    if (!mounted) return;
-    await openLifeMateModule(context, module: module, isPersian: _isPersian);
+    setState(() => _overlayOpen = true);
+    try {
+      await Future<void>.delayed(const Duration(milliseconds: 350));
+      if (!mounted) return;
+      await openLifeMateModule(context, module: module, isPersian: _isPersian);
+    } finally {
+      if (mounted) setState(() => _overlayOpen = false);
+    }
   }
 
   Future<void> _openTodayAction(TodayActionIntent intent) async {
@@ -133,22 +139,32 @@ class _LifeMateShellState extends State<LifeMateShell> {
   }
 
   Future<void> _showTodayPeek() async {
-    await showTodayPeekSheet(
-      context: context,
-      source: _todaySource,
-      isPersian: _isPersian,
-      onViewFullDay: () => _select(ShellDestination.today),
-      onAction: _openTodayAction,
-    );
+    setState(() => _overlayOpen = true);
+    try {
+      await showTodayPeekSheet(
+        context: context,
+        source: _todaySource,
+        isPersian: _isPersian,
+        onViewFullDay: () => _select(ShellDestination.today),
+        onAction: _openTodayAction,
+      );
+    } finally {
+      if (mounted) setState(() => _overlayOpen = false);
+    }
   }
 
   Future<void> _showNotificationCenter() async {
-    await showNotificationCenter(
-      context: context,
-      source: _notificationSource,
-      isPersian: _isPersian,
-      onAction: _openTodayAction,
-    );
+    setState(() => _overlayOpen = true);
+    try {
+      await showNotificationCenter(
+        context: context,
+        source: _notificationSource,
+        isPersian: _isPersian,
+        onAction: _openTodayAction,
+      );
+    } finally {
+      if (mounted) setState(() => _overlayOpen = false);
+    }
   }
 
   void _showActionUnavailable() {
@@ -168,12 +184,22 @@ class _LifeMateShellState extends State<LifeMateShell> {
   @override
   Widget build(BuildContext context) {
     final destinations = shellDestinationOrder;
+    final primaryDestinations = shellPrimaryDestinationOrder;
     return PopScope<Object?>(
       canPop: _destination == ShellDestination.home,
       onPopInvokedWithResult: _handleBack,
       child: Scaffold(
+        extendBody: _destination == ShellDestination.home,
+        extendBodyBehindAppBar: _destination == ShellDestination.home,
         appBar: AppBar(
-          toolbarHeight: 68,
+          toolbarHeight: _destination == ShellDestination.home ? 76 : 68,
+          backgroundColor: _destination == ShellDestination.home
+              ? Colors.transparent
+              : null,
+          elevation: 0,
+          systemOverlayStyle: _destination == ShellDestination.home
+              ? SystemUiOverlayStyle.light
+              : null,
           title: _destination == ShellDestination.home
               ? _HomeShellTitle(isPersian: _isPersian)
               : Text(
@@ -184,6 +210,12 @@ class _LifeMateShellState extends State<LifeMateShell> {
             IconButton(
               tooltip: _t('Notifications', 'اعلان‌ها'),
               onPressed: _showNotificationCenter,
+              style: _destination == ShellDestination.home
+                  ? IconButton.styleFrom(
+                      backgroundColor: const Color(0xB52A3444),
+                      foregroundColor: Colors.white,
+                    )
+                  : null,
               icon: const Icon(Icons.notifications_none_rounded),
             ),
             if (_destination != ShellDestination.you)
@@ -191,9 +223,12 @@ class _LifeMateShellState extends State<LifeMateShell> {
                 key: const ValueKey('shell-open-profile'),
                 tooltip: _t('Open profile', 'باز کردن پروفایل'),
                 onPressed: () => _select(ShellDestination.you),
-                icon: const CircleAvatar(
-                  radius: 16,
-                  child: Icon(Icons.person_outline_rounded, size: 19),
+                icon: CircleAvatar(
+                  radius: 19,
+                  backgroundColor: _destination == ShellDestination.home
+                      ? const Color(0xFFE8D8C8)
+                      : null,
+                  child: const Icon(Icons.person_outline_rounded, size: 21),
                 ),
               ),
             const SizedBox(width: 8),
@@ -203,35 +238,87 @@ class _LifeMateShellState extends State<LifeMateShell> {
           index: destinations.indexOf(_destination),
           children: destinations.map(_buildDestination).toList(growable: false),
         ),
-        bottomNavigationBar: NavigationBar(
-          backgroundColor: Theme.of(context).colorScheme.surface,
-          indicatorColor: Theme.of(context).colorScheme.primaryContainer,
-          selectedIndex: destinations.indexOf(_destination),
-          onDestinationSelected: (index) => _select(destinations[index]),
-          destinations: [
-            for (final destination in destinations)
-              NavigationDestination(
-                icon: Icon(destination.icon),
-                selectedIcon: Icon(destination.selectedIcon),
-                label: _title(destination),
-              ),
-          ],
-        ),
+        bottomNavigationBar: _destination == ShellDestination.home
+            ? SafeArea(
+                top: false,
+                child: Padding(
+                  padding: const EdgeInsets.fromLTRB(20, 0, 20, 12),
+                  child: ClipRRect(
+                    borderRadius: BorderRadius.circular(30),
+                    child: Theme(
+                      data: Theme.of(context).copyWith(
+                        navigationBarTheme: NavigationBarThemeData(
+                          labelTextStyle: WidgetStateProperty.resolveWith(
+                            (states) => TextStyle(
+                              color: states.contains(WidgetState.selected)
+                                  ? const Color(0xFFFFE2A0)
+                                  : Colors.white,
+                              fontWeight: states.contains(WidgetState.selected)
+                                  ? FontWeight.w700
+                                  : FontWeight.w400,
+                            ),
+                          ),
+                          iconTheme: WidgetStateProperty.resolveWith(
+                            (states) => IconThemeData(
+                              color: states.contains(WidgetState.selected)
+                                  ? const Color(0xFFFFE2A0)
+                                  : Colors.white,
+                            ),
+                          ),
+                        ),
+                      ),
+                      child: _navigationBar(
+                        primaryDestinations,
+                        isOverlay: true,
+                      ),
+                    ),
+                  ),
+                ),
+              )
+            : _navigationBar(primaryDestinations),
       ),
     );
   }
 
+  NavigationBar _navigationBar(
+    List<ShellDestination> destinations, {
+    bool isOverlay = false,
+  }) => NavigationBar(
+    height: isOverlay ? 76 : null,
+    backgroundColor: isOverlay
+        ? const Color(0xEC232E38)
+        : Theme.of(context).colorScheme.surface,
+    indicatorColor: isOverlay
+        ? const Color(0x333A4D50)
+        : Theme.of(context).colorScheme.primaryContainer,
+    selectedIndex: destinations.contains(_destination)
+        ? destinations.indexOf(_destination)
+        : 0,
+    onDestinationSelected: (index) => _select(destinations[index]),
+    destinations: [
+      for (final destination in destinations)
+        NavigationDestination(
+          icon: Icon(destination.icon),
+          selectedIcon: Icon(destination.selectedIcon),
+          label: _title(destination),
+        ),
+    ],
+  );
+
   Widget _buildDestination(ShellDestination destination) {
     return switch (destination) {
-      ShellDestination.home => CampHome(
-        isPersian: _isPersian,
-        onOpenToday: _showTodayPeek,
-        onOpenWellMate: () => _openModule(LifeMateModuleId.wellMate),
-        onOpenCareMate: () => _openModule(LifeMateModuleId.careMate),
-        onOpenReproductiveContext: () =>
-            _openModule(LifeMateModuleId.womenHealth),
-        onOpenFitMate: () => _openModule(LifeMateModuleId.fitMate),
-        zonePresentations: widget.campZonePresentations,
+      ShellDestination.home => TickerMode(
+        enabled: _destination == ShellDestination.home && !_overlayOpen,
+        child: CampHome(
+          isPersian: _isPersian,
+          onOpenToday: _showTodayPeek,
+          onOpenWellMate: () => _openModule(LifeMateModuleId.wellMate),
+          onOpenCareMate: () => _openModule(LifeMateModuleId.careMate),
+          onOpenReproductiveContext: () =>
+              _openModule(LifeMateModuleId.womenHealth),
+          onOpenFitMate: () => _openModule(LifeMateModuleId.fitMate),
+          zonePresentations: widget.campZonePresentations,
+        ),
       ),
       ShellDestination.today => TodayFullDay(
         source: _todaySource,
@@ -295,13 +382,13 @@ class _HomeShellTitle extends StatelessWidget {
         width: 34,
         height: 34,
         decoration: BoxDecoration(
-          color: Theme.of(context).colorScheme.primaryContainer,
-          borderRadius: BorderRadius.circular(12),
+          color: const Color(0xFFFFE2A0),
+          borderRadius: BorderRadius.circular(18),
         ),
         child: Icon(
-          Icons.spa_outlined,
-          size: 20,
-          color: Theme.of(context).colorScheme.onPrimaryContainer,
+          Icons.eco_rounded,
+          size: 24,
+          color: const Color(0xFF283E43),
         ),
       ),
       const SizedBox(width: 9),
@@ -314,13 +401,17 @@ class _HomeShellTitle extends StatelessWidget {
               'LifeMate',
               maxLines: 1,
               overflow: TextOverflow.ellipsis,
-              style: TextStyle(fontSize: 18, fontWeight: FontWeight.w800),
+              style: TextStyle(
+                fontSize: 24,
+                fontWeight: FontWeight.w800,
+                color: Colors.white,
+              ),
             ),
             Text(
-              isPersian ? 'خانهٔ شما' : 'Your space',
+              isPersian ? 'زندگی، با هم' : 'Your Life. Together.',
               maxLines: 1,
               overflow: TextOverflow.ellipsis,
-              style: Theme.of(context).textTheme.labelSmall,
+              style: const TextStyle(color: Colors.white, fontSize: 10),
             ),
           ],
         ),

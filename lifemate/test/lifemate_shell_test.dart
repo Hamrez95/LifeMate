@@ -22,13 +22,13 @@ void main() {
     await tester.pumpAndSettle();
     expect(
       tester.widget<NavigationBar>(find.byType(NavigationBar)).selectedIndex,
-      4,
+      3,
     );
     expect(find.text('شما'), findsWidgets);
     expect(tester.takeException(), isNull);
   });
 
-  testWidgets('renders five primary destinations and switches to Today', (
+  testWidgets('renders four primary destinations and opens Today from card', (
     tester,
   ) async {
     await tester.pumpWidget(
@@ -36,12 +36,19 @@ void main() {
     );
 
     expect(find.text('Home'), findsWidgets);
-    expect(find.text('Today'), findsWidgets);
+    expect(find.text('Today'), findsOneWidget);
     expect(find.text('Journey'), findsOneWidget);
     expect(find.text('Circle'), findsOneWidget);
     expect(find.text('You'), findsOneWidget);
+    expect(
+      tester.widget<NavigationBar>(find.byType(NavigationBar)).destinations,
+      hasLength(4),
+    );
+    expect(find.byKey(const ValueKey('camp-today-card')), findsOneWidget);
 
     await tester.tap(find.text('Today').last);
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('View full day'));
     await tester.pumpAndSettle();
 
     expect(find.text('Today is not connected yet'), findsOneWidget);
@@ -61,7 +68,8 @@ void main() {
     );
 
     await tester.binding.handlePopRoute();
-    await tester.pumpAndSettle();
+    // Home intentionally keeps ambient animation running.
+    await tester.pump(const Duration(milliseconds: 350));
 
     expect(find.text('Living Camp'), findsOneWidget);
   });

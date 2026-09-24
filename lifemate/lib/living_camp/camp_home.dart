@@ -1,10 +1,11 @@
+import 'dart:math' as math;
+
 import 'package:flutter/material.dart';
 
 import 'camp_asset_catalog.dart';
 import 'camp_avatar_fallback.dart';
 import 'camp_vector_avatar.dart';
 import 'camp_environment.dart';
-import 'camp_ground_overlay.dart';
 import 'camp_scene_renderer.dart';
 
 class CampHome extends StatelessWidget {
@@ -40,40 +41,37 @@ class CampHome extends StatelessWidget {
     final zones = <CampZoneDefinition>[
       _zone(
         'lifemate_home',
-        const CampRect(left: 360, top: 820, width: 280, height: 260),
+        const CampRect(left: 285, top: 320, width: 430, height: 405),
         _t('LifeMate home', 'خانه LifeMate'),
       ),
       _zone(
         'wellmate',
-        const CampRect(left: 100, top: 1110, width: 250, height: 220),
+        const CampRect(left: 75, top: 450, width: 300, height: 290),
         'WellMate',
       ),
       _zone(
         'caremate',
-        const CampRect(left: 650, top: 1100, width: 250, height: 220),
+        const CampRect(left: 625, top: 475, width: 300, height: 315),
         'CareMate',
       ),
       _zone(
         'reproductive_context',
-        const CampRect(left: 120, top: 1450, width: 260, height: 220),
+        const CampRect(left: 65, top: 815, width: 325, height: 320),
         _t('Cocoon / Women Health', 'Cocoon / سلامت زنان'),
       ),
       _zone(
         'fitmate',
-        const CampRect(left: 620, top: 1460, width: 260, height: 220),
-        'FitMate',
+        const CampRect(left: 585, top: 1250, width: 400, height: 345),
+        _t('FitMate', 'فیت‌میت'),
       ),
     ];
 
     final defaultPresentations = <CampZonePresentation>[
       CampZonePresentation(
         zoneId: 'lifemate_home',
-        stateLabel: _t('Available', 'در دسترس'),
+        stateLabel: _t('Open', 'باز'),
       ),
-      CampZonePresentation(
-        zoneId: 'wellmate',
-        stateLabel: _t('Available', 'در دسترس'),
-      ),
+      CampZonePresentation(zoneId: 'wellmate', stateLabel: _t('Open', 'باز')),
       CampZonePresentation(
         zoneId: 'caremate',
         availability: CampZoneAvailability.locked,
@@ -96,107 +94,73 @@ class CampHome extends StatelessWidget {
       preferences: environmentPreferences,
       nowUtc: nowUtc,
       builder: (context, environment) {
-        final isNight = environment.phase == CampDayPhase.night;
-        final backgroundColor = isNight
-            ? const Color(0xFF111A29)
-            : const Color(0xFFE3E9D9);
-
-        return SafeArea(
-          child: ColoredBox(
-            color: backgroundColor,
-            child: Stack(
-              children: [
-                Positioned.fill(
-                  child: CampSceneRenderer(
-                    zones: zones,
-                    presentations: presentations,
-                    actors: [
-                      CampSceneActor(
-                        actorId: 'main_avatar_vector',
-                        anchor: const CampPoint(505, 1300),
-                        width: 132,
-                        height: 198,
-                        builder: (_) => CampVectorAvatar(
-                          family: CampAvatarFamily.adultMasculine,
-                          motionEnabled: environment.motionEnabled,
-                        ),
+        return ColoredBox(
+          color: const Color(0xFF142B3A),
+          child: Stack(
+            children: [
+              Positioned.fill(
+                child: CampSceneRenderer(
+                  zones: zones,
+                  presentations: presentations,
+                  actors: [
+                    CampSceneActor(
+                      actorId: 'main_avatar_vector',
+                      anchor: const CampPoint(505, 1135),
+                      width: 145,
+                      height: 210,
+                      builder: (_) => _CampRoamingAvatar(
+                        motionEnabled: environment.motionEnabled,
                       ),
-                    ],
-                    layers: [
-                      CampSceneLayer(
-                        id: 'background',
-                        zIndex: 0,
-                        builder: (_) => ColoredBox(
-                          color: backgroundColor,
-                          child: ColorFiltered(
-                            colorFilter: isNight
-                                ? const ColorFilter.mode(
-                                    Color(0x661A3044),
-                                    BlendMode.multiply,
-                                  )
-                                : const ColorFilter.mode(
-                                    Colors.transparent,
-                                    BlendMode.srcOver,
-                                  ),
-                            child: Image.asset(
-                              CampAssetCatalog.backgroundDay,
-                              fit: BoxFit.cover,
-                              filterQuality: FilterQuality.medium,
-                            ),
-                          ),
-                        ),
-                      ),
-                      CampSceneLayer(
-                        id: 'ground',
-                        zIndex: 10,
-                        builder: (_) => CampGroundOverlay(isNight: isNight),
-                      ),
-                    ],
-                    onZoneTap: (zoneId) {
-                      switch (zoneId) {
-                        case 'lifemate_home':
-                          onOpenToday();
-                        case 'wellmate':
-                          onOpenWellMate();
-                        case 'caremate':
-                          onOpenCareMate?.call();
-                        case 'reproductive_context':
-                          onOpenReproductiveContext?.call();
-                        case 'fitmate':
-                          onOpenFitMate?.call();
-                      }
-                    },
-                  ),
-                ),
-                Align(
-                  alignment: Alignment.topCenter,
-                  child: Padding(
-                    padding: const EdgeInsets.fromLTRB(18, 18, 18, 0),
-                    child: _CampSceneCaption(
-                      title: _t('Living Camp', 'کمپ زنده'),
-                      subtitle: _t(
-                        'A little space to breathe',
-                        'جایی برای نفس کشیدن',
-                      ),
-                      isNight: isNight,
                     ),
-                  ),
-                ),
-                Align(
-                  alignment: Alignment.bottomCenter,
-                  child: Padding(
-                    padding: const EdgeInsets.fromLTRB(18, 0, 18, 18),
-                    child: _CampSceneHint(
-                      label: _t(
-                        'Tap a place to explore',
-                        'برای دیدن هر بخش، روی آن بزن',
+                    CampSceneActor(
+                      actorId: 'moon_garden_decoration',
+                      anchor: const CampPoint(830, 1150),
+                      width: 330,
+                      height: 300,
+                      builder: (_) => Image.asset(
+                        CampAssetCatalog.moonGarden,
+                        fit: BoxFit.contain,
+                        filterQuality: FilterQuality.medium,
                       ),
-                      isNight: isNight,
                     ),
-                  ),
+                  ],
+                  layers: [
+                    CampSceneLayer(
+                      id: 'background',
+                      zIndex: 0,
+                      builder: (_) => _CampBackdrop(
+                        motionEnabled: environment.motionEnabled,
+                        isNight: environment.phase == CampDayPhase.night,
+                      ),
+                    ),
+                  ],
+                  onZoneTap: (zoneId) {
+                    switch (zoneId) {
+                      case 'lifemate_home':
+                        onOpenToday();
+                      case 'wellmate':
+                        onOpenWellMate();
+                      case 'caremate':
+                        onOpenCareMate?.call();
+                      case 'reproductive_context':
+                        onOpenReproductiveContext?.call();
+                      case 'fitmate':
+                        onOpenFitMate?.call();
+                    }
+                  },
                 ),
-              ],
-            ),
+              ),
+              Positioned(
+                top: MediaQuery.paddingOf(context).top + 60,
+                left: 20,
+                right: 20,
+                child: _CampWelcome(
+                  isPersian: isPersian,
+                  isNight: environment.phase == CampDayPhase.night,
+                  onOpenToday: onOpenToday,
+                ),
+              ),
+            ],
           ),
         );
       },
@@ -213,46 +177,7 @@ class CampHome extends StatelessWidget {
           stage: 1,
           variant: 'default',
           builder: (_) => ExcludeSemantics(
-            child: Stack(
-              fit: StackFit.expand,
-              children: [
-                Image.asset(
-                  CampAssetCatalog.resolve(
-                    zoneId: id,
-                    variant: id == 'fitmate' ? 'under_construction' : 'default',
-                  ).path,
-                  fit: BoxFit.contain,
-                  filterQuality: FilterQuality.medium,
-                ),
-                Align(
-                  alignment: Alignment.bottomCenter,
-                  child: Container(
-                    constraints: const BoxConstraints(maxWidth: 190),
-                    margin: const EdgeInsets.only(bottom: 3),
-                    padding: const EdgeInsets.symmetric(
-                      horizontal: 8,
-                      vertical: 4,
-                    ),
-                    decoration: BoxDecoration(
-                      color: const Color(0xEFFFF9EB),
-                      borderRadius: BorderRadius.circular(12),
-                      border: Border.all(color: const Color(0x66A3977B)),
-                    ),
-                    child: Text(
-                      label,
-                      maxLines: 1,
-                      overflow: TextOverflow.ellipsis,
-                      textAlign: TextAlign.center,
-                      style: const TextStyle(
-                        color: Color(0xFF3D4D40),
-                        fontSize: 12,
-                        fontWeight: FontWeight.w700,
-                      ),
-                    ),
-                  ),
-                ),
-              ],
-            ),
+            child: _CampZoneVisual(zoneId: id, label: label),
           ),
         ),
       ],
@@ -260,53 +185,132 @@ class CampHome extends StatelessWidget {
   }
 }
 
-class _CampSceneCaption extends StatelessWidget {
-  const _CampSceneCaption({
-    required this.title,
-    required this.subtitle,
+class _CampWelcome extends StatelessWidget {
+  const _CampWelcome({
+    required this.isPersian,
     required this.isNight,
+    required this.onOpenToday,
   });
 
-  final String title;
-  final String subtitle;
+  final bool isPersian;
   final bool isNight;
+  final VoidCallback onOpenToday;
 
   @override
-  Widget build(BuildContext context) => IgnorePointer(
-    child: ConstrainedBox(
-      constraints: const BoxConstraints(maxWidth: 520),
-      child: DecoratedBox(
-        decoration: BoxDecoration(
-          color: isNight ? const Color(0xD91B2B35) : const Color(0xEFFFF9EC),
-          borderRadius: BorderRadius.circular(22),
-          border: Border.all(
-            color: isNight ? const Color(0x446F8A85) : const Color(0x88E2CDAF),
-          ),
-        ),
-        child: Padding(
-          padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 12),
+  Widget build(BuildContext context) => Row(
+    crossAxisAlignment: CrossAxisAlignment.start,
+    children: [
+      Expanded(
+        child: IgnorePointer(
           child: Column(
-            mainAxisSize: MainAxisSize.min,
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               Text(
-                title,
-                style: Theme.of(context).textTheme.titleMedium?.copyWith(
+                isNight
+                    ? (isPersian ? 'شب بخیر،' : 'Good evening,')
+                    : (isPersian ? 'روز بخیر،' : 'Good day,'),
+                style: const TextStyle(color: Colors.white, fontSize: 17),
+              ),
+              Text(
+                isPersian ? 'خوش آمدی 👋' : 'Welcome back 👋',
+                maxLines: 1,
+                style: const TextStyle(
+                  color: Colors.white,
+                  fontSize: 24,
                   fontWeight: FontWeight.w800,
-                  color: isNight
-                      ? const Color(0xFFF1ECE0)
-                      : const Color(0xFF354C40),
+                  shadows: [Shadow(color: Color(0xAA10212F), blurRadius: 9)],
                 ),
               ),
               Text(
-                subtitle,
-                style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                  color: isNight
-                      ? const Color(0xFFD4DDCE)
-                      : const Color(0xFF52675A),
-                ),
+                isPersian ? 'کمپ زنده' : 'Living Camp',
+                style: const TextStyle(color: Color(0xFFEEECE3), fontSize: 14),
               ),
             ],
+          ),
+        ),
+      ),
+      const SizedBox(width: 8),
+      ConstrainedBox(
+        constraints: const BoxConstraints(maxWidth: 152),
+        child: Material(
+          color: const Color(0xE42A3444),
+          borderRadius: BorderRadius.circular(22),
+          child: InkWell(
+            key: const ValueKey('camp-today-card'),
+            onTap: onOpenToday,
+            borderRadius: BorderRadius.circular(22),
+            child: Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 11, vertical: 10),
+              child: Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  const Icon(Icons.wb_sunny_rounded, color: Color(0xFFFFD66D)),
+                  const SizedBox(width: 7),
+                  Flexible(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        Text(
+                          isPersian ? 'امروز' : 'Today',
+                          style: const TextStyle(
+                            color: Colors.white,
+                            fontWeight: FontWeight.w700,
+                          ),
+                        ),
+                        Text(
+                          isPersian ? 'روزت را ببین' : 'See your day',
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                          style: const TextStyle(
+                            color: Color(0xFFD9DEDD),
+                            fontSize: 11,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                  const Icon(
+                    Icons.chevron_right,
+                    color: Colors.white,
+                    size: 18,
+                  ),
+                ],
+              ),
+            ),
+          ),
+        ),
+      ),
+    ],
+  );
+}
+
+class _CampZoneSign extends StatelessWidget {
+  const _CampZoneSign({required this.label});
+
+  final String label;
+
+  @override
+  Widget build(BuildContext context) => Align(
+    alignment: Alignment.bottomCenter,
+    child: Container(
+      margin: const EdgeInsets.only(bottom: 4),
+      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 5),
+      decoration: BoxDecoration(
+        color: const Color(0xE82A292C),
+        borderRadius: BorderRadius.circular(9),
+        border: Border.all(color: const Color(0x99F3CBA5)),
+        boxShadow: const [BoxShadow(color: Color(0x66000000), blurRadius: 8)],
+      ),
+      child: FittedBox(
+        fit: BoxFit.scaleDown,
+        child: Text(
+          label,
+          maxLines: 1,
+          style: const TextStyle(
+            color: Colors.white,
+            fontSize: 13,
+            fontWeight: FontWeight.w700,
           ),
         ),
       ),
@@ -314,29 +318,206 @@ class _CampSceneCaption extends StatelessWidget {
   );
 }
 
-class _CampSceneHint extends StatelessWidget {
-  const _CampSceneHint({required this.label, required this.isNight});
+/// Distant terrain drifts a few pixels behind the independently rendered zones.
+class _CampBackdrop extends StatefulWidget {
+  const _CampBackdrop({required this.motionEnabled, required this.isNight});
 
-  final String label;
+  final bool motionEnabled;
   final bool isNight;
 
   @override
-  Widget build(BuildContext context) => IgnorePointer(
-    child: DecoratedBox(
-      decoration: BoxDecoration(
-        color: isNight ? const Color(0xDD1B2B35) : const Color(0xEFFFF9EC),
-        borderRadius: BorderRadius.circular(100),
+  State<_CampBackdrop> createState() => _CampBackdropState();
+}
+
+class _CampBackdropState extends State<_CampBackdrop>
+    with SingleTickerProviderStateMixin {
+  late final AnimationController _drift = AnimationController(
+    vsync: this,
+    duration: const Duration(seconds: 14),
+  )..repeat();
+
+  @override
+  void dispose() {
+    _drift.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) => AnimatedBuilder(
+    animation: _drift,
+    builder: (context, _) {
+      final phase = widget.motionEnabled ? _drift.value * math.pi * 2 : 0.0;
+      return Transform.translate(
+        offset: Offset(math.sin(phase) * 3, math.cos(phase) * 2),
+        child: Transform.scale(
+          scale: 1.018,
+          child: ColorFiltered(
+            colorFilter: widget.isNight
+                ? const ColorFilter.mode(Color(0x44142432), BlendMode.multiply)
+                : const ColorFilter.mode(Colors.transparent, BlendMode.srcOver),
+            child: Image.asset(
+              CampAssetCatalog.terrainDusk,
+              fit: BoxFit.cover,
+              filterQuality: FilterQuality.medium,
+            ),
+          ),
+        ),
+      );
+    },
+  );
+}
+
+/// The actor actually walks along the path; the vector animation supplies steps.
+class _CampRoamingAvatar extends StatefulWidget {
+  const _CampRoamingAvatar({required this.motionEnabled});
+
+  final bool motionEnabled;
+
+  @override
+  State<_CampRoamingAvatar> createState() => _CampRoamingAvatarState();
+}
+
+class _CampRoamingAvatarState extends State<_CampRoamingAvatar>
+    with SingleTickerProviderStateMixin {
+  late final AnimationController _path =
+      AnimationController(vsync: this, duration: const Duration(seconds: 9))
+        ..value = .5
+        ..addStatusListener(_onPathStatus)
+        ..forward();
+  CampAvatarAction _action = CampAvatarAction.walk;
+  int _command = 0;
+
+  void _onPathStatus(AnimationStatus status) {
+    if (!mounted || !widget.motionEnabled) return;
+    if (status == AnimationStatus.completed ||
+        status == AnimationStatus.dismissed) {
+      setState(() {
+        _action = status == AnimationStatus.completed
+            ? CampAvatarAction.drink
+            : CampAvatarAction.wellness;
+        _command++;
+      });
+    }
+  }
+
+  void _onActionComplete(CampAvatarAction action, String? commandId) {
+    if (!mounted || commandId != '$_command') return;
+    setState(() => _action = CampAvatarAction.walk);
+    if (_path.status == AnimationStatus.completed) {
+      _path.reverse();
+    } else {
+      _path.forward();
+    }
+  }
+
+  @override
+  void didUpdateWidget(_CampRoamingAvatar oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (!widget.motionEnabled) {
+      _path.stop();
+    } else if (!oldWidget.motionEnabled) {
+      _action = CampAvatarAction.walk;
+      _path.forward();
+    }
+  }
+
+  @override
+  void dispose() {
+    _path.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) => AnimatedBuilder(
+    animation: _path,
+    builder: (context, _) => Transform.translate(
+      offset: widget.motionEnabled
+          ? Offset(
+              (_path.value - .5) * 28,
+              -math.sin(_path.value * math.pi) * 8,
+            )
+          : Offset.zero,
+      child: CampVectorAvatar(
+        family: CampAvatarFamily.adultMasculine,
+        action: widget.motionEnabled ? _action : CampAvatarAction.idle,
+        motionEnabled: widget.motionEnabled,
+        commandId: '$_command',
+        onActionComplete: _onActionComplete,
       ),
-      child: Padding(
-        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 9),
-        child: Text(
-          label,
-          textAlign: TextAlign.center,
-          style: Theme.of(context).textTheme.labelMedium?.copyWith(
-            color: isNight ? const Color(0xFFF1ECE0) : const Color(0xFF354C40),
+    ),
+  );
+}
+
+/// Each zone stays a separate transparent, hit-tested 2.5D foreground layer.
+class _CampZoneVisual extends StatefulWidget {
+  const _CampZoneVisual({required this.zoneId, required this.label});
+
+  final String zoneId;
+  final String label;
+
+  @override
+  State<_CampZoneVisual> createState() => _CampZoneVisualState();
+}
+
+class _CampZoneVisualState extends State<_CampZoneVisual>
+    with SingleTickerProviderStateMixin {
+  late final AnimationController _glow = AnimationController(
+    vsync: this,
+    duration: const Duration(seconds: 4),
+  )..repeat(reverse: true);
+
+  @override
+  void dispose() {
+    _glow.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) => Stack(
+    fit: StackFit.expand,
+    children: [
+      AnimatedBuilder(
+        animation: _glow,
+        builder: (context, _) => Transform.translate(
+          offset: Offset(
+            math.sin(_glow.value * math.pi * 2) * 1.1,
+            math.cos(_glow.value * math.pi * 2) * .8,
+          ),
+          child: Image.asset(
+            CampAssetCatalog.resolve(
+              zoneId: widget.zoneId,
+              variant: widget.zoneId == 'fitmate'
+                  ? 'under_construction'
+                  : 'default',
+            ).path,
+            fit: BoxFit.contain,
+            filterQuality: FilterQuality.medium,
           ),
         ),
       ),
-    ),
+      AnimatedBuilder(
+        animation: _glow,
+        builder: (context, _) => Align(
+          alignment: const Alignment(.1, -.1),
+          child: Container(
+            width: 18,
+            height: 18,
+            decoration: BoxDecoration(
+              shape: BoxShape.circle,
+              boxShadow: [
+                BoxShadow(
+                  color: const Color(
+                    0xFFFFD477,
+                  ).withValues(alpha: .08 + _glow.value * .16),
+                  blurRadius: 18 + _glow.value * 9,
+                  spreadRadius: 5,
+                ),
+              ],
+            ),
+          ),
+        ),
+      ),
+      _CampZoneSign(label: widget.label),
+    ],
   );
 }

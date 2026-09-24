@@ -2,6 +2,8 @@ import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:lifemate/living_camp/camp_environment.dart';
 import 'package:lifemate/living_camp/camp_home.dart';
+import 'package:lifemate/living_camp/camp_avatar_fallback.dart';
+import 'package:lifemate/living_camp/camp_vector_avatar.dart';
 
 void main() {
   const resolver = CampDaylightResolver();
@@ -172,5 +174,30 @@ void main() {
     expect(homeHotspot, findsOneWidget);
     await tester.tap(homeHotspot);
     expect(openedToday, isTrue);
+  });
+
+  testWidgets('Camp actor walks the path and performs a one-shot drink', (
+    tester,
+  ) async {
+    await tester.pumpWidget(
+      MaterialApp(
+        home: Scaffold(
+          body: CampHome(
+            isPersian: false,
+            onOpenToday: () {},
+            onOpenWellMate: () {},
+            nowUtc: () => DateTime.utc(2026, 1, 1, 19),
+          ),
+        ),
+      ),
+    );
+    await tester.pump(const Duration(milliseconds: 100));
+    CampVectorAvatar actor() => tester.widget(find.byType(CampVectorAvatar));
+    expect(actor().action, CampAvatarAction.walk);
+
+    await tester.pump(const Duration(seconds: 5));
+    expect(actor().action, CampAvatarAction.drink);
+    await tester.pump(const Duration(seconds: 2));
+    expect(actor().action, CampAvatarAction.walk);
   });
 }
