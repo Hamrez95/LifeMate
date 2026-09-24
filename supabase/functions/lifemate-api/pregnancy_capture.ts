@@ -391,7 +391,12 @@ export function createPregnancyCaptureRouteHandler(databaseUrl: string) {
     `;
     const release = releases[0];
     if (!release) {
-      return { contractVersion: 1, version: "unpublished", locale, entries: [] };
+      return {
+        contractVersion: 1,
+        version: "unpublished",
+        locale,
+        entries: [],
+      };
     }
     const rows = await sql`
       select code,display_label,sort_order
@@ -449,7 +454,9 @@ export function createPregnancyCaptureRouteHandler(databaseUrl: string) {
       request.method === "GET" &&
       path === "/api/v1/cocoon/pregnancy/symptom-catalog"
     ) {
-      return json(await symptomCatalog(appUserId, requestedCatalogLocale(request)));
+      return json(
+        await symptomCatalog(appUserId, requestedCatalogLocale(request)),
+      );
     }
     if (
       request.method === "GET" &&
