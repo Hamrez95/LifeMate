@@ -13,7 +13,7 @@ Deno.test("stored recurrence omits an absent max-occurrence limit", () => {
     weekdays: [],
   });
   assertEquals(
-    JSON.parse(serializeRecurrenceRuleForStorage(rule)!),
+    serializeRecurrenceRuleForStorage(rule),
     {
       version: 2,
       enabled: true,

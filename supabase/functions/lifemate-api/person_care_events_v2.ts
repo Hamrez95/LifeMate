@@ -108,7 +108,8 @@ export function createPersonCareEventStoreV2(databaseUrl: string) {
            ${input.instructions}, ${input.centerName}, ${input.addressLine},
            ${input.phoneNumber}, ${input.scheduledLocalDate}::date,
            ${input.scheduledLocalTime}::time, ${input.timeZone},
-           'none', 1, array[]::smallint[], null, ${recurrenceJson}::jsonb,
+           'none', 1, array[]::smallint[], null,
+           ${recurrenceJson == null ? null : tx.json(recurrenceJson)},
            ${input.patientReminderMinutesBefore},
            ${input.caregiverReminderMinutesBefore}, 'Scheduled', 1, now(), now())
         returning *

@@ -135,7 +135,7 @@ Deno.test({
         insert into lifemate.women_companion_privacy_scopes(
           relationship_id,view_period_timing,view_phase_summary,
           view_shared_wellbeing,view_calendar_detail,version
-        ) values (${String(relationship.id)}::uuid,true,true,true,false,1)
+        ) values (${String(relationship.id)}::uuid,true,true,true,true,1)
       `;
 
       const privateDailyLog = await women.upsertOwnerDailyLog(

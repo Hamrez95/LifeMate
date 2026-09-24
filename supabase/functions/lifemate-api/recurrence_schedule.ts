@@ -14,10 +14,10 @@ export type RecurrenceRule = {
 
 export function serializeRecurrenceRuleForStorage(
   rule: RecurrenceRule | null,
-): string | null {
+): Record<string, unknown> | null {
   if (rule == null) return null;
   const { maxOccurrences, ...base } = rule;
-  return JSON.stringify(maxOccurrences == null ? base : rule);
+  return maxOccurrences == null ? base : rule;
 }
 
 function integer(

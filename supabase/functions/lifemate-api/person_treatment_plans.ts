@@ -244,7 +244,8 @@ export function createPersonTreatmentPlanStore(databaseUrl: string) {
            ${medicationId}::uuid, ${doseText}, ${instructions}, ${startDate},
            ${endDate}, ${timeZone}, ${patientReminderMinutesBefore},
            ${caregiverReminderMinutesBefore},
-           ${recurrenceJson}::jsonb, ${recurrenceStartLocalTime}::time,
+           ${recurrenceJson == null ? null : tx.json(recurrenceJson)},
+           ${recurrenceStartLocalTime}::time,
            'Active', 1, ${now}, ${now})
         returning *
       `;
