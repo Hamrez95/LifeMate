@@ -27,7 +27,7 @@ The shell must remain extensible without turning every product into a top-level 
 ## 2. Locked principles
 
 1. **Home is the emotional root.** The authenticated shell starts at Home unless a valid deferred deep link resolves elsewhere.
-2. **Five primary destinations:** Home, Today, Journey, Circle, You.
+2. **Five canonical destinations:** Home, Today, Journey, Circle, You. The four visible bottom destinations follow the approved North Star composition; Today is opened from Home, notifications or a deep link.
 3. **Products are mounted destinations, not primary bottom-navigation tabs.** WellMate, CareMate, CocoonMate/Women Health, FitMate and future products are entered from the world, Today items, notifications, deep links or other approved contextual entry points.
 4. **Bottom navigation switches peer destinations; it does not push duplicate root pages onto one stack.**
 5. **Each product module owns navigation below its product entry boundary.** The parent shell owns entry/exit, global routes and cross-product handoffs.
@@ -55,7 +55,9 @@ The canonical path strings above are internal app route contracts. External URI 
 
 Logical order is:
 
-`Home → Today → Journey → Circle → You`
+`Home → Journey → Circle → You`
+
+The Today card and central LifeMate home open the Today Peek Sheet, whose full-day action reaches the canonical `/today` destination. Full Today uses a back affordance to return to Home; it is not a fifth bottom tab. This presentation follows the user-supplied North Star screenshot while keeping Today route identity stable.
 
 Implementation must use directional layout primitives so the visual order is naturally correct in Persian RTL and English LTR. Code must not hard-code left/right assumptions.
 
@@ -90,7 +92,7 @@ Tapping the central LifeMate home opens the Today Peek Sheet over Home. This is 
 - initial Peek Sheet shows the approved small cross-module priority set;
 - dismiss returns to the unchanged Home scene state;
 - expanding / `View full day` transitions to canonical `/today`;
-- the Today tab becomes selected when full Today is opened.
+- full Today opens as a separate shell destination with a back affordance to Home.
 
 The overlay must also be reachable through semantics without requiring a visual tap target.
 

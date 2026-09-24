@@ -192,6 +192,13 @@ class _LifeMateShellState extends State<LifeMateShell> {
         extendBody: _destination == ShellDestination.home,
         extendBodyBehindAppBar: _destination == ShellDestination.home,
         appBar: AppBar(
+          leading: _destination == ShellDestination.today
+              ? IconButton(
+                  tooltip: _t('Back to Home', 'بازگشت به خانه'),
+                  onPressed: () => _select(ShellDestination.home),
+                  icon: const Icon(Icons.arrow_back_rounded),
+                )
+              : null,
           toolbarHeight: _destination == ShellDestination.home ? 76 : 68,
           backgroundColor: _destination == ShellDestination.home
               ? Colors.transparent
@@ -238,7 +245,9 @@ class _LifeMateShellState extends State<LifeMateShell> {
           index: destinations.indexOf(_destination),
           children: destinations.map(_buildDestination).toList(growable: false),
         ),
-        bottomNavigationBar: _destination == ShellDestination.home
+        bottomNavigationBar: _destination == ShellDestination.today
+            ? null
+            : _destination == ShellDestination.home
             ? SafeArea(
                 top: false,
                 child: Padding(

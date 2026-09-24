@@ -52,6 +52,10 @@ void main() {
     await tester.pumpAndSettle();
 
     expect(find.text('Today is not connected yet'), findsOneWidget);
+    expect(find.byType(NavigationBar), findsNothing);
+    await tester.tap(find.byTooltip('Back to Home'));
+    await tester.pump(const Duration(milliseconds: 350));
+    expect(find.byType(NavigationBar), findsOneWidget);
   });
 
   testWidgets('back from a peer destination returns to Home', (tester) async {
