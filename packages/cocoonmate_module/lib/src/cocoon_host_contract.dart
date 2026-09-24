@@ -95,6 +95,8 @@ class CocoonModuleConfig {
     this.onRetrySymptomCatalog,
     this.onSubmitSymptom,
     this.onOpenMedicalAttention,
+    this.moodSubmitState = CocoonMoodSubmitState.idle,
+    this.onSubmitMood,
     this.measurementOptions = const [],
     this.measurementSubmitState = CocoonMeasurementSubmitState.idle,
     this.onSubmitMeasurement,
@@ -161,6 +163,8 @@ class CocoonModuleConfig {
   final VoidCallback? onRetrySymptomCatalog;
   final Future<void> Function(CocoonSymptomDraft draft)? onSubmitSymptom;
   final VoidCallback? onOpenMedicalAttention;
+  final CocoonMoodSubmitState moodSubmitState;
+  final Future<void> Function(CocoonMoodDraft draft)? onSubmitMood;
   final List<CocoonMeasurementOption> measurementOptions;
   final CocoonMeasurementSubmitState measurementSubmitState;
   final Future<void> Function(CocoonMeasurementDraft draft)?

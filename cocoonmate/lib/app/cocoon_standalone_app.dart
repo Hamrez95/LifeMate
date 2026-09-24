@@ -13,10 +13,10 @@ const cocoonAppVersion = '0.1.0+1';
 typedef CocoonRuntimeLoader = Future<LifeMateRuntimeConfigSnapshot> Function();
 typedef CocoonBootstrapLoader = Future<CocoonBootstrapSnapshot> Function();
 typedef CocoonSignOut = Future<void> Function();
-typedef CocoonOfflineBootstrapCache =
-    Future<void> Function(CocoonBootstrapSnapshot snapshot);
-typedef CocoonOfflineSnapshotLoader =
-    Future<CocoonPregnancySnapshot?> Function();
+typedef CocoonOfflineBootstrapCache = Future<void> Function(
+    CocoonBootstrapSnapshot snapshot);
+typedef CocoonOfflineSnapshotLoader = Future<CocoonPregnancySnapshot?>
+    Function();
 typedef CocoonOfflineOwnerForget = Future<void> Function();
 
 class CocoonStandaloneApp extends StatelessWidget {
@@ -74,9 +74,9 @@ class CocoonStandaloneApp extends StatelessWidget {
       logoAssetPath: 'assets/cocoonmate-logo.png',
       unauthenticatedBuilder: (context, _, appName, logoAssetPath) =>
           LifeMateSharedAuthExperience(
-            appName: appName,
-            logoAssetPath: logoAssetPath,
-          ),
+        appName: appName,
+        logoAssetPath: logoAssetPath,
+      ),
       authenticatedBuilder: (context, _) => CocoonAuthenticatedHost(
         config: config,
         locale: Localizations.localeOf(context),
@@ -136,6 +136,11 @@ class _CocoonAuthenticatedHostState extends State<CocoonAuthenticatedHost>
   CocoonRecordsState _recordsState = CocoonRecordsState.loading;
   List<CocoonRecordViewData> _records = const [];
   CocoonCheckInSyncState _checkInSyncState = CocoonCheckInSyncState.idle;
+  CocoonApprovedSymptomCatalog? _symptomCatalog;
+  CocoonSymptomCatalogState _symptomCatalogState =
+      CocoonSymptomCatalogState.loading;
+  CocoonSymptomSubmitState _symptomSubmitState = CocoonSymptomSubmitState.idle;
+  CocoonMoodSubmitState _moodSubmitState = CocoonMoodSubmitState.idle;
   CocoonMeasurementSubmitState _measurementSubmitState =
       CocoonMeasurementSubmitState.idle;
   List<CocoonMedicationOption> _medicationOptions = const [];
@@ -144,39 +149,46 @@ class _CocoonAuthenticatedHostState extends State<CocoonAuthenticatedHost>
 
   late final LifeMateRemoteConfigClient? _runtimeClient =
       widget.runtimeLoader == null
-      ? LifeMateRemoteConfigClient.fromEnvironment(
-          product: 'cocoonmate',
-          currentVersion: cocoonAppVersion,
-        )
-      : null;
+          ? LifeMateRemoteConfigClient.fromEnvironment(
+              product: 'cocoonmate',
+              currentVersion: cocoonAppVersion,
+            )
+          : null;
   late final CocoonPregnancyApiClient? _pregnancyClient =
       widget.bootstrapLoader == null
-      ? CocoonPregnancyApiClient(
-          baseUri: widget.config.apiBaseUri,
-          accessToken: () => LifeMateAuth.currentAccessToken,
-        )
-      : null;
+          ? CocoonPregnancyApiClient(
+              baseUri: widget.config.apiBaseUri,
+              accessToken: () => LifeMateAuth.currentAccessToken,
+            )
+          : null;
   late final CocoonGate3ReadModelLoader? _gate3ReadModelLoader =
       widget.gate3ReadLoader == null && widget.bootstrapLoader == null
-      ? CocoonGate3ReadModelLoader(
-          baseUri: widget.config.apiBaseUri,
-          accessToken: () => LifeMateAuth.currentAccessToken,
-        )
-      : null;
+          ? CocoonGate3ReadModelLoader(
+              baseUri: widget.config.apiBaseUri,
+              accessToken: () => LifeMateAuth.currentAccessToken,
+            )
+          : null;
   late final CocoonPregnancyTreatmentsApiClient? _treatmentsClient =
       widget.bootstrapLoader == null
-      ? CocoonPregnancyTreatmentsApiClient(
-          baseUri: widget.config.apiBaseUri,
-          accessToken: () => LifeMateAuth.currentAccessToken,
-        )
-      : null;
+          ? CocoonPregnancyTreatmentsApiClient(
+              baseUri: widget.config.apiBaseUri,
+              accessToken: () => LifeMateAuth.currentAccessToken,
+            )
+          : null;
+  late final CocoonPregnancyDailyApiClient? _dailyClient =
+      widget.bootstrapLoader == null
+          ? CocoonPregnancyDailyApiClient(
+              baseUri: widget.config.apiBaseUri,
+              accessToken: () => LifeMateAuth.currentAccessToken,
+            )
+          : null;
   late final LifeMateApiClient? _treatmentMutationClient =
       widget.bootstrapLoader == null
-      ? LifeMateApiClient(
-          baseUri: widget.config.apiBaseUri,
-          accessToken: () => LifeMateAuth.currentAccessToken,
-        )
-      : null;
+          ? LifeMateApiClient(
+              baseUri: widget.config.apiBaseUri,
+              accessToken: () => LifeMateAuth.currentAccessToken,
+            )
+          : null;
 
   @override
   void initState() {
@@ -191,6 +203,7 @@ class _CocoonAuthenticatedHostState extends State<CocoonAuthenticatedHost>
     _pregnancyClient?.close();
     _gate3ReadModelLoader?.close();
     _treatmentsClient?.close();
+    _dailyClient?.close();
     _treatmentMutationClient?.close();
     if (_ownsGate3MutationAdapter) _gate3MutationAdapter?.close();
     super.dispose();
@@ -214,32 +227,43 @@ class _CocoonAuthenticatedHostState extends State<CocoonAuthenticatedHost>
 
   @override
   Widget build(BuildContext context) => CocoonMateModule(
-    config: CocoonModuleConfig(
-      host: this,
-      calendarState: _calendarState,
-      calendarItems: _calendarItems,
-      calendarAsOfLocalDate: _calendarAsOfLocalDate,
-      onRetryCalendar: () => _refreshGate3ReadModels(),
-      recordsState: _recordsState,
-      records: _records,
-      onRetryRecords: () => _refreshGate3ReadModels(),
-      checkInSyncState: _checkInSyncState,
-      onSubmitCheckIn: _gate3MutationAdapter == null ? null : _submitCheckIn,
-      measurementOptions: _measurementOptions,
-      measurementSubmitState: _measurementSubmitState,
-      onSubmitMeasurement: _gate3MutationAdapter == null
-          ? null
-          : _submitMeasurement,
-      medicationOptions: _medicationOptions,
-      medicationSubmitState: _medicationSubmitState,
-      onPickMedicationTime: _treatmentMutationClient == null
-          ? null
-          : _pickMedicationTime,
-      onSubmitMedication: _treatmentMutationClient == null
-          ? null
-          : _submitMedication,
-    ),
-  );
+        config: CocoonModuleConfig(
+          host: this,
+          calendarState: _calendarState,
+          calendarItems: _calendarItems,
+          calendarAsOfLocalDate: _calendarAsOfLocalDate,
+          onRetryCalendar: () => _refreshGate3ReadModels(),
+          recordsState: _recordsState,
+          records: _records,
+          onRetryRecords: () => _refreshGate3ReadModels(),
+          checkInSyncState: _checkInSyncState,
+          onSubmitCheckIn:
+              _gate3MutationAdapter == null ? null : _submitCheckIn,
+          symptomOptions: _symptomOptions,
+          symptomCatalogState: _symptomCatalogState,
+          symptomSubmitState: _symptomSubmitState,
+          onRetrySymptomCatalog: _refreshSymptomCatalog,
+          onSubmitSymptom: _gate3MutationAdapter?.supportsSymptom == true &&
+                  (_symptomCatalogState == CocoonSymptomCatalogState.ready ||
+                      _symptomCatalogState ==
+                          CocoonSymptomCatalogState.offlineReady)
+              ? _submitSymptom
+              : null,
+          moodSubmitState: _moodSubmitState,
+          onSubmitMood:
+              _gate3MutationAdapter?.supportsMood == true ? _submitMood : null,
+          measurementOptions: _measurementOptions,
+          measurementSubmitState: _measurementSubmitState,
+          onSubmitMeasurement:
+              _gate3MutationAdapter == null ? null : _submitMeasurement,
+          medicationOptions: _medicationOptions,
+          medicationSubmitState: _medicationSubmitState,
+          onPickMedicationTime:
+              _treatmentMutationClient == null ? null : _pickMedicationTime,
+          onSubmitMedication:
+              _treatmentMutationClient == null ? null : _submitMedication,
+        ),
+      );
 
   @override
   Future<void> refresh() async {
@@ -247,9 +271,8 @@ class _CocoonAuthenticatedHostState extends State<CocoonAuthenticatedHost>
     _refreshing = true;
     if (mounted) setState(() => _entryState = CocoonEntryState.loading);
     try {
-      final runtime =
-          await (widget.runtimeLoader?.call() ??
-              _runtimeClient!.load(forceRefresh: true));
+      final runtime = await (widget.runtimeLoader?.call() ??
+          _runtimeClient!.load(forceRefresh: true));
       if (runtime.product != 'cocoonmate' ||
           runtime.platform.trim().isEmpty ||
           !runtime.isTrustedForUpdatePolicy(DateTime.now())) {
@@ -257,9 +280,8 @@ class _CocoonAuthenticatedHostState extends State<CocoonAuthenticatedHost>
         return;
       }
 
-      final snapshot =
-          await (widget.bootstrapLoader?.call() ??
-              _pregnancyClient!.bootstrap(asOfDate: DateTime.now()));
+      final snapshot = await (widget.bootstrapLoader?.call() ??
+          _pregnancyClient!.bootstrap(asOfDate: DateTime.now()));
       if (!await _cacheAuthoritativeBootstrap(snapshot)) return;
       final next = resolveCocoonEntryState(snapshot);
       _apply(
@@ -331,10 +353,85 @@ class _CocoonAuthenticatedHostState extends State<CocoonAuthenticatedHost>
         _records = values.records;
       });
       await _refreshMedicationOptions();
+      await _refreshSymptomCatalog();
     } catch (_) {
       _markGate3ReadModelsStale();
     } finally {
       _refreshingGate3 = false;
+    }
+  }
+
+  List<CocoonSymptomOption> get _symptomOptions =>
+      _symptomCatalog?.entries
+          .map(
+            (entry) => CocoonSymptomOption(
+              id: entry.code,
+              label: entry.label,
+              icon: Icons.healing_outlined,
+            ),
+          )
+          .toList(growable: false) ??
+      const [];
+
+  Future<void> _refreshSymptomCatalog() async {
+    final client = _dailyClient;
+    if (client == null || _entryState != CocoonEntryState.activePregnancy) {
+      return;
+    }
+    if (mounted) {
+      setState(() => _symptomCatalogState = CocoonSymptomCatalogState.loading);
+    }
+    try {
+      final locale = widget.locale.languageCode == 'fa' ? 'fa' : 'en';
+      final catalog = await client.symptomCatalog(
+        locale: locale,
+      );
+      if (!mounted || _entryState != CocoonEntryState.activePregnancy) return;
+      setState(() {
+        _symptomCatalog = catalog;
+        _symptomCatalogState = catalog.entries.isEmpty
+            ? CocoonSymptomCatalogState.empty
+            : CocoonSymptomCatalogState.ready;
+      });
+      try {
+        await _productionOfflineOwnerCoordinator()
+            ?.cacheApprovedSymptomCatalog(locale: locale, catalog: catalog);
+      } catch (_) {
+        // The catalog is usable online even when protected cache persistence
+        // is unavailable; do not fall back to an unprotected store.
+      }
+    } on LifeMateApiException catch (error) {
+      if (!mounted) return;
+      if (error.statusCode == 0) {
+        await _restoreCachedSymptomCatalog();
+      } else {
+        setState(() => _symptomCatalogState = CocoonSymptomCatalogState.error);
+      }
+    } catch (_) {
+      if (mounted)
+        setState(() => _symptomCatalogState = CocoonSymptomCatalogState.error);
+    }
+  }
+
+  Future<void> _restoreCachedSymptomCatalog() async {
+    final locale = widget.locale.languageCode == 'fa' ? 'fa' : 'en';
+    try {
+      final catalog = await _productionOfflineOwnerCoordinator()
+          ?.readCachedApprovedSymptomCatalog(locale: locale);
+      if (!mounted || _entryState != CocoonEntryState.activePregnancy) return;
+      setState(() {
+        _symptomCatalog = catalog;
+        _symptomCatalogState = catalog == null
+            ? CocoonSymptomCatalogState.offline
+            : catalog.entries.isEmpty
+                ? CocoonSymptomCatalogState.empty
+                : CocoonSymptomCatalogState.offlineReady;
+      });
+    } catch (_) {
+      if (mounted) {
+        setState(
+            () => _symptomCatalogState = CocoonSymptomCatalogState.offline);
+      }
     }
   }
 
@@ -486,6 +583,97 @@ class _CocoonAuthenticatedHostState extends State<CocoonAuthenticatedHost>
     }
   }
 
+  Future<void> _submitSymptom(CocoonSymptomDraft draft) async {
+    final adapter = _gate3MutationAdapter;
+    final catalog = _symptomCatalog;
+    if (adapter == null || catalog == null) {
+      throw StateError('Approved symptom catalog is unavailable.');
+    }
+    if (mounted) {
+      setState(() => _symptomSubmitState = CocoonSymptomSubmitState.submitting);
+    }
+    try {
+      final result = await adapter.submitSymptom(
+        approvedCatalog: catalog,
+        symptomCode: draft.symptomId,
+        intensity: switch (draft.intensity) {
+          CocoonSymptomIntensity.mild => CocoonPregnancySymptomIntensity.mild,
+          CocoonSymptomIntensity.moderate =>
+            CocoonPregnancySymptomIntensity.moderate,
+          CocoonSymptomIntensity.strong =>
+            CocoonPregnancySymptomIntensity.strong,
+        },
+        note: draft.note,
+      );
+      if (result.disposition == CocoonGate3MutationDisposition.queued) {
+        if (mounted) {
+          setState(() => _symptomSubmitState = CocoonSymptomSubmitState.queued);
+        }
+        return;
+      }
+      await _refreshGate3ReadModels();
+      if (mounted) {
+        setState(
+            () => _symptomSubmitState = CocoonSymptomSubmitState.confirmed);
+      }
+    } on LifeMateApiException catch (error) {
+      if (mounted) {
+        setState(() {
+          _symptomSubmitState = error.statusCode == 0
+              ? CocoonSymptomSubmitState.offline
+              : CocoonSymptomSubmitState.error;
+        });
+      }
+      rethrow;
+    } catch (_) {
+      if (mounted) {
+        setState(() => _symptomSubmitState = CocoonSymptomSubmitState.error);
+      }
+      rethrow;
+    }
+  }
+
+  Future<void> _submitMood(CocoonMoodDraft draft) async {
+    final adapter = _gate3MutationAdapter;
+    if (adapter == null)
+      throw StateError('Mood mutation adapter is unavailable.');
+    if (mounted) {
+      setState(() => _moodSubmitState = CocoonMoodSubmitState.submitting);
+    }
+    try {
+      final result = await adapter.submitMood(
+        mood: switch (draft.mood) {
+          CocoonMood.veryLow => CocoonPregnancyMood.veryLow,
+          CocoonMood.low => CocoonPregnancyMood.low,
+          CocoonMood.neutral => CocoonPregnancyMood.neutral,
+          CocoonMood.good => CocoonPregnancyMood.good,
+          CocoonMood.veryGood => CocoonPregnancyMood.veryGood,
+        },
+      );
+      if (result.disposition == CocoonGate3MutationDisposition.queued) {
+        if (mounted)
+          setState(() => _moodSubmitState = CocoonMoodSubmitState.queued);
+        return;
+      }
+      await _refreshGate3ReadModels();
+      if (mounted)
+        setState(() => _moodSubmitState = CocoonMoodSubmitState.confirmed);
+    } on LifeMateApiException catch (error) {
+      if (mounted) {
+        setState(() {
+          _moodSubmitState = error.statusCode == 0
+              ? CocoonMoodSubmitState.offline
+              : CocoonMoodSubmitState.error;
+        });
+      }
+      rethrow;
+    } catch (_) {
+      if (mounted)
+        setState(() => _moodSubmitState = CocoonMoodSubmitState.error);
+      rethrow;
+    }
+  }
+
   List<CocoonMeasurementOption> get _measurementOptions {
     final fa = widget.locale.languageCode == 'fa';
     String label(String en, String faValue) => fa ? faValue : en;
@@ -494,11 +682,12 @@ class _CocoonAuthenticatedHostState extends State<CocoonAuthenticatedHost>
       String en,
       String faValue,
       String unit,
-    ) => CocoonMeasurementFieldSpec(
-      id: id,
-      label: label(en, faValue),
-      unit: unit,
-    );
+    ) =>
+        CocoonMeasurementFieldSpec(
+          id: id,
+          label: label(en, faValue),
+          unit: unit,
+        );
     return [
       CocoonMeasurementOption(
         id: CocoonPregnancyMeasurementType.weight.wireValue,
@@ -615,6 +804,10 @@ class _CocoonAuthenticatedHostState extends State<CocoonAuthenticatedHost>
       _recordsState = CocoonRecordsState.loading;
       _records = const [];
       _checkInSyncState = CocoonCheckInSyncState.idle;
+      _symptomCatalog = null;
+      _symptomCatalogState = CocoonSymptomCatalogState.loading;
+      _symptomSubmitState = CocoonSymptomSubmitState.idle;
+      _moodSubmitState = CocoonMoodSubmitState.idle;
       _measurementSubmitState = CocoonMeasurementSubmitState.idle;
     });
   }
@@ -654,7 +847,7 @@ class _CocoonAuthenticatedHostState extends State<CocoonAuthenticatedHost>
       final cached = widget.offlineSnapshotLoader != null
           ? await widget.offlineSnapshotLoader!.call()
           : await _productionOfflineOwnerCoordinator()
-                ?.readCachedOwnerSnapshot();
+              ?.readCachedOwnerSnapshot();
       final episode = cached?.episode;
       if (cached != null &&
           episode != null &&

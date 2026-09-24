@@ -5,6 +5,8 @@ import {
   normalizePregnancyMood,
   normalizePregnancySymptomCode,
   normalizePregnancySymptomIntensity,
+  requestedCatalogLocale,
+  requiredCatalogVersion,
 } from "./pregnancy_capture.ts";
 import { ApiError } from "./validation.ts";
 
@@ -29,6 +31,25 @@ Deno.test("pregnancy symptom capture accepts structured codes only", () => {
     ApiError,
   );
   assertEquals(freeText.code, "invalid_symptomCode");
+});
+
+Deno.test("symptom catalog accepts only a reviewed version and supported locale", () => {
+  assertEquals(requiredCatalogVersion(" pregnancy-symptoms-v2 "), "pregnancy-symptoms-v2");
+  assertEquals(
+    requestedCatalogLocale(new Request("https://api.example.test/catalog?locale=fa")),
+    "fa",
+  );
+  assertEquals(
+    assertThrows(() => requiredCatalogVersion(""), ApiError).code,
+    "pregnancy_symptom_catalog_version_invalid",
+  );
+  assertEquals(
+    assertThrows(
+      () => requestedCatalogLocale(new Request("https://api.example.test/catalog?locale=fr")),
+      ApiError,
+    ).code,
+    "pregnancy_symptom_catalog_locale_invalid",
+  );
 });
 
 Deno.test("pregnancy mood capture remains a bounded non-diagnostic self-report", () => {

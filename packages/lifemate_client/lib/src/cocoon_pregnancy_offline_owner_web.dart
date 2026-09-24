@@ -19,9 +19,8 @@ final class CocoonPregnancyOfflineOwnerCoordinator {
     String timeZone = 'Asia/Tehran',
   });
 
-  Future<void> cacheAuthoritativeBootstrap(
-    CocoonBootstrapSnapshot bootstrap,
-  ) => Future<void>.error(_unsupported());
+  Future<void> cacheAuthoritativeBootstrap(CocoonBootstrapSnapshot bootstrap) =>
+      Future<void>.error(_unsupported());
 
   Future<CocoonPregnancySnapshot?> readCachedOwnerSnapshot() =>
       Future<CocoonPregnancySnapshot?>.error(_unsupported());
@@ -53,6 +52,15 @@ final class CocoonPregnancyOfflineOwnerCoordinator {
     required String moodCode,
     DateTime? createdAtUtc,
   }) => Future<void>.error(_unsupported());
+
+  Future<void> cacheApprovedSymptomCatalog({
+    required String locale,
+    required CocoonApprovedSymptomCatalog catalog,
+  }) => Future<void>.error(_unsupported());
+
+  Future<CocoonApprovedSymptomCatalog?> readCachedApprovedSymptomCatalog({
+    required String locale,
+  }) => Future<CocoonApprovedSymptomCatalog?>.error(_unsupported());
 
   Future<void> enqueueMeasurement({
     required String clientRequestId,
