@@ -28,6 +28,8 @@ void main() {
     expect(source, contains('Caregiver email'));
     expect(source, contains('Create invitation'));
     expect(source, contains('Create secure QR'));
+    expect(source, contains("scheme: 'mailto'"));
+    expect(source, contains('Open email'));
     expect(source, contains('Done'));
     expect(source, isNot(contains('Careful invitation')));
     expect(source, isNot(contains('Careful email')));

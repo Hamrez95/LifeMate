@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:lifemate_client/lifemate_client.dart';
 import 'package:provider/provider.dart';
+import 'package:url_launcher/url_launcher.dart';
 
 import '../../core/theme/app_style.dart';
 import '../../core/utils/string_extensions.dart';
@@ -365,6 +366,7 @@ class _CareAccessScreenState extends State<CareAccessScreen> {
       await _showInvitationToken(
         invitation['token']?.toString() ?? '',
         invitation['expiresAtUtc']?.toString(),
+        recipient: email,
       );
       await _refresh();
     } on LifeMateApiException catch (error) {
@@ -501,7 +503,11 @@ class _CareAccessScreenState extends State<CareAccessScreen> {
     }
   }
 
-  Future<void> _showInvitationToken(String token, String? expiresAt) async {
+  Future<void> _showInvitationToken(
+    String token,
+    String? expiresAt, {
+    required String recipient,
+  }) async {
     await showDialog<void>(
       context: context,
       barrierDismissible: false,
@@ -544,6 +550,50 @@ class _CareAccessScreenState extends State<CareAccessScreen> {
           ],
         ),
         actions: [
+          TextButton.icon(
+            onPressed: () async {
+              final subject = LifeMateRuntimeLocale.select(
+                fa: 'دعوت مراقبت در LifeMate',
+                en: 'LifeMate caregiver invitation',
+              );
+              final body = LifeMateRuntimeLocale.select(
+                fa: 'سلام،\n\nبرای پیوستن به مراقبت من در LifeMate از این کد یک‌بارمصرف استفاده کن:\n$token\n\nاین کد را فقط برای همین حساب استفاده کن.',
+                en: 'Hello,\n\nUse this one-time LifeMate code to join my care circle:\n$token\n\nUse this code only for this account.',
+              );
+              final launched = await launchUrl(
+                Uri(
+                  scheme: 'mailto',
+                  path: recipient,
+                  queryParameters: <String, String>{
+                    'subject': subject,
+                    'body': body,
+                  },
+                ),
+                mode: LaunchMode.externalApplication,
+              );
+              if (!launched && dialogContext.mounted) {
+                LifeMateNotice.show(
+                  dialogContext,
+                  type: LifeMateNoticeType.error,
+                  title: LifeMateRuntimeLocale.select(
+                    fa: 'برنامه ایمیل پیدا نشد',
+                    en: 'No email app found',
+                  ),
+                  message: LifeMateRuntimeLocale.select(
+                    fa: 'کد را کپی کنید و از روش دیگری برای ارسال آن استفاده کنید.',
+                    en: 'Copy the code and send it using another method.',
+                  ),
+                );
+              }
+            },
+            icon: const Icon(Icons.email_outlined),
+            label: Text(
+              LifeMateRuntimeLocale.select(
+                fa: 'ارسال با ایمیل',
+                en: 'Open email',
+              ),
+            ),
+          ),
           TextButton.icon(
             onPressed: () async {
               await Clipboard.setData(ClipboardData(text: token));
