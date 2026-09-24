@@ -30,6 +30,8 @@ Deno.test({
     const personId = crypto.randomUUID();
     const authSubject = `pregnancy-capture-${crypto.randomUUID()}`;
     const pregnancyIdempotencyKey = `pregnancy-capture-${crypto.randomUUID()}`;
+    const symptomCatalogVersion = `test-${crypto.randomUUID()}`;
+    const symptomCatalogReleaseId = crypto.randomUUID();
     const checkInRequestId = crypto.randomUUID();
     const symptomRequestId = crypto.randomUUID();
     const moodRequestId = crypto.randomUUID();
@@ -43,6 +45,26 @@ Deno.test({
         personId,
         authSubject,
       });
+      await adminSql`
+        insert into pregnancy.symptom_catalog_releases(
+          id,version,status,reviewed_by,reviewed_at_utc,published_at_utc
+        ) values(
+          ${symptomCatalogReleaseId}::uuid,
+          ${symptomCatalogVersion},
+          'published',
+          'automated integration test fixture',
+          now(),
+          now()
+        )
+      `;
+      await adminSql`
+        insert into pregnancy.symptom_catalog_entries(
+          release_id,locale,code,display_label,sort_order
+        ) values(
+          ${symptomCatalogReleaseId}::uuid,'en','test.symptom',
+          'Synthetic test symptom',0
+        )
+      `;
 
       const pregnancyResponse = await pregnancyHandler({
         request: new Request(
@@ -109,6 +131,7 @@ Deno.test({
           localDate: "2026-09-19",
           timeZone: "Asia/Tehran",
           symptomCode: "test.symptom",
+          catalogVersion: symptomCatalogVersion,
           intensity: "mild",
           note: "first private note",
         },
@@ -126,6 +149,7 @@ Deno.test({
               localDate: "2026-09-19",
               timeZone: "Asia/Tehran",
               symptomCode: "test.symptom",
+              catalogVersion: symptomCatalogVersion,
               intensity: "mild",
               note: "changed private note",
             },
@@ -183,6 +207,14 @@ Deno.test({
       assertEquals(Number(rows[0].symptom_count), 1);
       assertEquals(Number(rows[0].mood_count), 1);
     } finally {
+      await adminSql`
+        delete from pregnancy.symptom_catalog_entries
+        where release_id=${symptomCatalogReleaseId}::uuid
+      `.catch(() => undefined);
+      await adminSql`
+        delete from pregnancy.symptom_catalog_releases
+        where id=${symptomCatalogReleaseId}::uuid
+      `.catch(() => undefined);
       await adminSql`
         delete from pregnancy.daily_check_ins
         where mother_person_id=${personId}::uuid
