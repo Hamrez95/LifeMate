@@ -390,6 +390,7 @@ class _CocoonShellState extends State<CocoonShell> {
             options: widget.config.measurementOptions,
             submitState: widget.config.measurementSubmitState,
             onSubmit: submitMeasurement,
+            onOpenHistory: widget.config.onOpenMeasurementHistory,
           ),
         ),
       );
@@ -409,6 +410,7 @@ class _CocoonShellState extends State<CocoonShell> {
             submitState: widget.config.medicationSubmitState,
             onPickTime: pickMedicationTime,
             onSubmit: submitMedication,
+            onOpenTreatments: widget.config.onOpenTreatments,
           ),
         ),
       );

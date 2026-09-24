@@ -113,11 +113,13 @@ class CocoonModuleConfig {
     this.measurementOptions = const [],
     this.measurementSubmitState = CocoonMeasurementSubmitState.idle,
     this.onSubmitMeasurement,
+    this.onOpenMeasurementHistory,
     this.medicationOptions = const [],
     this.medicationInitialTimeLabel = '',
     this.medicationSubmitState = CocoonMedicationSubmitState.idle,
     this.onPickMedicationTime,
     this.onSubmitMedication,
+    this.onOpenTreatments,
     this.reminderLoadState = CocoonReminderLoadState.loading,
     this.reminderSaveState = CocoonReminderSaveState.idle,
     this.reminderData,
@@ -186,12 +188,14 @@ class CocoonModuleConfig {
   final CocoonMeasurementSubmitState measurementSubmitState;
   final Future<void> Function(CocoonMeasurementDraft draft)?
       onSubmitMeasurement;
+  final VoidCallback? onOpenMeasurementHistory;
   final List<CocoonMedicationOption> medicationOptions;
   final String medicationInitialTimeLabel;
   final CocoonMedicationSubmitState medicationSubmitState;
   final Future<DateTime?> Function()? onPickMedicationTime;
   final Future<void> Function(CocoonMedicationLogDraft draft)?
       onSubmitMedication;
+  final VoidCallback? onOpenTreatments;
   final CocoonReminderLoadState reminderLoadState;
   final CocoonReminderSaveState reminderSaveState;
   final CocoonReminderSettingsViewData? reminderData;

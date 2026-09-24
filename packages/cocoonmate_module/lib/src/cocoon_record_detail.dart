@@ -7,11 +7,17 @@ class CocoonRecordDetailScreen extends StatelessWidget {
   const CocoonRecordDetailScreen({
     required this.fa,
     required this.record,
+    this.onOpenSource,
     super.key,
   });
 
   final bool fa;
   final CocoonRecordViewData record;
+
+  /// Lets the authenticated host open the original record surface when it has
+  /// a separately-authorized source identity. The module neither resolves an
+  /// ID nor fetches extra health information itself.
+  final ValueChanged<CocoonRecordViewData>? onOpenSource;
 
   String t(String en, String faValue) => fa ? faValue : en;
 
@@ -19,6 +25,7 @@ class CocoonRecordDetailScreen extends StatelessWidget {
   Widget build(BuildContext context) {
     final visual = _visualFor(record.kind);
     final pending = record.syncState != CocoonRecordSyncState.confirmed;
+    final canOpenSource = !pending && onOpenSource != null;
     return Scaffold(
       appBar: AppBar(title: Text(t('Record details', 'جزئیات سابقه'))),
       body: SafeArea(
@@ -81,6 +88,29 @@ class CocoonRecordDetailScreen extends StatelessWidget {
             ),
             const SizedBox(height: 18),
             _SyncCard(fa: fa, state: record.syncState, pending: pending),
+            if (canOpenSource) ...[
+              const SizedBox(height: 18),
+              Semantics(
+                button: true,
+                label: t(
+                  'Open the original record',
+                  'بازکردن سابقهٔ اصلی',
+                ),
+                hint: t(
+                  'Opens the source screen available to this account.',
+                  'صفحهٔ منبعی را باز می‌کند که برای این حساب در دسترس است.',
+                ),
+                child: SizedBox(
+                  width: double.infinity,
+                  height: 48,
+                  child: FilledButton.tonalIcon(
+                    onPressed: () => onOpenSource!(record),
+                    icon: const Icon(Icons.open_in_new_rounded),
+                    label: Text(t('Open original entry', 'بازکردن مورد اصلی')),
+                  ),
+                ),
+              ),
+            ],
             if (pending) ...[
               const SizedBox(height: 18),
               Text(

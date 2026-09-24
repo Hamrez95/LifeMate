@@ -51,6 +51,7 @@ class CocoonMedicationLogScreen extends StatefulWidget {
     required this.submitState,
     required this.onPickTime,
     required this.onSubmit,
+    this.onOpenTreatments,
     super.key,
   });
 
@@ -60,6 +61,7 @@ class CocoonMedicationLogScreen extends StatefulWidget {
   final CocoonMedicationSubmitState submitState;
   final Future<DateTime?> Function() onPickTime;
   final Future<void> Function(CocoonMedicationLogDraft draft) onSubmit;
+  final VoidCallback? onOpenTreatments;
 
   @override
   State<CocoonMedicationLogScreen> createState() =>
@@ -85,7 +87,17 @@ class _CocoonMedicationLogScreenState extends State<CocoonMedicationLogScreen> {
 
   @override
   Widget build(BuildContext context) => Scaffold(
-        appBar: AppBar(title: Text(t('Medication log', 'ثبت دارو و مکمل'))),
+        appBar: AppBar(
+          title: Text(t('Medication log', 'ثبت دارو و مکمل')),
+          actions: [
+            if (widget.onOpenTreatments != null)
+              IconButton(
+                tooltip: t('Treatments', 'درمان‌ها'),
+                onPressed: widget.onOpenTreatments,
+                icon: const Icon(Icons.medication_outlined),
+              ),
+          ],
+        ),
         body: SafeArea(
           bottom: false,
           child: CustomScrollView(
@@ -506,4 +518,276 @@ class _MedicationStatus extends StatelessWidget {
       ),
     );
   }
+}
+
+/// Presentation-only state for the canonical treatment feed supplied by a
+/// host. This module neither derives a treatment plan nor interprets it.
+enum CocoonTreatmentsLoadState { loading, ready, empty, error }
+
+/// A host-authored representation of one active treatment.
+///
+/// The text fields are deliberately display values: dose, timing, status, and
+/// any clinical wording remain owned by the canonical API. `id` is opaque to
+/// the module and is returned untouched when a user opens an item.
+class CocoonActiveTreatmentViewData {
+  const CocoonActiveTreatmentViewData({
+    required this.id,
+    required this.title,
+    required this.details,
+    this.nextDoseLabel,
+    this.statusLabel,
+    this.isPendingSync = false,
+  });
+
+  final String id;
+  final String title;
+  final String details;
+  final String? nextDoseLabel;
+  final String? statusLabel;
+  final bool isPendingSync;
+}
+
+/// Read-only active-treatment and next-dose presentation.
+///
+/// Mutation, plan changes, and medication recommendations stay outside this
+/// surface. The host chooses which authorized canonical treatments to inject.
+class CocoonTreatmentsScreen extends StatelessWidget {
+  const CocoonTreatmentsScreen({
+    required this.fa,
+    required this.state,
+    required this.items,
+    required this.onRetry,
+    required this.onOpenTreatment,
+    super.key,
+  });
+
+  final bool fa;
+  final CocoonTreatmentsLoadState state;
+  final List<CocoonActiveTreatmentViewData> items;
+  final VoidCallback onRetry;
+  final ValueChanged<String> onOpenTreatment;
+
+  String t(String en, String faText) => fa ? faText : en;
+
+  @override
+  Widget build(BuildContext context) {
+    if (state == CocoonTreatmentsLoadState.loading) {
+      return Scaffold(
+        appBar: AppBar(title: Text(t('Treatments', 'درمان‌ها'))),
+        body: CocoonPagePadding(
+          child: CocoonLoadingState(
+            semanticLabel: t('Loading treatments', 'در حال بارگذاری درمان‌ها'),
+          ),
+        ),
+      );
+    }
+    if (state == CocoonTreatmentsLoadState.error && items.isEmpty) {
+      return CocoonStatePage(
+        icon: Icons.sync_problem_outlined,
+        eyebrow: t('Treatments', 'درمان‌ها'),
+        title: t(
+            'Treatments could not be refreshed', 'درمان‌ها به‌روزرسانی نشدند'),
+        body: t(
+          'Your active treatment list is not available right now. Try again when you are connected.',
+          'فهرست درمان‌های فعال اکنون در دسترس نیست. هنگام اتصال دوباره تلاش کن.',
+        ),
+        action: t('Try again', 'تلاش دوباره'),
+        onPressed: onRetry,
+      );
+    }
+
+    final showEmpty = items.isEmpty;
+    return Scaffold(
+      appBar: AppBar(title: Text(t('Treatments', 'درمان‌ها'))),
+      body: SafeArea(
+        bottom: false,
+        child: ListView(
+          padding: const EdgeInsetsDirectional.fromSTEB(20, 12, 20, 28),
+          children: [
+            Semantics(
+              header: true,
+              child: Text(
+                t('Your care plan', 'برنامه مراقبتی شما'),
+                style: Theme.of(context).textTheme.headlineSmall,
+              ),
+            ),
+            const SizedBox(height: 6),
+            Text(
+              t(
+                'Shown from your approved care plan. This screen does not change a treatment or dose.',
+                'موارد از برنامه مراقبتی تأییدشده نمایش داده می‌شوند. این صفحه درمان یا مقدار مصرف را تغییر نمی‌دهد.',
+              ),
+              style: Theme.of(context)
+                  .textTheme
+                  .bodyMedium
+                  ?.copyWith(color: CocoonTheme.muted),
+            ),
+            if (state == CocoonTreatmentsLoadState.error) ...[
+              const SizedBox(height: 16),
+              CocoonOfflineStrip(
+                message: t(
+                  'Showing the last available treatment list.',
+                  'آخرین فهرست در دسترس درمان‌ها نمایش داده می‌شود.',
+                ),
+                retryLabel: t('Retry', 'تلاش دوباره'),
+                onRetry: onRetry,
+              ),
+            ],
+            const SizedBox(height: 28),
+            if (showEmpty)
+              CocoonEmptyState(
+                icon: Icons.medication_outlined,
+                title: t('No active treatments to show',
+                    'درمان فعالی برای نمایش نیست'),
+                body: t(
+                  'When an approved care-plan item is available, it will appear here.',
+                  'وقتی موردی از برنامه مراقبتی تأییدشده در دسترس باشد، اینجا نمایش داده می‌شود.',
+                ),
+              )
+            else ...[
+              CocoonSectionHeading(
+                title: t('Active treatments', 'درمان‌های فعال'),
+                supporting: t(
+                  'Open an item to view its source details.',
+                  'برای دیدن جزئیات منبع، یک مورد را باز کن.',
+                ),
+              ),
+              const SizedBox(height: 12),
+              for (final item in items) ...[
+                _ActiveTreatmentTile(
+                  item: item,
+                  fa: fa,
+                  onTap: () => onOpenTreatment(item.id),
+                ),
+                const SizedBox(height: 12),
+              ],
+            ],
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+class _ActiveTreatmentTile extends StatelessWidget {
+  const _ActiveTreatmentTile({
+    required this.item,
+    required this.fa,
+    required this.onTap,
+  });
+
+  final CocoonActiveTreatmentViewData item;
+  final bool fa;
+  final VoidCallback onTap;
+
+  String t(String en, String faText) => fa ? faText : en;
+
+  @override
+  Widget build(BuildContext context) {
+    final nextDose = item.nextDoseLabel;
+    final status = item.statusLabel;
+    final semantics = <String>[item.title, item.details];
+    if (nextDose != null && nextDose.isNotEmpty) semantics.add(nextDose);
+    if (status != null && status.isNotEmpty) semantics.add(status);
+    if (item.isPendingSync) {
+      semantics.add(t('Pending sync', 'در انتظار همگام‌سازی'));
+    }
+    semantics.add(t('Open treatment details', 'باز کردن جزئیات درمان'));
+
+    return Semantics(
+      button: true,
+      label: semantics.join(', '),
+      child: ConstrainedBox(
+        constraints: const BoxConstraints(minHeight: 88),
+        child: InkWell(
+          onTap: onTap,
+          borderRadius: BorderRadius.circular(CocoonRadii.card),
+          child: CocoonSurface(
+            child: Row(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                const Icon(
+                  Icons.medication_outlined,
+                  color: CocoonTheme.coral,
+                  size: 26,
+                ),
+                const SizedBox(width: 14),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        item.title,
+                        style: Theme.of(context).textTheme.titleMedium,
+                      ),
+                      const SizedBox(height: 3),
+                      Text(
+                        item.details,
+                        style: Theme.of(context)
+                            .textTheme
+                            .bodyMedium
+                            ?.copyWith(color: CocoonTheme.muted),
+                      ),
+                      if (nextDose != null && nextDose.isNotEmpty) ...[
+                        const SizedBox(height: 12),
+                        _TreatmentMetaRow(
+                          icon: Icons.schedule_outlined,
+                          label: nextDose,
+                        ),
+                      ],
+                      if (status != null && status.isNotEmpty) ...[
+                        const SizedBox(height: 8),
+                        _TreatmentMetaRow(
+                          icon: Icons.info_outline,
+                          label: status,
+                        ),
+                      ],
+                      if (item.isPendingSync) ...[
+                        const SizedBox(height: 8),
+                        CocoonStatusBadge(
+                          icon: Icons.schedule_send_outlined,
+                          label: t('Pending sync', 'در انتظار همگام‌سازی'),
+                          foreground: CocoonTheme.skyStrong,
+                          background: CocoonTheme.sky,
+                        ),
+                      ],
+                    ],
+                  ),
+                ),
+                const SizedBox(width: 8),
+                Icon(
+                  fa ? Icons.chevron_left_rounded : Icons.chevron_right_rounded,
+                  color: CocoonTheme.muted,
+                ),
+              ],
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+class _TreatmentMetaRow extends StatelessWidget {
+  const _TreatmentMetaRow({required this.icon, required this.label});
+
+  final IconData icon;
+  final String label;
+
+  @override
+  Widget build(BuildContext context) => Row(
+        children: [
+          Icon(icon, size: 18, color: CocoonTheme.skyStrong),
+          const SizedBox(width: 7),
+          Expanded(
+            child: Text(
+              label,
+              style: Theme.of(context)
+                  .textTheme
+                  .labelLarge
+                  ?.copyWith(color: CocoonTheme.ink),
+            ),
+          ),
+        ],
+      );
 }

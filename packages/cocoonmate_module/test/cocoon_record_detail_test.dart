@@ -38,5 +38,38 @@ void main() {
       findsOneWidget,
     );
     expect(find.text('Good'), findsOneWidget);
+    expect(find.text('Open original entry'), findsNothing);
+  });
+
+  testWidgets(
+      'confirmed record delegates an original-entry route to the host in RTL',
+      (tester) async {
+    CocoonRecordViewData? opened;
+    await tester.pumpWidget(
+      MaterialApp(
+        theme: CocoonTheme.light(),
+        home: Directionality(
+          textDirection: TextDirection.rtl,
+          child: CocoonRecordDetailScreen(
+            fa: true,
+            record: const CocoonRecordViewData(
+              id: 'appointment-1',
+              title: 'ویزیت ماما',
+              dateLabel: '۲۴ شهریور ۱۴۰۵',
+              sectionLabel: 'این هفته',
+              kind: CocoonRecordKind.appointment,
+              syncState: CocoonRecordSyncState.confirmed,
+            ),
+            onOpenSource: (record) => opened = record,
+          ),
+        ),
+      ),
+    );
+
+    expect(find.text('بازکردن مورد اصلی'), findsOneWidget);
+    expect(find.bySemanticsLabel('بازکردن سابقهٔ اصلی'), findsOneWidget);
+    await tester.tap(find.text('بازکردن مورد اصلی'));
+    expect(opened?.id, 'appointment-1');
+    expect(tester.takeException(), isNull);
   });
 }

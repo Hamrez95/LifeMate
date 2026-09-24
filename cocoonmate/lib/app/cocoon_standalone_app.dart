@@ -143,6 +143,9 @@ class _CocoonAuthenticatedHostState extends State<CocoonAuthenticatedHost>
   CocoonMoodSubmitState _moodSubmitState = CocoonMoodSubmitState.idle;
   CocoonMeasurementSubmitState _measurementSubmitState =
       CocoonMeasurementSubmitState.idle;
+  CocoonMeasurementHistoryState _measurementHistoryState =
+      CocoonMeasurementHistoryState.loading;
+  List<CocoonMeasurementHistoryItem> _measurementHistory = const [];
   List<CocoonMedicationOption> _medicationOptions = const [];
   CocoonMedicationSubmitState _medicationSubmitState =
       CocoonMedicationSubmitState.idle;
@@ -189,6 +192,13 @@ class _CocoonAuthenticatedHostState extends State<CocoonAuthenticatedHost>
               accessToken: () => LifeMateAuth.currentAccessToken,
             )
           : null;
+  late final CocoonPregnancyMeasurementsApiClient? _measurementsHistoryClient =
+      widget.bootstrapLoader == null
+          ? CocoonPregnancyMeasurementsApiClient(
+              baseUri: widget.config.apiBaseUri,
+              accessToken: () => LifeMateAuth.currentAccessToken,
+            )
+          : null;
   late final CocoonPregnancyDailyApiClient? _dailyClient =
       widget.bootstrapLoader == null
           ? CocoonPregnancyDailyApiClient(
@@ -218,6 +228,7 @@ class _CocoonAuthenticatedHostState extends State<CocoonAuthenticatedHost>
     _gate3ReadModelLoader?.close();
     _calendarMutationClient?.close();
     _treatmentsClient?.close();
+    _measurementsHistoryClient?.close();
     _dailyClient?.close();
     _treatmentMutationClient?.close();
     if (_ownsGate3MutationAdapter) _gate3MutationAdapter?.close();
@@ -277,12 +288,16 @@ class _CocoonAuthenticatedHostState extends State<CocoonAuthenticatedHost>
           measurementSubmitState: _measurementSubmitState,
           onSubmitMeasurement:
               _gate3MutationAdapter == null ? null : _submitMeasurement,
+          onOpenMeasurementHistory: _measurementsHistoryClient == null
+              ? null
+              : _openMeasurementHistory,
           medicationOptions: _medicationOptions,
           medicationSubmitState: _medicationSubmitState,
           onPickMedicationTime:
               _treatmentMutationClient == null ? null : _pickMedicationTime,
           onSubmitMedication:
               _treatmentMutationClient == null ? null : _submitMedication,
+          onOpenTreatments: _treatmentsClient == null ? null : _openTreatments,
         ),
       );
 
@@ -762,14 +777,14 @@ class _CocoonAuthenticatedHostState extends State<CocoonAuthenticatedHost>
     }
     final today = DateTime.now();
     try {
-      final context = await client.list(
+      final treatmentContext = await client.list(
         fromDate: DateTime(today.year, today.month, today.day),
         toDate: DateTime(today.year, today.month, today.day + 1),
       );
       final plans = {
-        for (final plan in context.typedTreatmentPlans) plan.id: plan,
+        for (final plan in treatmentContext.typedTreatmentPlans) plan.id: plan,
       };
-      final options = context.typedDoseOccurrences
+      final options = treatmentContext.typedDoseOccurrences
           .where((occurrence) => occurrence.status == 'scheduled')
           .map((occurrence) {
             final plan = plans[occurrence.treatmentPlanId];
@@ -788,6 +803,149 @@ class _CocoonAuthenticatedHostState extends State<CocoonAuthenticatedHost>
       if (mounted) setState(() => _medicationOptions = const []);
     }
   }
+
+  Future<void> _openTreatments() async {
+    final client = _treatmentsClient;
+    if (client == null || !mounted) return;
+    final now = DateTime.now();
+    try {
+      final treatmentContext = await client.list(
+        fromDate: DateTime(now.year, now.month, now.day),
+        toDate: DateTime(now.year, now.month, now.day + 1),
+      );
+      final next = {
+        for (final occurrence in treatmentContext.typedDoseOccurrences)
+          occurrence.treatmentPlanId: occurrence,
+      };
+      final items = treatmentContext.typedTreatmentPlans.map((plan) {
+        final occurrence = next[plan.id];
+        return CocoonActiveTreatmentViewData(
+          id: plan.id,
+          title: plan.medicationName,
+          details: [plan.doseText, plan.strengthText]
+              .whereType<String>()
+              .where((value) => value.isNotEmpty)
+              .join(' · '),
+          nextDoseLabel: occurrence == null
+              ? null
+              : '${occurrence.scheduledLocalDate} · ${occurrence.scheduledLocalTime}',
+          statusLabel: plan.status,
+        );
+      }).toList(growable: false);
+      if (!mounted) return;
+      Navigator.of(context).push(MaterialPageRoute<void>(
+        builder: (_) => CocoonTreatmentsScreen(
+          fa: widget.locale.languageCode == 'fa',
+          state: items.isEmpty
+              ? CocoonTreatmentsLoadState.empty
+              : CocoonTreatmentsLoadState.ready,
+          items: items,
+          onRetry: _openTreatments,
+          onOpenTreatment: (_) {},
+        ),
+      ));
+    } on Object {
+      if (!mounted) return;
+      Navigator.of(context).push(MaterialPageRoute<void>(
+        builder: (_) => CocoonTreatmentsScreen(
+          fa: widget.locale.languageCode == 'fa',
+          state: CocoonTreatmentsLoadState.error,
+          items: const [],
+          onRetry: _openTreatments,
+          onOpenTreatment: (_) {},
+        ),
+      ));
+    }
+  }
+
+  Future<void> _openMeasurementHistory() async {
+    if (!mounted) return;
+    await _refreshMeasurementHistory();
+    if (!mounted) return;
+    await Navigator.of(context).push<void>(
+      MaterialPageRoute<void>(
+        builder: (_) => Directionality(
+          textDirection: widget.locale.languageCode == 'fa'
+              ? TextDirection.rtl
+              : TextDirection.ltr,
+          child: CocoonMeasurementHistoryScreen(
+            fa: widget.locale.languageCode == 'fa',
+            state: _measurementHistoryState,
+            items: _measurementHistory,
+            onRetry: _openMeasurementHistory,
+          ),
+        ),
+      ),
+    );
+  }
+
+  Future<void> _refreshMeasurementHistory() async {
+    final client = _measurementsHistoryClient;
+    if (client == null || _entryState != CocoonEntryState.activePregnancy) {
+      return;
+    }
+    if (mounted) {
+      setState(() =>
+          _measurementHistoryState = CocoonMeasurementHistoryState.loading);
+    }
+    final now = DateTime.now();
+    try {
+      final response = await client.list(
+        fromDate: DateTime(now.year, now.month, now.day - 90),
+        toDate: DateTime(now.year, now.month, now.day),
+      );
+      final items = response.items.map((observation) {
+        final primary = observation.valuePrimary;
+        final secondary = observation.valueSecondary;
+        final value = primary == null
+            ? ''
+            : secondary == null
+                ? '${_numberLabel(primary)} ${observation.unitPrimary ?? ''}'
+                    .trim()
+                : '${_numberLabel(primary)}/${_numberLabel(secondary)} ${observation.unitPrimary ?? observation.unitSecondary ?? ''}'
+                    .trim();
+        return CocoonMeasurementHistoryItem(
+          id: observation.id,
+          metricLabel: _measurementHistoryTitle(observation.observationType),
+          recordedAtLabel: _careEventDate(observation.observedLocalDate),
+          valueLabel: value,
+          syncState: CocoonMeasurementHistorySyncState.confirmed,
+        );
+      }).toList(growable: false);
+      if (mounted) {
+        setState(() {
+          _measurementHistory = items;
+          _measurementHistoryState = items.isEmpty
+              ? CocoonMeasurementHistoryState.empty
+              : CocoonMeasurementHistoryState.ready;
+        });
+      }
+    } on LifeMateApiException {
+      if (mounted) {
+        setState(() =>
+            _measurementHistoryState = CocoonMeasurementHistoryState.error);
+      }
+    } catch (_) {
+      if (mounted) {
+        setState(() =>
+            _measurementHistoryState = CocoonMeasurementHistoryState.error);
+      }
+    }
+  }
+
+  String _measurementHistoryTitle(String type) {
+    final fa = widget.locale.languageCode == 'fa';
+    return switch (type) {
+      'weight' => fa ? 'وزن' : 'Weight',
+      'blood_pressure' => fa ? 'فشار خون' : 'Blood pressure',
+      'blood_glucose' => fa ? 'قند خون' : 'Blood glucose',
+      _ => fa ? 'اندازه‌گیری' : 'Measurement',
+    };
+  }
+
+  String _numberLabel(double value) => value == value.roundToDouble()
+      ? value.toInt().toString()
+      : value.toString();
 
   Future<DateTime?> _pickMedicationTime() async {
     final now = DateTime.now();
@@ -932,6 +1090,7 @@ class _CocoonAuthenticatedHostState extends State<CocoonAuthenticatedHost>
         return;
       }
       await _refreshGate3ReadModels();
+      await _refreshMeasurementHistory();
       if (mounted) {
         setState(
             () => _symptomSubmitState = CocoonSymptomSubmitState.confirmed);
