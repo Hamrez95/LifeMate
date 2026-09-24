@@ -3,9 +3,18 @@ import { normalizePregnancyCalendarClassification } from "./pregnancy_calendar.t
 import { ApiError } from "./validation.ts";
 
 Deno.test("pregnancy calendar accepts only supported classifications", () => {
-  assertEquals(normalizePregnancyCalendarClassification(" prenatal "), "prenatal");
-  assertEquals(normalizePregnancyCalendarClassification("ULTRASOUND"), "ultrasound");
-  assertEquals(normalizePregnancyCalendarClassification("lab_test"), "lab_test");
+  assertEquals(
+    normalizePregnancyCalendarClassification(" prenatal "),
+    "prenatal",
+  );
+  assertEquals(
+    normalizePregnancyCalendarClassification("ULTRASOUND"),
+    "ultrasound",
+  );
+  assertEquals(
+    normalizePregnancyCalendarClassification("lab_test"),
+    "lab_test",
+  );
 });
 
 Deno.test("pregnancy calendar rejects an invented classification", () => {
