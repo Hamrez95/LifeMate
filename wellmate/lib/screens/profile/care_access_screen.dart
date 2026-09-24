@@ -116,18 +116,18 @@ class _CareAccessScreenState extends State<CareAccessScreen> {
             LifeMateRuntimeLocale.select(
               fa: LifeMateRuntimeLocale.select(
                 fa: 'تأیید درخواست مراقبت',
-                en: "Confirmation of care request",
+                en: "Confirm care request",
               ),
-              en: "Confirmation of care request",
+              en: "Confirm care request",
             ),
           ),
           content: Text(
             LifeMateRuntimeLocale.select(
               fa: LifeMateRuntimeLocale.select(
                 fa: 'با تأیید، $name به‌عنوان مراقب شما فعال می‌شود. دسترسی‌های حساس مثل تقویم بانوان و مدیریت پرونده سلامت همچنان جداگانه و فقط با اجازه خودتان فعال می‌شوند.',
-                en: "Upon approval, $name will be activated as your guardian. Sensitive accesses such as women's calendar and health record management are still activated separately and only with your permission.",
+                en: "Upon approval, $name will become your caregiver. Sensitive access such as the women's calendar and health records stays separate and requires your permission.",
               ),
-              en: "Upon approval, $name will be activated as your guardian. Sensitive accesses such as women's calendar and health record management are still activated separately and only with your permission.",
+              en: "Upon approval, $name will become your caregiver. Sensitive access such as the women's calendar and health records stays separate and requires your permission.",
             ),
             style: TextStyle(height: 1.6),
           ),
@@ -150,9 +150,9 @@ class _CareAccessScreenState extends State<CareAccessScreen> {
                 LifeMateRuntimeLocale.select(
                   fa: LifeMateRuntimeLocale.select(
                     fa: 'تأیید مراقب',
-                    en: "Carer's approval",
+                    en: "Approve care request",
                   ),
-                  en: "Carer's approval",
+                  en: "Approve care request",
                 ),
               ),
             ),
@@ -190,9 +190,9 @@ class _CareAccessScreenState extends State<CareAccessScreen> {
             ? LifeMateRuntimeLocale.select(
                 fa: LifeMateRuntimeLocale.select(
                   fa: 'ارتباط مراقبتی فعال شد؛ حالا می‌توانید دسترسی‌هایش را تنظیم کنید.',
-                  en: "Care connection activated; Now you can set its access.",
+                  en: "Care connection activated. You can now set access permissions.",
                 ),
-                en: "Care connection activated; Now you can set its access.",
+                en: "Care connection activated. You can now set access permissions.",
               )
             : LifeMateRuntimeLocale.select(
                 fa: LifeMateRuntimeLocale.select(
@@ -207,8 +207,8 @@ class _CareAccessScreenState extends State<CareAccessScreen> {
       _notice(
         type: LifeMateNoticeType.error,
         title: LifeMateRuntimeLocale.select(
-          fa: LifeMateRuntimeLocale.select(fa: 'انجام نشد', en: "not done"),
-          en: "not done",
+          fa: LifeMateRuntimeLocale.select(fa: 'انجام نشد', en: "Action failed"),
+          en: "Action failed",
         ),
         message: switch (error.code) {
           'care_request_expired' => LifeMateRuntimeLocale.select(
@@ -271,9 +271,9 @@ class _CareAccessScreenState extends State<CareAccessScreen> {
             LifeMateRuntimeLocale.select(
               fa: LifeMateRuntimeLocale.select(
                 fa: 'دعوت مراقب',
-                en: "Careful invitation",
+                en: "Invite a caregiver",
               ),
-              en: "Careful invitation",
+              en: "Invite a caregiver",
             ),
           ),
           content: Column(
@@ -289,9 +289,9 @@ class _CareAccessScreenState extends State<CareAccessScreen> {
                   labelText: LifeMateRuntimeLocale.select(
                     fa: LifeMateRuntimeLocale.select(
                       fa: 'ایمیل مراقب',
-                      en: "Careful email",
+                      en: "Caregiver email",
                     ),
-                    en: "Careful email",
+                    en: "Caregiver email",
                   ),
                   prefixIcon: Icon(Icons.alternate_email_rounded),
                   filled: true,
@@ -327,8 +327,8 @@ class _CareAccessScreenState extends State<CareAccessScreen> {
               onPressed: () => Navigator.pop(dialogContext),
               child: Text(
                 LifeMateRuntimeLocale.select(
-                  fa: LifeMateRuntimeLocale.select(fa: 'انصراف', en: "opt out"),
-                  en: "opt out",
+                  fa: LifeMateRuntimeLocale.select(fa: 'انصراف', en: "Cancel"),
+                  en: "Cancel",
                 ),
               ),
             ),
@@ -343,9 +343,9 @@ class _CareAccessScreenState extends State<CareAccessScreen> {
                 LifeMateRuntimeLocale.select(
                   fa: LifeMateRuntimeLocale.select(
                     fa: 'ساخت دعوت',
-                    en: "Make an invitation",
+                    en: "Create invitation",
                   ),
-                  en: "Make an invitation",
+                  en: "Create invitation",
                 ),
               ),
             ),
@@ -436,8 +436,8 @@ class _CareAccessScreenState extends State<CareAccessScreen> {
             onPressed: () => Navigator.pop(context, false),
             child: Text(
               LifeMateRuntimeLocale.select(
-                fa: LifeMateRuntimeLocale.select(fa: 'انصراف', en: "opt out"),
-                en: "opt out",
+                fa: LifeMateRuntimeLocale.select(fa: 'انصراف', en: "Cancel"),
+                en: "Cancel",
               ),
             ),
           ),
@@ -447,9 +447,9 @@ class _CareAccessScreenState extends State<CareAccessScreen> {
               LifeMateRuntimeLocale.select(
                 fa: LifeMateRuntimeLocale.select(
                   fa: 'ساخت QR امن',
-                  en: "Make QR safe",
+                  en: "Create secure QR",
                 ),
-                en: "Make QR safe",
+                en: "Create secure QR",
               ),
             ),
           ),
@@ -583,8 +583,8 @@ class _CareAccessScreenState extends State<CareAccessScreen> {
             onPressed: () => Navigator.pop(dialogContext),
             child: Text(
               LifeMateRuntimeLocale.select(
-                fa: LifeMateRuntimeLocale.select(fa: 'تمام', en: "all"),
-                en: "all",
+                fa: LifeMateRuntimeLocale.select(fa: 'تمام', en: "Done"),
+                en: "Done",
               ),
             ),
           ),
@@ -635,8 +635,8 @@ class _CareAccessScreenState extends State<CareAccessScreen> {
             onPressed: () => Navigator.pop(context, false),
             child: Text(
               LifeMateRuntimeLocale.select(
-                fa: LifeMateRuntimeLocale.select(fa: 'انصراف', en: "opt out"),
-                en: "opt out",
+                fa: LifeMateRuntimeLocale.select(fa: 'انصراف', en: "Cancel"),
+                en: "Cancel",
               ),
             ),
           ),
@@ -731,8 +731,8 @@ class _CareAccessScreenState extends State<CareAccessScreen> {
             onPressed: () => Navigator.pop(context, false),
             child: Text(
               LifeMateRuntimeLocale.select(
-                fa: LifeMateRuntimeLocale.select(fa: 'انصراف', en: "opt out"),
-                en: "opt out",
+                fa: LifeMateRuntimeLocale.select(fa: 'انصراف', en: "Cancel"),
+                en: "Cancel",
               ),
             ),
           ),
@@ -1217,7 +1217,7 @@ class _CaregiverCard extends StatelessWidget {
     final name = rawName == null || rawName.isEmpty
         ? LifeMateRuntimeLocale.select(
             fa: LifeMateRuntimeLocale.select(fa: 'مراقب', en: "Caregiver"),
-            en: "Careful",
+            en: "Caregiver",
           )
         : rawName;
     final canSeeWomenCalendar = relationship['canViewWomenCalendar'] == true;
@@ -1404,7 +1404,7 @@ class _PendingInvitationCard extends StatelessWidget {
         invitation['contactHint']?.toString() ??
         LifeMateRuntimeLocale.select(
           fa: LifeMateRuntimeLocale.select(fa: 'مراقب', en: "Caregiver"),
-          en: "Careful",
+          en: "Caregiver",
         );
     final expiresAt = invitation['expiresAtUtc']?.toString();
     return Container(
