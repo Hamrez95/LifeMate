@@ -45,7 +45,7 @@ Deno.test({
       assertEquals(invitation.contactType, "phone");
       assert(typeof invitation.id === "string");
       assert(typeof invitation.token === "string");
-      assert(String(invitation.token).length > 20);
+      assert(String(invitation.token).length === 10);
 
       const invitations = await admin`
         select contact_hash,contact_hint,token_hash

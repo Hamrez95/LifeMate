@@ -7,7 +7,6 @@ import {
 } from "./database.ts";
 import { ApiError } from "./validation.ts";
 import { createWomenCalendarStore } from "./women_calendar.ts";
-import { createWomenCompanionPrivacyStore } from "./women_companion_privacy.ts";
 
 const databaseUrl = Deno.env.get("TEST_DATABASE_URL");
 if (!databaseUrl) {
@@ -24,7 +23,6 @@ Deno.test({
     const admin = postgres(databaseUrl, { max: 1, prepare: false });
     const db = createLifeMateDatabase(databaseUrl, contactSecret);
     const women = createWomenCalendarStore(databaseUrl);
-    const companionPrivacy = createWomenCompanionPrivacyStore(databaseUrl);
     const suffix = crypto.randomUUID();
     const recentDailyLogDate = new Date(Date.now() - 24 * 60 * 60 * 1000)
       .toISOString()
@@ -133,23 +131,12 @@ Deno.test({
         { canViewWomenCalendar: true },
       );
       assertEquals(permitted.canViewWomenCalendar, true);
-      await companionPrivacy.updateOwnerScopes(
-        patient.appUserId,
-        relationship.id,
-        {
-          version: 0,
-          scopes: {
-            viewPeriodTiming: true,
-            viewPhaseSummary: true,
-            viewSharedWellbeing: true,
-            receiveMoodSupportNotifications: false,
-            receivePhaseNotifications: false,
-            viewFertilityEstimate: false,
-            receiveFertilityNotifications: false,
-            viewCalendarDetail: false,
-          },
-        },
-      );
+      await admin`
+        insert into lifemate.women_companion_privacy_scopes(
+          relationship_id,view_period_timing,view_phase_summary,
+          view_shared_wellbeing,view_calendar_detail,version
+        ) values (${String(relationship.id)}::uuid,true,true,true,false,1)
+      `;
 
       const privateDailyLog = await women.upsertOwnerDailyLog(
         patient.appUserId,
