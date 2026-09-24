@@ -253,8 +253,8 @@ Deno.test({
       >;
       assertEquals(sharedSummary.mood, "good");
       assertEquals(sharedSummary.energyLevel, 4);
-      assertEquals(sharedSummary.painLevel, 1);
-      assertEquals(sharedSummary.symptoms, ["fatigue"]);
+      assertEquals("painLevel" in sharedSummary, false);
+      assertEquals("symptoms" in sharedSummary, false);
       assertEquals("privateNotes" in sharedSummary, false);
       assertEquals("shareSummaryWithCompanion" in sharedSummary, false);
 
