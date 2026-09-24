@@ -1,3 +1,5 @@
+begin;
+
 create table if not exists pregnancy.daily_check_ins (
   id uuid primary key default gen_random_uuid(),
   episode_id uuid not null references pregnancy.episodes(id) on delete restrict,
@@ -118,6 +120,10 @@ begin
     execute format('grant select,insert,update,delete on pregnancy.%I to lifemate_edge_runtime', table_name);
     execute format('grant select on pregnancy.%I to lifemate_backup_reader', table_name);
     execute format(
+      'drop policy if exists lifemate_edge_runtime_access on pregnancy.%I',
+      table_name
+    );
+    execute format(
       'create policy lifemate_edge_runtime_access on pregnancy.%I for all to lifemate_edge_runtime using(true) with check(true)',
       table_name
     );
@@ -131,3 +137,5 @@ comment on table pregnancy.symptom_reports is
   'Typed pregnancy symptom self-report. Structured code/intensity are non-diagnostic; free-text note is sensitive and is not an automated clinical classifier input.';
 comment on table pregnancy.mood_entries is
   'Bounded non-diagnostic pregnancy mood self-report. It does not encode or infer a mental-health diagnosis.';
+
+commit;
