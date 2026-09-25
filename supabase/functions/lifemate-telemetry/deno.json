@@ -3,7 +3,7 @@
     "strict": true
   },
   "tasks": {
-    "check": "deno check index.ts index_test.ts",
-    "test": "deno test --no-check index_test.ts"
+    "check": "deno check index.ts index_test.ts product_activity_persistence_test.ts test_inventory_test.ts",
+    "test": "deno test --no-check --allow-read=. index_test.ts product_activity_persistence_test.ts test_inventory_test.ts"
   }
 }
