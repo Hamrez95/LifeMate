@@ -54,14 +54,16 @@ jobs:
           set -euo pipefail
           check() { local label="$1"; shift; if "$@"; then echo "PASS: $label"; else echo "::error::$label"; exit 1; fi; }
           check_absent() { local label="$1"; shift; if "$@"; then echo "::error::$label"; exit 1; else echo "PASS: $label"; fi; }
-          check_absent 'Admin API must not read Supabase service-role credentials.' grep -R --line-number -E 'SERVICE_ROLE|service.role' .
+          # Scan runtime TypeScript, not regression-test assertions that intentionally
+          # contain forbidden literals to prove the boundary remains enforced.
+          check_absent 'Admin API must not read Supabase service-role credentials.' grep -R --line-number --include='*.ts' --exclude='*_test.ts' -E 'SERVICE_ROLE|service.role' .
           check 'Admin API refuses privileged database fallback.' grep -Fq 'Refusing privileged DB fallback' runtime_config.ts
           check 'MFA AAL2 remains the default enforcement.' grep -Fq 'requireAal2' index.ts
           check 'Temporary AAL1 exception is bootstrap-subject bound.' grep -Fq 'LIFEMATE_ADMIN_BOOTSTRAP_AUTH_SUBJECT' auth.ts
           check 'Admin membership is server resolved.' grep -Fq 'getSnapshot(accountId)' index.ts
           check 'Audit access requires server-side permission.' grep -Fq 'security.audit.read' index.ts
           check 'Browser origins are allow-listed.' grep -Fq 'assertAllowedOrigin' index.ts
-          check_absent 'Admin API must never query medication tables.' grep -R --line-number -E 'lifemate\.(medications|treatment_plans|dose_occurrences|women_calendar)' .
+          check_absent 'Admin API must never query medication tables.' grep -R --line-number --include='*.ts' --exclude='*_test.ts' -E 'lifemate\.(medications|treatment_plans|dose_occurrences|women_calendar)' .
 
   workforce-auth-check:
     runs-on: ubuntu-24.04

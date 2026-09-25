@@ -97,6 +97,39 @@ void main() {
     expect(readCalls, 0);
     expect(find.text('No active pregnancy yet'), findsOneWidget);
   });
+
+  testWidgets('Persian host passes RTL presentation intent to Gate-3 reads', (
+    tester,
+  ) async {
+    var receivedPersianIntent = false;
+    await tester.pumpWidget(
+      MaterialApp(
+        theme: CocoonTheme.light(),
+        home: CocoonAuthenticatedHost(
+          config: configured,
+          locale: const Locale('fa'),
+          runtimeLoader: () async => _validRuntime(),
+          bootstrapLoader: () async => _snapshot(),
+          gate3ReadLoader: ({required now, required fa}) async {
+            receivedPersianIntent = fa;
+            return CocoonGate3ReadModels(
+              calendarState: CocoonCalendarLoadState.empty,
+              calendarItems: const [],
+              calendarAsOfLocalDate: DateTime(2026, 9, 16),
+              recordsState: CocoonRecordsState.empty,
+              records: const [],
+            );
+          },
+        ),
+      ),
+    );
+
+    await tester.pump();
+    await tester.pumpAndSettle();
+
+    expect(receivedPersianIntent, isTrue);
+    expect(find.text('تقویم'), findsOneWidget);
+  });
 }
 
 LifeMateRuntimeConfigSnapshot _validRuntime() {

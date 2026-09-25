@@ -114,7 +114,7 @@ A row may become `COMPLETE` only when all applicable evidence exists:
 2. PR #30 is already merged into `main`; the parity work therefore continues on a new dedicated branch and Draft PR.
 3. The profile pages contain stale hard-coded `0.8.0-beta.3` labels while both pubspec files are `0.8.0-beta.4+11`.
 4. The current treatment form supports only one local time per plan and hard-codes `Asia/Tehran`; the requested flow requires one or multiple times and an explicit timezone value.
-5. Caregiver invitation is bound to the entered email and produces a one-time token, but the client currently asks the patient to copy/share the token manually. Automatic delivery to the caregiver is not implemented and must not be claimed.
+5. Caregiver invitation is bound to the entered email and produces a one-time token. The client now offers an explicit `mailto:` handoff plus secure copy fallback; server-side provider delivery is not implemented and must not be claimed.
 6. The authenticated two-account invitation → acceptance → read → revoke journey is still missing current live/device evidence.
 7. Notification permission, reboot, timezone change, app update and OEM background behavior remain physical-device gates.
 8. Visual parity for all routes remains open until captured evidence is attached to the exact commit.

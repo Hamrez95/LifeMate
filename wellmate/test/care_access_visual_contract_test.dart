@@ -21,6 +21,21 @@ void main() {
     expect(source, contains("relationship['caregiverAvatarKey']"));
     expect(source, contains('LifeMateProfileAvatar('));
 
+    // Keep the English/LTR care-access flow product-grade. These strings used
+    // to be placeholder translations that made the invitation flow look
+    // unfinished even though the underlying API contract was live.
+    expect(source, contains('Invite a caregiver'));
+    expect(source, contains('Caregiver email'));
+    expect(source, contains('Create invitation'));
+    expect(source, contains('Create secure QR'));
+    expect(source, contains("scheme: 'mailto'"));
+    expect(source, contains('Open email'));
+    expect(source, contains('Done'));
+    expect(source, isNot(contains('Careful invitation')));
+    expect(source, isNot(contains('Careful email')));
+    expect(source, isNot(contains('opt out')));
+    expect(source, isNot(contains('Make QR safe')));
+
     final emptyStart = source.indexOf('class _NoIncomingRequestsCard');
     final emptyEnd = source.indexOf('class _CaregiverCard');
     final emptyState = source.substring(emptyStart, emptyEnd);

@@ -56,7 +56,7 @@ void main() {
     expect(tapped, 'lifemate_home');
   });
 
-  testWidgets('locked zone remains semantic but cannot navigate', (
+  testWidgets('locked zone stays truthful and opens the host-owned entry', (
     tester,
   ) async {
     var taps = 0;
@@ -89,8 +89,49 @@ void main() {
       ),
     );
 
-    expect(find.bySemanticsLabel('CareMate'), findsOneWidget);
-    await tester.tap(find.bySemanticsLabel('CareMate'));
-    expect(taps, 0);
+    expect(find.text('Locked'), findsOneWidget);
+    await tester.tap(find.byKey(const ValueKey('camp-zone-hit-caremate')));
+    expect(taps, 1);
   });
+
+  testWidgets(
+    'expired zone retains a visible closed state and remains tappable',
+    (tester) async {
+      var taps = 0;
+      final zone = CampZoneDefinition(
+        zoneId: 'wellmate',
+        bounds: const CampRect(left: 300, top: 800, width: 400, height: 300),
+        semanticLabel: 'WellMate',
+        visuals: [
+          CampZoneVisual(
+            stage: 3,
+            variant: 'default',
+            builder: (_) => const SizedBox.expand(),
+          ),
+        ],
+        defaultStage: 3,
+      );
+
+      await tester.pumpWidget(
+        MaterialApp(
+          home: CampSceneRenderer(
+            zones: [zone],
+            presentations: const [
+              CampZonePresentation(
+                zoneId: 'wellmate',
+                stage: 3,
+                availability: CampZoneAvailability.expired,
+              ),
+            ],
+            layers: const [],
+            onZoneTap: (_) => taps++,
+          ),
+        ),
+      );
+
+      expect(find.text('Currently closed'), findsOneWidget);
+      await tester.tap(find.byKey(const ValueKey('camp-zone-hit-wellmate')));
+      expect(taps, 1);
+    },
+  );
 }

@@ -56,17 +56,19 @@ for (const forbidden of ["patient_user_id", "{ patientUserId }"]) {
 }
 for (const marker of [
   "self_person_id_for_legacy_app_user",
-  "patient_person_id = ${patientPersonId}::uuid",
-  "(id, patient_person_id, created_by_user_id, client_request_id",
+  "patient_person_id=${personId}::uuid",
+  "(id,patient_person_id,created_by_user_id,client_request_id",
   "${caregiverAppUserId}::uuid",
-  "client_request_id = ${input.clientRequestId}::uuid",
-  "'care_event', ${eventId}::uuid",
+  "client_request_id=${input.clientRequestId}::uuid",
+  "'care_event',${eventId}::uuid",
 ]) {
   if (!store.includes(marker)) {
     throw new Error(`Person Care Event store contract missing: ${marker}`);
   }
 }
-if (!store.includes("const metadata = eventType == null ? null : { eventType }")) {
+if (!store.includes(
+  "const metadata = eventType == null ? null : JSON.stringify({ eventType })",
+)) {
   throw new Error(
     "Care Event audit metadata must keep event semantics without patient AppUser identity.",
   );

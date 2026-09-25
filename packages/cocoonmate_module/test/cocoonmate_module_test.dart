@@ -281,10 +281,26 @@ void main() {
         home: CocoonAppointmentFormScreen(
           fa: true,
           submitState: CocoonAppointmentSubmitState.idle,
-          initialDateLabel: '۱۸ شهریور',
-          initialTimeLabel: '۱۶:۳۰',
-          onPickDate: () async => '۱۸ شهریور',
-          onPickTime: () async => '۱۶:۳۰',
+          initialDate: CocoonAppointmentDateSelection(
+            localDate: DateTime(2026, 9, 9),
+            displayLabel: '۱۸ شهریور',
+            semanticLabel: 'هجدهم شهریور ۱۴۰۵',
+          ),
+          initialTime: const CocoonAppointmentTimeSelection(
+            localTime: TimeOfDay(hour: 16, minute: 30),
+            displayLabel: '۱۶:۳۰',
+            semanticLabel: 'ساعت شانزده و سی دقیقه',
+          ),
+          onPickDate: () async => CocoonAppointmentDateSelection(
+            localDate: DateTime(2026, 9, 9),
+            displayLabel: '۱۸ شهریور',
+            semanticLabel: 'هجدهم شهریور ۱۴۰۵',
+          ),
+          onPickTime: () async => const CocoonAppointmentTimeSelection(
+            localTime: TimeOfDay(hour: 16, minute: 30),
+            displayLabel: '۱۶:۳۰',
+            semanticLabel: 'ساعت شانزده و سی دقیقه',
+          ),
           onSubmit: (draft) async => submitted = draft,
         ),
       ),
@@ -300,6 +316,8 @@ void main() {
     await tester.pump();
     expect(submitted?.title, 'ویزیت دوره‌ای');
     expect(submitted?.reminderMinutes, 30);
+    expect(submitted?.localDate, DateTime(2026, 9, 9));
+    expect(submitted?.localTime, const TimeOfDay(hour: 16, minute: 30));
   });
 
   testWidgets('cached appointment detail blocks mutation actions', (
@@ -551,14 +569,15 @@ void main() {
           fa: true,
           options: const [
             CocoonMedicationOption(
-              id: 'care-plan-item',
+              occurrenceId: '00000000-0000-4000-8000-000000000001',
+              occurrenceVersion: 1,
               name: 'مکمل برنامه مراقبتی',
               doseLabel: 'طبق دستور ثبت‌شده',
             ),
           ],
           initialTimeLabel: '۰۹:۳۰',
           submitState: CocoonMedicationSubmitState.idle,
-          onPickTime: () async => '۱۰:۰۰',
+          onPickTime: () async => DateTime.utc(2026, 9, 21, 10),
           onSubmit: (_) async {},
         ),
       ),

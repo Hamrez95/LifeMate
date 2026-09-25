@@ -32,8 +32,10 @@ export function createLifeMateDatabase(
     databaseUrl,
     contactHashingSecret,
   );
-  const bootstrapAccountState = createBootstrapAccountStateGuard(databaseUrl);
   const identityResolver = createIdentityResolver(databaseUrl);
+  const bootstrapAccountState = createBootstrapAccountStateGuard(
+    identityResolver,
+  );
   const invitationRevocation = createInvitationRevocationStore(databaseUrl);
   const personCareRelationships = createPersonCareRelationshipManagementStore(
     databaseUrl,

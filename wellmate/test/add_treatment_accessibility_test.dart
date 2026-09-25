@@ -5,6 +5,31 @@ import 'package:provider/provider.dart';
 import 'package:wellmate/screens/treatments/add_treatment_screen.dart';
 
 void main() {
+  testWidgets('treatment form exposes complete English LTR copy', (tester) async {
+    LifeMateRuntimeLocale.setLanguageCode('en');
+    addTearDown(() => LifeMateRuntimeLocale.setLanguageCode('fa'));
+    await tester.pumpWidget(
+      Provider<LifeMateApiClient>.value(
+        value: _ProfileTimeZoneApiClient(),
+        child: MaterialApp(
+          locale: const Locale('en'),
+          home: Directionality(
+            textDirection: TextDirection.ltr,
+            child: Scaffold(
+              body: TabbedAddTreatmentScreen(onCreated: () {}),
+            ),
+          ),
+        ),
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    expect(find.text('Add treatment'), findsOneWidget);
+    expect(find.text('Medication details'), findsOneWidget);
+    expect(find.text('ثبت درمان'), findsNothing);
+    expect(tester.takeException(), isNull);
+  });
+
   testWidgets(
     'single-page treatment form scrolls while its primary action stays reachable',
     (tester) async {

@@ -23,6 +23,12 @@ type CaptureContext = {
 
 type Row = Record<string, any>;
 
+type SymptomCatalogEntry = {
+  code: string;
+  label: string;
+  sortOrder: number;
+};
+
 function localDateFor(timestamp: Date, timeZone: string): string {
   const parts = new Intl.DateTimeFormat("en-US", {
     timeZone,
@@ -105,6 +111,29 @@ export function normalizePregnancySymptomCode(value: unknown): string {
   return code;
 }
 
+export function requiredCatalogVersion(value: unknown): string {
+  const version = String(value ?? "").trim();
+  if (version.length < 1 || version.length > 64) {
+    throw new ApiError(
+      400,
+      "pregnancy_symptom_catalog_version_invalid",
+      "A reviewed symptom catalog version is required.",
+    );
+  }
+  return version;
+}
+
+export function requestedCatalogLocale(request: Request): "en" | "fa" {
+  const locale = (new URL(request.url).searchParams.get("locale") ?? "en")
+    .trim().toLowerCase();
+  if (locale === "en" || locale === "fa") return locale;
+  throw new ApiError(
+    400,
+    "pregnancy_symptom_catalog_locale_invalid",
+    "A supported catalog locale is required.",
+  );
+}
+
 function captureRow(row: Row) {
   return {
     id: String(row.id),
@@ -122,6 +151,26 @@ function captureRow(row: Row) {
     createdAtUtc: new Date(row.created_at_utc).toISOString(),
     updatedAtUtc: new Date(row.updated_at_utc).toISOString(),
   };
+}
+
+function sameCaptureReplayContext(
+  row: Row,
+  context: CaptureContext,
+  observed: { observedAt: Date; timeZone: string; localDate: string },
+): boolean {
+  return String(row.episode_id) === context.episodeId &&
+    new Date(row.observed_at_utc).toISOString() ===
+      observed.observedAt.toISOString() &&
+    String(row.local_date).slice(0, 10) === observed.localDate &&
+    String(row.time_zone) === observed.timeZone;
+}
+
+function normalizedStoredNote(value: unknown): string | null {
+  return value == null ? null : String(value);
+}
+
+function idempotencyReuse(message: string): never {
+  throw new ApiError(409, "idempotency_key_reused", message);
 }
 
 export function createPregnancyCaptureRouteHandler(databaseUrl: string) {
@@ -167,7 +216,18 @@ export function createPregnancyCaptureRouteHandler(databaseUrl: string) {
           and client_request_id=${requestId}::uuid
         limit 1
       `;
-      if (prior[0]) return captureRow(prior[0]);
+      if (prior[0]) {
+        if (
+          !sameCaptureReplayContext(prior[0], context, observed) ||
+          String(prior[0].feeling) !== feeling ||
+          String(prior[0].energy) !== energy
+        ) {
+          idempotencyReuse(
+            "clientRequestId was already used for a different daily check-in.",
+          );
+        }
+        return captureRow(prior[0]);
+      }
 
       const existing = await tx`
         select id from pregnancy.daily_check_ins
@@ -205,8 +265,26 @@ export function createPregnancyCaptureRouteHandler(databaseUrl: string) {
     const requestId = requiredUuid(body.clientRequestId, "clientRequestId");
     const observed = requireObservedContext(body);
     const symptomCode = normalizePregnancySymptomCode(body.symptomCode);
+    const catalogVersion = requiredCatalogVersion(body.catalogVersion);
     const intensity = normalizePregnancySymptomIntensity(body.intensity);
     const note = limitedOptional(body.note, "note", 400);
+
+    const approved = await sql`
+      select 1
+      from pregnancy.symptom_catalog_releases release
+      join pregnancy.symptom_catalog_entries entry on entry.release_id=release.id
+      where release.status='published'
+        and release.version=${catalogVersion}
+        and entry.code=${symptomCode}
+      limit 1
+    `;
+    if (!approved[0]) {
+      throw new ApiError(
+        409,
+        "pregnancy_symptom_catalog_unavailable",
+        "This symptom is not available in the current reviewed catalog.",
+      );
+    }
 
     return await sql.begin(async (tx: any) => {
       await tx`select pg_advisory_xact_lock(hashtextextended(${`${context.personId}:${requestId}`}::text, 0))`;
@@ -218,12 +296,12 @@ export function createPregnancyCaptureRouteHandler(databaseUrl: string) {
       `;
       if (prior[0]) {
         if (
+          !sameCaptureReplayContext(prior[0], context, observed) ||
           String(prior[0].symptom_code) !== symptomCode ||
-          String(prior[0].intensity) !== intensity
+          String(prior[0].intensity) !== intensity ||
+          normalizedStoredNote(prior[0].note) !== note
         ) {
-          throw new ApiError(
-            409,
-            "idempotency_key_reused",
+          idempotencyReuse(
             "clientRequestId was already used for a different symptom report.",
           );
         }
@@ -259,10 +337,11 @@ export function createPregnancyCaptureRouteHandler(databaseUrl: string) {
         limit 1
       `;
       if (prior[0]) {
-        if (String(prior[0].mood_code) !== moodCode) {
-          throw new ApiError(
-            409,
-            "idempotency_key_reused",
+        if (
+          !sameCaptureReplayContext(prior[0], context, observed) ||
+          String(prior[0].mood_code) !== moodCode
+        ) {
+          idempotencyReuse(
             "clientRequestId was already used for a different mood entry.",
           );
         }
@@ -302,6 +381,42 @@ export function createPregnancyCaptureRouteHandler(databaseUrl: string) {
     };
   }
 
+  async function symptomCatalog(appUserId: string, locale: "en" | "fa") {
+    await ownerContext(appUserId);
+    const releases = await sql`
+      select id,version
+      from pregnancy.symptom_catalog_releases
+      where status='published'
+      limit 1
+    `;
+    const release = releases[0];
+    if (!release) {
+      return {
+        contractVersion: 1,
+        version: "unpublished",
+        locale,
+        entries: [],
+      };
+    }
+    const rows = await sql`
+      select code,display_label,sort_order
+      from pregnancy.symptom_catalog_entries
+      where release_id=${String(release.id)}::uuid and locale=${locale}
+      order by sort_order asc,code asc
+    `;
+    const entries: SymptomCatalogEntry[] = rows.map((row: Row) => ({
+      code: String(row.code),
+      label: String(row.display_label),
+      sortOrder: Number(row.sort_order),
+    }));
+    return {
+      contractVersion: 1,
+      version: String(release.version),
+      locale,
+      entries,
+    };
+  }
+
   return async ({
     request,
     path,
@@ -334,6 +449,14 @@ export function createPregnancyCaptureRouteHandler(databaseUrl: string) {
         contractVersion: 1,
         mood: await createMood(appUserId, await readJsonObject(request)),
       }, 201);
+    }
+    if (
+      request.method === "GET" &&
+      path === "/api/v1/cocoon/pregnancy/symptom-catalog"
+    ) {
+      return json(
+        await symptomCatalog(appUserId, requestedCatalogLocale(request)),
+      );
     }
     if (
       request.method === "GET" &&

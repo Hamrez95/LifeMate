@@ -12,8 +12,8 @@ const _maxTotalAttachmentBytes = 25 * 1024 * 1024;
 const _maxAttachmentCount = 10;
 
 /// Local, in-memory draft only. The selected file name is deliberately not
-/// retained or sent to the Health Record API; only normalized bytes, media
-/// type and category are later uploaded through the reviewed endpoint.
+/// retained or sent to the Health Record API; only selected bytes, media type
+/// and category are later uploaded through the reviewed endpoint.
 class HealthDocumentAttachmentDraft {
   const HealthDocumentAttachmentDraft({
     required this.bytes,
@@ -26,7 +26,7 @@ class HealthDocumentAttachmentDraft {
   final LifeMateHealthDocumentCategory category;
 }
 
-class HealthDocumentAttachmentSection extends StatelessWidget {
+class HealthDocumentAttachmentSection extends StatefulWidget {
   const HealthDocumentAttachmentSection({
     required this.category,
     required this.attachments,
@@ -40,18 +40,28 @@ class HealthDocumentAttachmentSection extends StatelessWidget {
   final ValueChanged<List<HealthDocumentAttachmentDraft>> onChanged;
   final bool enabled;
 
-  Future<void> _add(BuildContext context) async {
-    if (!enabled) return;
-    if (attachments.length >= _maxAttachmentCount) {
+  @override
+  State<HealthDocumentAttachmentSection> createState() =>
+      _HealthDocumentAttachmentSectionState();
+}
+
+class _HealthDocumentAttachmentSectionState
+    extends State<HealthDocumentAttachmentSection> {
+  bool _isPreparing = false;
+
+  Future<void> _add() async {
+    if (!widget.enabled || _isPreparing) return;
+    if (widget.attachments.length >= _maxAttachmentCount) {
       _notice(context, _fa('برای هر مورد حداکثر ۱۰ فایل می‌توانی اضافه کنی.', 'You can add up to 10 files for each item.'));
       return;
     }
     final source = await showModalBottomSheet<_DocumentSource>(
       context: context,
       backgroundColor: Colors.transparent,
-      builder: (context) => _AttachmentSourceSheet(category: category),
+      builder: (context) => _AttachmentSourceSheet(category: widget.category),
     );
     if (source == null || !context.mounted) return;
+    setState(() => _isPreparing = true);
     try {
       final draft = switch (source) {
         _DocumentSource.camera => await _pickImage(ImageSource.camera),
@@ -71,7 +81,7 @@ class HealthDocumentAttachmentSection extends StatelessWidget {
         );
         return;
       }
-      final total = attachments.fold<int>(
+      final total = widget.attachments.fold<int>(
         draft.bytes.lengthInBytes,
         (sum, item) => sum + item.bytes.lengthInBytes,
       );
@@ -85,11 +95,13 @@ class HealthDocumentAttachmentSection extends StatelessWidget {
         );
         return;
       }
-      onChanged([...attachments, draft]);
+      widget.onChanged([...widget.attachments, draft]);
     } on PlatformException {
       if (context.mounted) {
         _notice(context, _fa('انتخاب فایل انجام نشد. دوباره تلاش کن.', 'The file could not be selected. Please try again.'));
       }
+    } finally {
+      if (mounted) setState(() => _isPreparing = false);
     }
   }
 
@@ -121,7 +133,11 @@ class HealthDocumentAttachmentSection extends StatelessWidget {
     if (!const <String>{'image/jpeg', 'image/png', 'image/webp', 'image/heic', 'application/pdf'}.contains(contentType)) {
       throw PlatformException(code: 'health_document_type_invalid');
     }
-    return HealthDocumentAttachmentDraft(bytes: bytes, contentType: contentType, category: category);
+    return HealthDocumentAttachmentDraft(
+      bytes: bytes,
+      contentType: contentType,
+      category: widget.category,
+    );
   }
 
   @override
@@ -149,35 +165,78 @@ class HealthDocumentAttachmentSection extends StatelessWidget {
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    Text(_fa('نسخه و مدارک مرتبط', 'Prescription and related documents'), style: AppTextStyles.body(context).copyWith(fontWeight: FontWeight.w900, color: AppColors.darkBlue)),
+                    Text(
+                      _fa('مدارک و فایل‌های مرتبط', 'Related documents and files'),
+                      style: AppTextStyles.body(context).copyWith(
+                        fontWeight: FontWeight.w900,
+                        color: AppColors.darkBlue,
+                      ),
+                    ),
                     const SizedBox(height: 2),
                     Text(_fa('اختیاری • تا ۱۰ فایل، مجموع ۲۵ مگابایت', 'Optional • up to 10 files, 25 MB total'), style: AppTextStyles.body(context).copyWith(fontSize: 12, color: AppColors.textSecondary)),
                   ],
                 ),
               ),
-              Text('${attachments.length}/$_maxAttachmentCount', style: AppTextStyles.body(context).copyWith(fontSize: 12, color: AppColors.textSecondary)),
+              Semantics(
+                liveRegion: true,
+                label: _fa(
+                  '${widget.attachments.length} فایل از $_maxAttachmentCount فایل انتخاب شده',
+                  '${widget.attachments.length} of $_maxAttachmentCount files selected',
+                ),
+                child: Text(
+                  '${widget.attachments.length}/$_maxAttachmentCount',
+                  style: AppTextStyles.body(context).copyWith(
+                    fontSize: 12,
+                    color: AppColors.textSecondary,
+                  ),
+                ),
+              ),
             ],
           ),
           const SizedBox(height: 12),
-          if (attachments.isEmpty)
+          if (_isPreparing)
+            Semantics(
+              liveRegion: true,
+              label: _fa('فایل در حال آماده‌سازی است', 'Preparing selected file'),
+              child: const LinearProgressIndicator(),
+            )
+          else if (widget.attachments.isEmpty)
             Text(_fa('تصویرها پیش از ارسال تا ۲۰۴۸ پیکسل سبک می‌شوند؛ نام فایل در پرونده ذخیره نمی‌شود.', 'Images are reduced to 2048px before upload; file names are not saved.'), style: AppTextStyles.body(context).copyWith(fontSize: 12, height: 1.7, color: AppColors.textSecondary))
           else
             Wrap(
               spacing: 8,
               runSpacing: 8,
               children: [
-                for (var index = 0; index < attachments.length; index++)
+                for (var index = 0; index < widget.attachments.length; index++)
                   _AttachmentChip(
-                    draft: attachments[index],
-                    onDelete: enabled ? () => onChanged([...attachments]..removeAt(index)) : null,
+                    draft: widget.attachments[index],
+                    onDelete: widget.enabled
+                        ? () => widget.onChanged(
+                            [...widget.attachments]..removeAt(index),
+                          )
+                        : null,
                   ),
               ],
             ),
           const SizedBox(height: 14),
           OutlinedButton.icon(
-            onPressed: enabled && attachments.length < _maxAttachmentCount ? () => _add(context) : null,
-            icon: const Icon(Icons.add_rounded),
-            label: Text(_fa('افزودن فایل', 'Add file')),
+            onPressed: widget.enabled &&
+                    !_isPreparing &&
+                    widget.attachments.length < _maxAttachmentCount
+                ? _add
+                : null,
+            icon: _isPreparing
+                ? const SizedBox(
+                    width: 18,
+                    height: 18,
+                    child: CircularProgressIndicator(strokeWidth: 2),
+                  )
+                : const Icon(Icons.add_rounded),
+            label: Text(
+              _isPreparing
+                  ? _fa('آماده‌سازی فایل…', 'Preparing file…')
+                  : _fa('افزودن فایل', 'Add file'),
+            ),
             style: OutlinedButton.styleFrom(
               minimumSize: const Size.fromHeight(48),
               foregroundColor: AppColors.primary,
@@ -199,20 +258,45 @@ class _AttachmentChip extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final pdf = draft.contentType == 'application/pdf';
-    return Container(
-      padding: const EdgeInsetsDirectional.fromSTEB(10, 8, 6, 8),
-      decoration: BoxDecoration(color: const Color(0xFFF3F8F5), borderRadius: BorderRadius.circular(14)),
-      child: Row(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          Icon(pdf ? Icons.picture_as_pdf_rounded : Icons.image_rounded, color: pdf ? const Color(0xFFCF5560) : AppColors.primary, size: 18),
-          const SizedBox(width: 6),
-          Text('${pdf ? _fa('PDF', 'PDF') : _fa('تصویر', 'Image')} • ${_sizeLabel(draft.bytes.lengthInBytes)}', style: AppTextStyles.body(context).copyWith(fontSize: 12, fontWeight: FontWeight.w700, color: AppColors.textSecondary)),
-          if (onDelete != null) ...[
-            const SizedBox(width: 2),
-            IconButton(iconSize: 17, visualDensity: VisualDensity.compact, tooltip: _fa('حذف فایل', 'Remove file'), onPressed: onDelete, icon: const Icon(Icons.close_rounded)),
+    final kind = pdf ? _fa('PDF', 'PDF') : _fa('تصویر', 'Image');
+    final size = _sizeLabel(draft.bytes.lengthInBytes);
+    return Semantics(
+      label: _fa('$kind $size، آمادهٔ ارسال', '$kind $size, ready to upload'),
+      child: Container(
+        padding: const EdgeInsetsDirectional.fromSTEB(10, 8, 6, 8),
+        decoration: BoxDecoration(
+          color: const Color(0xFFF3F8F5),
+          borderRadius: BorderRadius.circular(14),
+        ),
+        child: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Icon(
+              pdf ? Icons.picture_as_pdf_rounded : Icons.image_rounded,
+              color: pdf ? const Color(0xFFCF5560) : AppColors.primary,
+              size: 18,
+            ),
+            const SizedBox(width: 6),
+            Text(
+              '$kind • $size',
+              style: AppTextStyles.body(context).copyWith(
+                fontSize: 12,
+                fontWeight: FontWeight.w700,
+                color: AppColors.textSecondary,
+              ),
+            ),
+            if (onDelete != null) ...[
+              const SizedBox(width: 2),
+              IconButton(
+                iconSize: 17,
+                visualDensity: VisualDensity.compact,
+                tooltip: _fa('حذف فایل', 'Remove file'),
+                onPressed: onDelete,
+                icon: const Icon(Icons.close_rounded),
+              ),
+            ],
           ],
-        ],
+        ),
       ),
     );
   }
@@ -227,7 +311,7 @@ class _AttachmentSourceSheet extends StatelessWidget {
   @override
   Widget build(BuildContext context) => SafeArea(
     child: Container(
-      padding: const EdgeInsets.fromLTRB(20, 12, 20, 24),
+      padding: const EdgeInsetsDirectional.fromSTEB(20, 12, 20, 24),
       decoration: const BoxDecoration(color: Colors.white, borderRadius: BorderRadius.vertical(top: Radius.circular(28))),
       child: Column(
         mainAxisSize: MainAxisSize.min,
@@ -260,7 +344,12 @@ class _SourceTile extends StatelessWidget {
     leading: Container(width: 42, height: 42, decoration: BoxDecoration(color: const Color(0xFFE8F8F1), borderRadius: BorderRadius.circular(14)), child: Icon(icon, color: AppColors.primary)),
     title: Text(title, style: AppTextStyles.body(context).copyWith(fontWeight: FontWeight.w800, color: AppColors.darkBlue)),
     subtitle: Text(subtitle, style: AppTextStyles.body(context).copyWith(fontSize: 12, color: AppColors.textSecondary)),
-    trailing: const Icon(Icons.arrow_back_ios_new_rounded, size: 16),
+    trailing: Icon(
+      Directionality.of(context) == TextDirection.rtl
+          ? Icons.chevron_left_rounded
+          : Icons.chevron_right_rounded,
+      size: 20,
+    ),
     onTap: onTap,
   );
 }
@@ -278,5 +367,5 @@ String _typeForPath(String value) {
 }
 
 String _sizeLabel(int bytes) => bytes < 1024 * 1024 ? '${(bytes / 1024).ceil()} KB' : '${(bytes / (1024 * 1024)).toStringAsFixed(1)} MB';
-String _fa(String fa, String en) => LifeMateRuntimeLocale.select(fa: LifeMateRuntimeLocale.select(fa: fa, en: en), en: en);
+String _fa(String fa, String en) => LifeMateRuntimeLocale.select(fa: fa, en: en);
 void _notice(BuildContext context, String text) => ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(text)));

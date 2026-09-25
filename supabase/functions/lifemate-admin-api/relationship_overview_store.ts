@@ -29,13 +29,16 @@ function mapItem(row: Row): RelationshipOverviewItem {
     id: String(row.id),
     kind: String(row.kind) as RelationshipOverviewItem["kind"],
     status: String(row.status),
-    subjectPersonId: typeof row.subject_person_id === "string" ? row.subject_person_id : null,
+    subjectPersonId: typeof row.subject_person_id === "string"
+      ? row.subject_person_id
+      : null,
     type: typeof row.item_type === "string" ? row.item_type : null,
     purpose: typeof row.purpose === "string" ? row.purpose : null,
     context: typeof row.context === "string" ? row.context : null,
     scopeCount: row.scope_count == null ? null : Number(row.scope_count),
     version: row.version == null ? null : Number(row.version),
-    scopes: Array.isArray(row.scopes) && row.scopes.every((scope) => typeof scope === "string")
+    scopes: Array.isArray(row.scopes) &&
+        row.scopes.every((scope) => typeof scope === "string")
       ? row.scopes as string[]
       : null,
     startedAtUtc: iso(row.started_at_utc),
@@ -44,7 +47,10 @@ function mapItem(row: Row): RelationshipOverviewItem {
   };
 }
 
-export async function getRelationshipOverview(sql: AdminSql, query: RelationshipOverviewQuery) {
+export async function getRelationshipOverview(
+  sql: AdminSql,
+  query: RelationshipOverviewQuery,
+) {
   const offset = (query.page - 1) * query.pageSize;
   const summaryRows = await sql`
     with overview as (

@@ -42,6 +42,7 @@ void main() {
       observedAtUtc: observedAt,
       localDate: localDate,
       timeZone: 'Asia/Tehran',
+      catalogVersion: 'pregnancy-symptoms-v1',
       symptomCode: ' Approved-Nausea ',
       intensity: ' moderate ',
       note: ' private note ',
@@ -50,6 +51,7 @@ void main() {
 
     expect(mutation.endpointPath, '/api/v1/cocoon/pregnancy/symptoms');
     expect(mutation.sourceKey, 'pregnancy-symptom:$symptomId');
+    expect(mutation.payload['catalogVersion'], 'pregnancy-symptoms-v1');
     expect(mutation.payload['symptomCode'], 'approved-nausea');
     expect(mutation.payload['intensity'], 'moderate');
     expect(mutation.payload['note'], 'private note');
@@ -87,6 +89,7 @@ void main() {
         observedAtUtc: observedAt,
         localDate: localDate,
         timeZone: 'Asia/Tehran',
+        catalogVersion: 'pregnancy-symptoms-v1',
         symptomCode: 'unsafe code with spaces',
         intensity: 'strong',
       ),
@@ -111,6 +114,7 @@ void main() {
         observedAtUtc: observedAt,
         localDate: localDate,
         timeZone: 'Asia/Tehran',
+        catalogVersion: 'pregnancy-symptoms-v1',
         symptomCode: 'approved-nausea',
         intensity: 'mild',
         note: 'x' * 401,
