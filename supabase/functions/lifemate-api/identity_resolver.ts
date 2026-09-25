@@ -33,6 +33,13 @@ type TokenLookupRow = {
   app_user_id: string | null;
   app_user_status: string | null;
   token_key_version: number;
+  token_status: string;
+};
+
+type BootstrapStateRow = {
+  account_status: string | null;
+  app_user_id: string | null;
+  app_user_status: string | null;
 };
 
 type TokenCandidate = {
@@ -136,6 +143,59 @@ export function createIdentityResolver(
     return await requireLegacyIdentity(auth);
   }
 
+  async function assertBootstrapAllowed(authSubject: string): Promise<void> {
+    if (lookupMode === "legacy") {
+      assertBootstrapState(await lookupLegacyBootstrapState(authSubject));
+      return;
+    }
+
+    const keys = identityLinkKeys;
+    if (!keys) {
+      throw new Error("Token-based identity lookup key is unavailable.");
+    }
+    const active = await tokenCandidate(keys.active, authSubject);
+    const previous = keys.previous
+      ? await tokenCandidate(keys.previous, authSubject)
+      : null;
+    const tokenRows: TokenLookupRow[] = keys.previous
+      ? await sql().begin((transaction: any) =>
+        lookupRotationCandidates(
+          transaction,
+          active,
+          previous!,
+          true,
+        )
+      )
+      : await lookupToken(sql(), active, true);
+    const distinctAccounts = new Set(tokenRows.map((row) => row.account_id));
+    if (distinctAccounts.size > 1) {
+      throw new ApiError(
+        409,
+        "identity_token_rotation_conflict",
+        "The LifeMate identity mapping is inconsistent during key rotation.",
+      );
+    }
+    if (tokenRows.length > 2) {
+      throw new ApiError(
+        409,
+        "bootstrap_identity_ambiguous",
+        "The LifeMate identity mapping is inconsistent.",
+      );
+    }
+    if (tokenRows[0]) {
+      const activeRow = tokenRows.find((row) => row.token_status === "Active");
+      assertBootstrapState(activeRow ?? tokenRows[0]);
+      return;
+    }
+
+    // The compatibility fallback is limited to prefer-token mode. Token-only
+    // onboarding intentionally treats a missing token as a new identity and
+    // never looks up the raw authentication subject in AppUser storage.
+    if (lookupMode === "prefer-token") {
+      assertBootstrapState(await lookupLegacyBootstrapState(authSubject));
+    }
+  }
+
   async function resolveTokenAppUserId(
     authSubject: string,
     keys: IdentityLinkKeySet,
@@ -218,6 +278,7 @@ export function createIdentityResolver(
   async function lookupToken(
     connection: any,
     candidate: TokenCandidate,
+    includeInactive = false,
   ): Promise<TokenLookupRow[]> {
     const rows: TokenLookupRow[] = await connection`
       select
@@ -225,7 +286,8 @@ export function createIdentityResolver(
         a.status as account_status,
         a.legacy_app_user_id::text as app_user_id,
         u.status as app_user_status,
-        t.key_version as token_key_version
+        t.key_version as token_key_version,
+        t.status as token_status
       from identity.external_identity_tokens t
       join identity.accounts a on a.id=t.account_id
       left join lifemate.app_users u on u.id=a.legacy_app_user_id
@@ -233,16 +295,50 @@ export function createIdentityResolver(
         and t.issuer='supabase'
         and t.subject_token=${candidate.subjectToken}
         and t.key_version=${candidate.keyVersion}
-        and t.status='Active'
+        and (${includeInactive} or t.status='Active')
       limit 2
     `;
     return rows;
+  }
+
+  async function lookupLegacyBootstrapState(
+    authSubject: string,
+  ): Promise<BootstrapStateRow | null> {
+    const database = sql();
+    const rows: BootstrapStateRow[] = await database`
+      select
+        u.id::text as app_user_id,
+        u.status as app_user_status,
+        a.status as account_status
+      from lifemate.app_users u
+      left join lateral (
+        select candidate.status
+        from identity.accounts candidate
+        where candidate.legacy_app_user_id=u.id
+           or (candidate.legacy_app_user_id is null and candidate.id=u.id)
+        order by case when candidate.legacy_app_user_id=u.id then 0 else 1 end,
+                 candidate.updated_at_utc desc,
+                 candidate.id
+        limit 1
+      ) a on true
+      where u.auth_subject=${authSubject}
+      limit 2
+    `;
+    if (rows.length > 1) {
+      throw new ApiError(
+        409,
+        "bootstrap_identity_ambiguous",
+        "The LifeMate identity mapping is inconsistent.",
+      );
+    }
+    return rows[0] ?? null;
   }
 
   async function lookupRotationCandidates(
     connection: any,
     active: TokenCandidate,
     previous: TokenCandidate,
+    includeInactive = false,
   ): Promise<TokenLookupRow[]> {
     const rows: TokenLookupRow[] = await connection`
       select
@@ -250,13 +346,14 @@ export function createIdentityResolver(
         a.status as account_status,
         a.legacy_app_user_id::text as app_user_id,
         u.status as app_user_status,
-        t.key_version as token_key_version
+        t.key_version as token_key_version,
+        t.status as token_status
       from identity.external_identity_tokens t
       join identity.accounts a on a.id=t.account_id
       left join lifemate.app_users u on u.id=a.legacy_app_user_id
       where t.provider='supabase_auth'
         and t.issuer='supabase'
-        and t.status='Active'
+        and (${includeInactive} or t.status='Active')
         and (
           (
             t.key_version=${active.keyVersion}
@@ -345,5 +442,47 @@ export function createIdentityResolver(
     return { auth, appUserId: rows[0].app_user_id };
   }
 
-  return { lookupMode, requireIdentity };
+  return { lookupMode, requireIdentity, assertBootstrapAllowed };
+}
+
+function assertBootstrapState(row: BootstrapStateRow | null): void {
+  if (!row) return;
+  if (!row.app_user_id) {
+    throw new ApiError(
+      409,
+      "identity_account_mapping_missing",
+      "The LifeMate account mapping is unavailable.",
+    );
+  }
+  if (row.account_status === "DeletionPending") {
+    throw new ApiError(
+      409,
+      "account_deletion_pending",
+      "Account deletion is still being processed.",
+    );
+  }
+  if (row.account_status === "Deleted" || row.app_user_status === "Deleted") {
+    throw new ApiError(
+      409,
+      "account_deleted",
+      "The previous LifeMate account has been deleted.",
+    );
+  }
+  if (
+    row.app_user_status !== "Active" ||
+    (row.account_status != null && row.account_status !== "Active")
+  ) {
+    throw new ApiError(
+      409,
+      "account_disabled",
+      "The LifeMate account is not active.",
+    );
+  }
+  if ("token_status" in row && row.token_status !== "Active") {
+    throw new ApiError(
+      409,
+      "identity_account_mapping_missing",
+      "The LifeMate account mapping is unavailable.",
+    );
+  }
 }

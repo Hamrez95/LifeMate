@@ -1,5 +1,6 @@
 import { assertEquals, assertRejects } from "jsr:@std/assert@1.0.14";
 import postgres from "postgres";
+import { hashContactPoint } from "../_shared/contact_point_crypto.ts";
 import { type AuthUser, createLifeMateDatabase } from "./database.ts";
 import { createProfileStore } from "./profile.ts";
 import { ApiError } from "./validation.ts";
@@ -16,7 +17,9 @@ Deno.test({
   sanitizeOps: false,
   sanitizeResources: false,
   fn: async () => {
-    const admin = postgres(databaseUrl, { max: 1, prepare: false });
+    const adminDatabaseUrl = Deno.env.get("TEST_ADMIN_DATABASE_URL") ??
+      databaseUrl;
+    const admin = postgres(adminDatabaseUrl, { max: 1, prepare: false });
     const hashingSecret =
       "integration-only-contact-conflict-hash-secret-32-bytes";
     const encryptionSecret =
@@ -43,6 +46,11 @@ Deno.test({
       userMetadata: {},
     };
     const sharedPhone = "+989121111111";
+    const sharedPhoneHash = await hashContactPoint(
+      hashingSecret,
+      "Phone",
+      sharedPhone,
+    );
     const appUserIds: string[] = [];
 
     try {
@@ -112,6 +120,7 @@ Deno.test({
                  as account_b
         from identity.contact_points cp
         where cp.kind='Phone' and cp.status <> 'Revoked'
+          and cp.normalized_value_hash=${sharedPhoneHash}
       `;
       assertEquals(ownership.length, 1);
       assertEquals(ownership[0]?.account_id, ownership[0]?.account_a);

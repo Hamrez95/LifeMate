@@ -187,7 +187,7 @@ export function createPersonTreatmentManagementStore(
             form=${input.form}, provenance_source='CaregiverInput',
             version=version+1, updated_at_utc=now()
         where id=${existing.medication_id}::uuid
-          and owner_person_id=${patientPersonId}::uuid
+          and owner_person_id = ${patientPersonId}::uuid
         returning *
       `;
       if (!medicationRows[0]) {

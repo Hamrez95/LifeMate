@@ -18,7 +18,9 @@ export function createOperationsSnapshotRouteHandler(databaseUrl: string) {
     origin: string | null;
   }): Promise<Response | null> {
     const { request, path, admin, origin } = input;
-    if (request.method !== "GET" || path !== OPERATIONS_SNAPSHOT_PATH) return null;
+    if (request.method !== "GET" || path !== OPERATIONS_SNAPSHOT_PATH) {
+      return null;
+    }
 
     requirePermission(admin, "operations.read");
     const snapshot = await buildOperationsSnapshot({

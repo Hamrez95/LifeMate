@@ -12,7 +12,9 @@ if (!databaseUrl) {
   );
 }
 
-const adminSql = postgres(databaseUrl, {
+const adminDatabaseUrl = Deno.env.get("TEST_ADMIN_DATABASE_URL") ??
+  databaseUrl;
+const adminSql = postgres(adminDatabaseUrl, {
   max: 1,
   prepare: false,
   idle_timeout: 5,

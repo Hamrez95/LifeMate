@@ -30,7 +30,10 @@ function requireIsoDate(value: unknown, field: string): string {
     );
   }
   const parsed = new Date(`${value}T00:00:00.000Z`);
-  if (Number.isNaN(parsed.getTime()) || parsed.toISOString().slice(0, 10) !== value) {
+  if (
+    Number.isNaN(parsed.getTime()) ||
+    parsed.toISOString().slice(0, 10) !== value
+  ) {
     throw new ApiError(
       400,
       "finance_scenario_date_invalid",
@@ -40,7 +43,12 @@ function requireIsoDate(value: unknown, field: string): string {
   return value;
 }
 
-function stringField(value: unknown, code: string, min: number, max: number): string {
+function stringField(
+  value: unknown,
+  code: string,
+  min: number,
+  max: number,
+): string {
   if (typeof value !== "string") {
     throw new ApiError(400, code, "Scenario field is invalid.");
   }
@@ -96,7 +104,8 @@ function assumptions(value: unknown): FinanceScenarioAssumption[] {
         "Scenario assumption contains an unsupported field.",
       );
     }
-    const code = stringField(row.code, "finance_scenario_code_invalid", 1, 64).toUpperCase();
+    const code = stringField(row.code, "finance_scenario_code_invalid", 1, 64)
+      .toUpperCase();
     if (!/^[A-Z0-9_.-]+$/.test(code) || seen.has(code)) {
       throw new ApiError(
         400,
@@ -127,7 +136,9 @@ export async function parseConfigureFinanceScenarioPayload(
   let body: Record<string, unknown>;
   try {
     const value = await request.json();
-    if (!value || typeof value !== "object" || Array.isArray(value)) throw new Error("invalid");
+    if (!value || typeof value !== "object" || Array.isArray(value)) {
+      throw new Error("invalid");
+    }
     body = value as Record<string, unknown>;
   } catch {
     throw new ApiError(
@@ -153,14 +164,21 @@ export async function parseConfigureFinanceScenarioPayload(
       "Scenario contains an unsupported field.",
     );
   }
-  if (!financeScenarioKinds.includes(body.scenarioKind as FinanceScenarioKind)) {
+  if (
+    !financeScenarioKinds.includes(body.scenarioKind as FinanceScenarioKind)
+  ) {
     throw new ApiError(
       400,
       "finance_scenario_kind_invalid",
       "Scenario kind must be BASE, UPSIDE or DOWNSIDE.",
     );
   }
-  const currency = stringField(body.currency, "finance_scenario_currency_invalid", 3, 3).toUpperCase();
+  const currency = stringField(
+    body.currency,
+    "finance_scenario_currency_invalid",
+    3,
+    3,
+  ).toUpperCase();
   if (!/^[A-Z]{3}$/.test(currency)) {
     throw new ApiError(
       400,
@@ -179,7 +197,8 @@ export async function parseConfigureFinanceScenarioPayload(
   }
   const expectedVersion = body.expectedVersion === null
     ? null
-    : Number.isInteger(body.expectedVersion) && Number(body.expectedVersion) >= 1
+    : Number.isInteger(body.expectedVersion) &&
+        Number(body.expectedVersion) >= 1
     ? Number(body.expectedVersion)
     : (() => {
       throw new ApiError(
@@ -196,7 +215,12 @@ export async function parseConfigureFinanceScenarioPayload(
     validTo,
     assumptions: assumptions(body.assumptions),
     expectedVersion,
-    reason: stringField(body.reason, "finance_scenario_reason_invalid", 10, 1000),
+    reason: stringField(
+      body.reason,
+      "finance_scenario_reason_invalid",
+      10,
+      1000,
+    ),
   };
 }
 
@@ -208,7 +232,10 @@ export async function hashFinanceScenarioRequest(
     operation: "finance.scenario.configure",
     ...payload,
   });
-  const digest = await crypto.subtle.digest("SHA-256", new TextEncoder().encode(canonical));
+  const digest = await crypto.subtle.digest(
+    "SHA-256",
+    new TextEncoder().encode(canonical),
+  );
   return [...new Uint8Array(digest)]
     .map((value) => value.toString(16).padStart(2, "0"))
     .join("");
