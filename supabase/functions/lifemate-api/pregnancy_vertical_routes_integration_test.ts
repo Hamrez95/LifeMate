@@ -37,6 +37,8 @@ Deno.test({
     const otherPersonId = crypto.randomUUID();
     const episodeId = crypto.randomUUID();
     const otherEpisodeId = crypto.randomUUID();
+    const symptomCatalogReleaseId = crypto.randomUUID();
+    const symptomCatalogVersion = `test-${crypto.randomUUID()}`;
 
     const capture = createPregnancyCaptureRouteHandler(databaseUrl);
     const measurements = createPregnancyMeasurementRouteHandler(databaseUrl);
@@ -76,6 +78,26 @@ Deno.test({
         ) values (
           ${episodeId}::uuid,${personId}::uuid,'active',now(),
           ${crypto.randomUUID().replaceAll("-", "").repeat(2)}
+        )
+      `;
+      await adminSql`
+        insert into pregnancy.symptom_catalog_releases(
+          id,version,status,reviewed_by,reviewed_at_utc,published_at_utc
+        ) values(
+          ${symptomCatalogReleaseId}::uuid,
+          ${symptomCatalogVersion},
+          'published',
+          'automated integration test fixture',
+          now(),
+          now()
+        )
+      `;
+      await adminSql`
+        insert into pregnancy.symptom_catalog_entries(
+          release_id,locale,code,display_label,sort_order
+        ) values(
+          ${symptomCatalogReleaseId}::uuid,'en','test.symptom',
+          'Synthetic test symptom',0
         )
       `;
 
@@ -138,6 +160,7 @@ Deno.test({
               observedAtUtc,
               localDate,
               timeZone: "UTC",
+              catalogVersion: symptomCatalogVersion,
               symptomCode: "free text symptom must be rejected",
               intensity: "mild",
               note: "must never persist",
@@ -161,7 +184,8 @@ Deno.test({
           observedAtUtc,
           localDate,
           timeZone: "UTC",
-          symptomCode: "nausea.morning",
+          catalogVersion: symptomCatalogVersion,
+          symptomCode: "test.symptom",
           intensity: "mild",
           note: "integration fixture",
         }),
@@ -178,7 +202,8 @@ Deno.test({
               observedAtUtc,
               localDate,
               timeZone: "UTC",
-              symptomCode: "nausea.morning",
+              catalogVersion: symptomCatalogVersion,
+              symptomCode: "test.symptom",
               intensity: "strong",
               note: "changed retry must conflict",
             }),
@@ -456,7 +481,8 @@ Deno.test({
           observedAtUtc: newerObservedAtUtc,
           localDate,
           timeZone: "UTC",
-          symptomCode: "fatigue",
+          catalogVersion: symptomCatalogVersion,
+          symptomCode: "test.symptom",
           intensity: "mild",
           note: "newer private pagination note",
         }),
@@ -674,12 +700,36 @@ Deno.test({
             where person_id=${otherPersonId}::uuid) as unrelated_observations
       `;
       assertEquals(Number(persisted[0].check_ins), 1);
-      assertEquals(Number(persisted[0].symptoms), 1);
+      assertEquals(Number(persisted[0].symptoms), 2);
       assertEquals(Number(persisted[0].moods), 1);
       assertEquals(Number(persisted[0].measurement_links), 1);
       assertEquals(Number(persisted[0].unrelated_observations), 0);
     } finally {
       await closeLifeMateSqlClientsForTest().catch(() => undefined);
+      await adminSql`
+        delete from pregnancy.daily_check_ins
+        where mother_person_id in (${personId}::uuid,${otherPersonId}::uuid)
+      `.catch(() => undefined);
+      await adminSql`
+        delete from pregnancy.symptom_reports
+        where mother_person_id in (${personId}::uuid,${otherPersonId}::uuid)
+      `.catch(() => undefined);
+      await adminSql`
+        delete from pregnancy.mood_entries
+        where mother_person_id in (${personId}::uuid,${otherPersonId}::uuid)
+      `.catch(() => undefined);
+      await adminSql`
+        delete from pregnancy.observation_links
+        where episode_id in (${episodeId}::uuid,${otherEpisodeId}::uuid)
+      `.catch(() => undefined);
+      await adminSql`
+        delete from pregnancy.symptom_catalog_entries
+        where release_id=${symptomCatalogReleaseId}::uuid
+      `.catch(() => undefined);
+      await adminSql`
+        delete from pregnancy.symptom_catalog_releases
+        where id=${symptomCatalogReleaseId}::uuid
+      `.catch(() => undefined);
       await adminSql`
         delete from pregnancy.episodes
         where mother_person_id in (${personId}::uuid,${otherPersonId}::uuid)
