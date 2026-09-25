@@ -78,6 +78,102 @@ void main() {
     expect(queued, isFalse);
   });
 
+  test('calendar network fallback queues one canonical request id', () async {
+    String? onlineId;
+    String? queuedId;
+    final adapter = _adapter(
+      submitCalendarOnline:
+          ({
+            required clientRequestId,
+            required classification,
+            required careEvent,
+          }) async {
+            onlineId = clientRequestId;
+            expect(careEvent['clientRequestId'], requestId);
+            expect(careEvent['scheduledLocalDate'], '2026-09-21');
+            expect(careEvent['scheduledLocalTime'], '10:30');
+            expect(classification,
+                CocoonPregnancyCalendarClassification.checkup);
+            throw const LifeMateApiException(
+              statusCode: 0,
+              code: 'network_unavailable',
+              message: 'offline',
+            );
+          },
+      enqueueCalendarOffline:
+          ({
+            required clientRequestId,
+            required classification,
+            required eventType,
+            required title,
+            providerName,
+            centerName,
+            required scheduledLocalDate,
+            required scheduledLocalTime,
+            required patientReminderMinutesBefore,
+          }) async {
+            queuedId = clientRequestId;
+            expect(classification, 'checkup');
+            expect(scheduledLocalDate, DateTime(2026, 9, 21));
+          },
+    );
+
+    final result = await adapter.submitCalendarEvent(
+      classification: CocoonPregnancyCalendarClassification.checkup,
+      eventType: 'appointment',
+      title: 'Visit',
+      scheduledLocalDate: DateTime(2026, 9, 21, 16),
+      scheduledLocalTime: '10:30',
+      patientReminderMinutesBefore: 30,
+    );
+
+    expect(result.disposition, CocoonGate3MutationDisposition.queued);
+    expect(result.clientRequestId, requestId);
+    expect(onlineId, requestId);
+    expect(queuedId, requestId);
+  });
+
+  test('calendar authorization failures do not queue', () async {
+    var queued = false;
+    final adapter = _adapter(
+      submitCalendarOnline:
+          ({
+            required clientRequestId,
+            required classification,
+            required careEvent,
+          }) async => throw const LifeMateApiException(
+            statusCode: 403,
+            code: 'pregnancy_owner_required',
+            message: 'denied',
+          ),
+      enqueueCalendarOffline:
+          ({
+            required clientRequestId,
+            required classification,
+            required eventType,
+            required title,
+            providerName,
+            centerName,
+            required scheduledLocalDate,
+            required scheduledLocalTime,
+            required patientReminderMinutesBefore,
+          }) async => queued = true,
+    );
+
+    await expectLater(
+      adapter.submitCalendarEvent(
+        classification: CocoonPregnancyCalendarClassification.other,
+        eventType: 'appointment',
+        title: 'Visit',
+        scheduledLocalDate: DateTime(2026, 9, 21),
+        scheduledLocalTime: '10:30',
+        patientReminderMinutesBefore: 30,
+      ),
+      throwsA(isA<LifeMateApiException>()),
+    );
+    expect(queued, isFalse);
+  });
+
   test(
     'unapproved symptoms are rejected before network or durable queue',
     () async {
@@ -126,6 +222,8 @@ CocoonGate3MutationAdapter _adapter({
   CocoonGate3MoodOfflineEnqueue? enqueueMoodOffline,
   CocoonGate3SymptomOnlineSubmit? submitSymptomOnline,
   CocoonGate3SymptomOfflineEnqueue? enqueueSymptomOffline,
+  CocoonGate3CalendarOnlineSubmit? submitCalendarOnline,
+  CocoonGate3CalendarOfflineEnqueue? enqueueCalendarOffline,
 }) => CocoonGate3MutationAdapter(
   timeZone: 'Asia/Tehran',
   requestIdFactory: () => '123e4567-e89b-42d3-a456-426614174811',
@@ -172,4 +270,6 @@ CocoonGate3MutationAdapter _adapter({
   enqueueMoodOffline: enqueueMoodOffline,
   submitSymptomOnline: submitSymptomOnline,
   enqueueSymptomOffline: enqueueSymptomOffline,
+  submitCalendarOnline: submitCalendarOnline,
+  enqueueCalendarOffline: enqueueCalendarOffline,
 );
