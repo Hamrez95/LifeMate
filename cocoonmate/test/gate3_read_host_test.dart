@@ -86,22 +86,22 @@ void main() {
           bootstrapLoader: () async => _snapshot(),
           gate3ReadLoader: ({required now, required fa}) async =>
               CocoonGate3ReadModels(
-            calendarState: CocoonCalendarLoadState.empty,
-            calendarItems: const [],
-            calendarAsOfLocalDate: DateTime(2026, 9, 16),
-            recordsState: CocoonRecordsState.ready,
-            records: const [
-              CocoonRecordViewData(
-                id: 'mood:mood-1',
-                title: 'Mood entry',
-                dateLabel: '2026-09-15',
-                sectionLabel: '2026-09-15',
-                kind: CocoonRecordKind.checkIn,
-                syncState: CocoonRecordSyncState.confirmed,
+                calendarState: CocoonCalendarLoadState.empty,
+                calendarItems: const [],
+                calendarAsOfLocalDate: DateTime(2026, 9, 16),
+                recordsState: CocoonRecordsState.ready,
+                records: const [
+                  CocoonRecordViewData(
+                    id: 'mood:mood-1',
+                    title: 'Mood entry',
+                    dateLabel: '2026-09-15',
+                    sectionLabel: '2026-09-15',
+                    kind: CocoonRecordKind.checkIn,
+                    syncState: CocoonRecordSyncState.confirmed,
+                  ),
+                ],
+                recordsNextCursor: 'opaque-cursor-1',
               ),
-            ],
-            recordsNextCursor: 'opaque-cursor-1',
-          ),
           gate3RecordsPageLoader: ({required fa, required cursor}) async {
             requestedCursor = cursor;
             return const CocoonGate3RecordsPage(
