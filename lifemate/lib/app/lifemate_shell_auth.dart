@@ -23,7 +23,7 @@ class _LifeMateShellAuthState extends State<LifeMateShellAuth> {
   final _phone = TextEditingController();
   final _code = TextEditingController();
   bool _signUp = false;
-  bool _phoneMode = false;
+  bool _phoneMode = LifeMateFeatureFlags.phoneOtpEnabled;
   bool _codeSent = false;
   bool _busy = false;
   String? _notice;
