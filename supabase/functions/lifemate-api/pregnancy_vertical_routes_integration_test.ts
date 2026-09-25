@@ -490,7 +490,9 @@ Deno.test({
       assertEquals(secondRecordItems[0].id, baselineRecordItems[1].id);
       assertEquals(secondRecordItems[0].id === firstRecordItems[0].id, false);
       assertEquals(
-        JSON.stringify(secondRecordBody).includes("newer private pagination note"),
+        JSON.stringify(secondRecordBody).includes(
+          "newer private pagination note",
+        ),
         false,
       );
 
