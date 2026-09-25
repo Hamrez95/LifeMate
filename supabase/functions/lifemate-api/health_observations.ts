@@ -185,8 +185,7 @@ function sameObservationInput(
     nullableString(row.unit_primary) === input.unitPrimary &&
     nullableString(row.unit_secondary) === input.unitSecondary &&
     nullableString(row.note) === input.note &&
-    new Date(String(row.observed_at_utc)).getTime() ===
-      input.observedAtUtc.getTime() &&
+    iso(row.observed_at_utc) === input.observedAtUtc.toISOString() &&
     dateString(row.observed_local_date) === input.observedLocalDate &&
     String(row.time_zone) === input.timeZone;
 }
