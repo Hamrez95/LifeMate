@@ -68,7 +68,7 @@ void main() {
               labelFa: 'ول‌میت',
               icon: Icons.health_and_safety_outlined,
               availability: ModuleAvailability.available,
-              pageBuilder: (_, __) => const SizedBox.shrink(),
+              pageBuilder: (_, __, ___) => const SizedBox.shrink(),
               profileSectionsBuilder: (context, client, isPersian) => [
                 Card(
                   child: Text(

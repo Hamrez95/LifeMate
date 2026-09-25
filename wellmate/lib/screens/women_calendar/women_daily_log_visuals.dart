@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_svg/flutter_svg.dart';
 
+import '../../core/constants/module_assets.dart';
+
 const womenLogInk = Color(0xFF3D3542);
 const womenLogMuted = Color(0xFF756B77);
 const womenLogPrimary = Color(0xFFC83B60);
@@ -99,7 +101,10 @@ class PartnerAvatarBadge extends StatelessWidget {
                   border: Border.all(color: womenLogBorder, width: 1.5),
                   boxShadow: const [BoxShadow(color: Color(0x18000000), blurRadius: 6, offset: Offset(0, 2))],
                 ),
-                child: SvgPicture.asset('feature_assets/women_cycle/visual_v1/svg/partner/partner-heart.svg'),
+                child: SvgPicture.asset(
+                  'feature_assets/women_cycle/visual_v1/svg/partner/partner-heart.svg',
+                  package: wellMateAssetPackage,
+                ),
               ),
             ),
           ],
@@ -251,7 +256,12 @@ class _WomenDailyLogSheetState extends State<_WomenDailyLogSheet> {
                             ),
                             child: Stack(children: [
                               Column(mainAxisAlignment: MainAxisAlignment.center, children: [
-                                SvgPicture.asset('feature_assets/women_cycle/visual_v1/svg/symptoms/${item.asset}.svg', width: 34, height: 34),
+                                SvgPicture.asset(
+                                  'feature_assets/women_cycle/visual_v1/svg/symptoms/${item.asset}.svg',
+                                  package: wellMateAssetPackage,
+                                  width: 34,
+                                  height: 34,
+                                ),
                                 const SizedBox(height: 6),
                                 Text(rtl ? item.fa : item.en, maxLines: 2, textAlign: TextAlign.center, style: const TextStyle(fontSize: 11.5, fontWeight: FontWeight.w800, color: womenLogInk)),
                               ]),

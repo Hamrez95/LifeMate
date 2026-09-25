@@ -9,11 +9,13 @@ class ModuleRouteHost extends StatelessWidget {
     required this.module,
     required this.isPersian,
     required this.apiClient,
+    this.hostActions = const LifeMateModuleHostActions(),
   });
 
   final LifeMateModuleDefinition module;
   final bool isPersian;
   final LifeMateApiClient? apiClient;
+  final LifeMateModuleHostActions hostActions;
 
   String t(String en, String fa) => isPersian ? fa : en;
 
@@ -38,7 +40,7 @@ class ModuleRouteHost extends StatelessWidget {
     }
 
     try {
-      return module.pageBuilder!(context, apiClient!);
+      return module.pageBuilder!(context, apiClient!, hostActions);
     } catch (_) {
       return _ModuleStatePage(
         icon: Icons.error_outline_rounded,
@@ -104,6 +106,7 @@ Future<void> openLifeMateModule(
   required LifeMateModuleDefinition module,
   required bool isPersian,
   required LifeMateApiClient? apiClient,
+  LifeMateModuleHostActions hostActions = const LifeMateModuleHostActions(),
 }) {
   return Navigator.of(context).push<void>(
     MaterialPageRoute(
@@ -112,6 +115,7 @@ Future<void> openLifeMateModule(
         module: module,
         isPersian: isPersian,
         apiClient: apiClient,
+        hostActions: hostActions,
       ),
     ),
   );

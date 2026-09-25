@@ -5,6 +5,7 @@ import 'package:lifemate_client/lifemate_client.dart';
 
 import '../../core/theme/app_style.dart';
 import '../../core/utils/persian_date_utils.dart';
+import '../../core/constants/module_assets.dart';
 
 part 'women_cycle_character_card_parts.dart';
 
@@ -33,9 +34,8 @@ class WomenCycleCharacterCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final phase = recordedToday
-        ? WomenCyclePhase.period
-        : estimate.detailedPhase;
+    final phase =
+        recordedToday ? WomenCyclePhase.period : estimate.detailedPhase;
     final visual = _visual(phase);
     final stages = _majorUpcoming(estimate);
 
@@ -163,6 +163,7 @@ class WomenCycleCharacterCard extends StatelessWidget {
                                 height: size * .34,
                                 child: Image.asset(
                                   visual.asset,
+                                  package: wellMateAssetPackage,
                                   key: const ValueKey(
                                     'women-calendar-current-phase-character',
                                   ),
@@ -377,18 +378,14 @@ List<(Color, double)> _segments(WomenCalendarEstimate e) {
     ];
   }
 
-  final follicular = math
-      .max(1, e.fertileWindowStartDay - e.periodLength - 1)
-      .toDouble();
-  final fertileBefore = math
-      .max(1, e.ovulationDay - e.fertileWindowStartDay)
-      .toDouble();
-  final fertileAfter = math
-      .max(1, e.fertileWindowEndDay - e.ovulationDay)
-      .toDouble();
-  final luteal = math
-      .max(1, e.pmsStartDay - e.fertileWindowEndDay - 1)
-      .toDouble();
+  final follicular =
+      math.max(1, e.fertileWindowStartDay - e.periodLength - 1).toDouble();
+  final fertileBefore =
+      math.max(1, e.ovulationDay - e.fertileWindowStartDay).toDouble();
+  final fertileAfter =
+      math.max(1, e.fertileWindowEndDay - e.ovulationDay).toDouble();
+  final luteal =
+      math.max(1, e.pmsStartDay - e.fertileWindowEndDay - 1).toDouble();
   return [
     (_periodColor, e.periodLength.toDouble()),
     (_follicularColor, follicular),
@@ -454,19 +451,19 @@ List<_Stage> _majorUpcoming(WomenCalendarEstimate estimate) {
 
   final current = !reliable
       ? (estimate.cycleDay <= estimate.periodLength
-            ? 0
-            : estimate.cycleDay >= estimate.pmsStartDay
-            ? 2
-            : 1)
+          ? 0
+          : estimate.cycleDay >= estimate.pmsStartDay
+              ? 2
+              : 1)
       : (estimate.cycleDay <= estimate.periodLength
-            ? 0
-            : estimate.cycleDay < estimate.fertileWindowStartDay
-            ? 1
-            : estimate.cycleDay <= estimate.fertileWindowEndDay
-            ? 2
-            : estimate.cycleDay < estimate.pmsStartDay
-            ? 3
-            : 4);
+          ? 0
+          : estimate.cycleDay < estimate.fertileWindowStartDay
+              ? 1
+              : estimate.cycleDay <= estimate.fertileWindowEndDay
+                  ? 2
+                  : estimate.cycleDay < estimate.pmsStartDay
+                      ? 3
+                      : 4);
 
   final count = math.min(4, math.max(0, stages.length - 1));
   return [

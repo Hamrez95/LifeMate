@@ -53,7 +53,7 @@ class _LifeMateShellState extends State<LifeMateShell> {
   bool get _isPersian => Localizations.localeOf(context).languageCode == 'fa';
 
   LifeMateModuleRegistry get _moduleRegistry =>
-      widget.moduleRegistry ?? LifeMateModuleRegistry.foundation();
+      widget.moduleRegistry ?? LifeMateModuleRegistry.production();
 
   TodaySnapshotSource get _todaySource =>
       widget.todaySource ?? const UnavailableTodaySource();
@@ -109,6 +109,10 @@ class _LifeMateShellState extends State<LifeMateShell> {
         module: module,
         isPersian: _isPersian,
         apiClient: widget.apiClient,
+        hostActions: LifeMateModuleHostActions(
+          onOpenGlobalProfile: _openGlobalProfileFromModule,
+          onReturnHome: () => Navigator.of(context).pop(),
+        ),
       );
     } finally {
       if (mounted) setState(() => _overlayOpen = false);
@@ -130,6 +134,10 @@ class _LifeMateShellState extends State<LifeMateShell> {
           module: module,
           isPersian: _isPersian,
           apiClient: widget.apiClient,
+          hostActions: LifeMateModuleHostActions(
+            onOpenGlobalProfile: _openGlobalProfileFromModule,
+            onReturnHome: () => Navigator.of(context).pop(),
+          ),
         );
         return;
       case TodayActionKind.shellRoute:
@@ -142,6 +150,11 @@ class _LifeMateShellState extends State<LifeMateShell> {
       case TodayActionKind.refreshOnly:
         return;
     }
+  }
+
+  void _openGlobalProfileFromModule() {
+    Navigator.of(context).pop();
+    _select(ShellDestination.you);
   }
 
   Future<void> _showTodayPeek() async {

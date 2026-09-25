@@ -20,7 +20,10 @@ import 'home_schedule_loader.dart';
 import 'home_screen_content.dart';
 
 class HomeScreen extends StatefulWidget {
-  const HomeScreen({super.key});
+  const HomeScreen({super.key, this.onOpenGlobalProfile, this.initialTab = 5});
+
+  final VoidCallback? onOpenGlobalProfile;
+  final int initialTab;
 
   @override
   State<HomeScreen> createState() => _HomeScreenState();
@@ -46,6 +49,10 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
   @override
   void initState() {
     super.initState();
+    if (widget.initialTab >= 0 && widget.initialTab <= 5) {
+      _currentIndex = widget.initialTab;
+      _visitedTabs.add(widget.initialTab);
+    }
     WidgetsBinding.instance.addObserver(this);
     WellMateRefreshSignal.revision.addListener(_handleExternalRefresh);
     WidgetsBinding.instance.addPostFrameCallback((_) {
@@ -151,12 +158,12 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
       var pendingSync = false;
       if (item.type == 'medicine') {
         final result = await context.read<LifeMateApiClient>().reportDose(
-          occurrenceId: item.id,
-          clientRequestId: LifeMateApiClient.createClientRequestId(),
-          version: item.version,
-          status: 'taken',
-          occurredAtUtc: DateTime.now().toUtc(),
-        );
+              occurrenceId: item.id,
+              clientRequestId: LifeMateApiClient.createClientRequestId(),
+              version: item.version,
+              status: 'taken',
+              occurredAtUtc: DateTime.now().toUtc(),
+            );
         pendingSync = result['pendingSync'] == true;
       } else {
         final eventId = item.seriesId ?? item.id;
@@ -197,28 +204,27 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
                     en: '${item.title} was saved on this device and will sync when you reconnect.',
                   )
                 : item.type == 'medicine'
-                ? LifeMateRuntimeLocale.select(
-                    fa: LifeMateRuntimeLocale.select(
-                      fa: '${item.title} به عنوان مصرف‌شده ثبت شد.',
-                      en: "${item.title} was marked as taken.",
-                    ),
-                    en: "${item.title} registered as spent.",
-                  )
-                : LifeMateRuntimeLocale.select(
-                    fa: LifeMateRuntimeLocale.select(
-                      fa: '${item.title} به عنوان انجام‌شده ثبت شد.',
-                      en: "${item.title} was marked as done.",
-                    ),
-                    en: "${item.title} registered as done.",
-                  ),
+                    ? LifeMateRuntimeLocale.select(
+                        fa: LifeMateRuntimeLocale.select(
+                          fa: '${item.title} به عنوان مصرف‌شده ثبت شد.',
+                          en: "${item.title} was marked as taken.",
+                        ),
+                        en: "${item.title} registered as spent.",
+                      )
+                    : LifeMateRuntimeLocale.select(
+                        fa: LifeMateRuntimeLocale.select(
+                          fa: '${item.title} به عنوان انجام‌شده ثبت شد.',
+                          en: "${item.title} was marked as done.",
+                        ),
+                        en: "${item.title} registered as done.",
+                      ),
           ),
         ),
       );
       return true;
     } on LifeMateApiException catch (error) {
       if (!mounted) return false;
-      final message =
-          error.code == 'stale_dose_occurrence' ||
+      final message = error.code == 'stale_dose_occurrence' ||
               error.code == 'stale_care_event'
           ? LifeMateRuntimeLocale.select(
               fa: LifeMateRuntimeLocale.select(
@@ -296,15 +302,15 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
       1 => TreatmentsScreen(refreshToken: _treatmentsRevision),
       2 => CarePlanHubScreen(onCreated: _treatmentCreated),
       4 => WomenHealthEntryScreen(
-        refreshToken: _womenRevision,
-        onProfileChanged: () => _loadWomenCalendarState(force: true),
-      ),
+          refreshToken: _womenRevision,
+          onProfileChanged: () => _loadWomenCalendarState(force: true),
+        ),
       _ => HomeScreenContent(
-        refreshToken: _homeRevision,
-        onOpenTreatments: () => _onItemTapped(1),
-        onAddTreatment: () => _onItemTapped(2),
-        onOpenHealth: _openHealth,
-      ),
+          refreshToken: _homeRevision,
+          onOpenTreatments: () => _onItemTapped(1),
+          onAddTreatment: () => _onItemTapped(2),
+          onOpenHealth: _openHealth,
+        ),
     };
   }
 
@@ -329,6 +335,11 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
               WellMateAppHeader(
                 onMissedMedicationTaken: _reportMissedItemFromHeader,
                 onProfileTap: () async {
+                  final openGlobalProfile = widget.onOpenGlobalProfile;
+                  if (openGlobalProfile != null) {
+                    openGlobalProfile();
+                    return;
+                  }
                   await Navigator.push<void>(
                     context,
                     MaterialPageRoute<void>(

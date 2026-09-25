@@ -1,30 +1,23 @@
 # Shell Product and Profile Integration
 
-Status: implementation boundary for LifeMate product embedding
+Status: embedded entry paths implemented; authenticated device acceptance remains open.
 
-## One authentication entry
+## Authentication and product roots
 
-The LifeMate parent app owns the only authentication experience in an embedded session. Its `LifeMateExperienceGate` restores one Supabase Auth session and creates the reviewed `LifeMateApiClient`. OTP sign-in and sign-up are already implemented by `LifeMateShellAuth`; the shell release build must compile with `ENABLE_PHONE_OTP=true` for the configured SMS provider to be reachable. Stable releases remain controlled by the release workflow and its candidate gates.
+`LifeMateExperienceGate` restores the one Supabase Auth session and creates the shell-owned `LifeMateApiClient`. `LifeMateShellAuth` owns the branded email/password and phone OTP entry surfaces. The shell release workflow enables phone OTP with `ENABLE_PHONE_OTP=true`.
 
-An embedded product receives the existing `LifeMateApiClient` from `LifeMateModuleDefinition.pageBuilder`. It must not create a Supabase client, show `LifeMateExperienceGate`, or render its standalone sign-in/register pages. The current WellMate and CareMate roots are still standalone apps, and their registry entries are unavailable until their feature trees are extracted into hostable packages. This means those apps are not yet embedded by the shell; the module API is the integration seam, not evidence that the migration is complete.
+The production module registry mounts WellMate, CareMate and CocoonMate from the shell. WellMate and CareMate embedded roots receive the shell API client and locale; their standalone auth/onboarding entry screens are skipped only in embedded mode. CocoonMate uses the existing authenticated `LifeMateAuth` session. Product headers hand profile navigation back to the shell. CareMate's recipient selector remains a product relationship feature, not a second global account profile. Product enrollment, relationship and entitlement gates remain product-domain rules.
 
-When each app is converted, preserve its standalone APK by composing the same product module under its existing standalone auth gate. Under the parent shell, mount the product module directly with the host API client and host locale. Keep product navigation below the module entry route. Do not replace the module's Person context with an Account ID.
+The shell's `ProfileYouScreen` is the shared account/Person profile destination. Product settings and domain actions remain product-owned; this integration does not copy profile data into local product stores or add backend schema. A full field-by-field merge of legacy product profile forms still needs a product inventory and explicit field ownership review.
 
-## One profile surface with product sections
+## Routes and known gaps
 
-The shell's `ProfileYouScreen` is the canonical cross-product profile destination. It owns the Person identity card, shared profile fields, locale, timezone, accessibility, privacy, account and support actions. Products contribute only their own settings/actions through `LifeMateModuleDefinition.profileSectionsBuilder`; the builder receives the shell `BuildContext`, the same authenticated API client and current locale. It must not show another global identity header or duplicate global profile fields.
+- Living Camp WellMate, CareMate and Reproductive Context hotspots resolve to the embedded WellMate, CareMate and CocoonMate routes.
+- FitMate remains unavailable because this repository has no FitMate module.
+- The shell Today panel still uses `UnavailableTodaySource`; it must stay empty/unavailable until a reviewed production `lifemate.today.v1` aggregate exists.
+- No editable/exported `.riv` avatar is included. Current 2.5D scene/vector character work is a lightweight fallback, not a Rive deliverable.
+- The shell locally builds for web. Android release packaging could not be validated in this Windows environment because Gradle/JDK failed to establish its loopback socket.
 
-WellMate and CareMate currently use the same `LifeMateSharedProfileScreen` from `lifemate_ui`, with different product actions (for example, WellMate health records and CareMate relationship management). During embedding, retain those product actions as sections contributed to the shell profile. Their standalone roots can continue to render the shared profile component with those sections until the shell mount is available. Global fields continue to come from the canonical profile API; product-specific settings remain owned by the relevant product.
+## Acceptance still required
 
-Do not copy profile data into product-local stores to make the combined screen work. Account remains the authentication principal; the resolved active Person remains the owner of shared profile facts. Any new persisted field or API endpoint requires its own reviewed contract.
-
-## Conversion sequence
-
-1. Extract WellMate and CareMate feature trees into reusable module packages without changing their standalone behavior.
-2. Add module builders that accept `LifeMateApiClient`, host locale, navigation handoff actions and profile-section builders.
-3. Replace embedded product auth/onboarding roots with the host-provided session; keep standalone auth only in the standalone APK composition.
-4. Route Living Camp hotspots to those module builders and return to the originating shell destination.
-5. Move each product's profile-specific actions into its profile section; remove duplicate global headers and account controls in embedded mode.
-6. Verify one OTP login opens both products, sign-out returns to shell auth, locale/profile edits are visible across products, and account/Person changes invalidate mounted module state.
-
-No backend or Supabase schema change is needed for this host boundary.
+On an authenticated device, verify one login opens each available product without a product sign-in page; opening each product's global profile returns to the shell profile; sign-out returns to shell auth; shell locale and shared profile edits remain visible; and account/Person changes invalidate mounted module state. Then verify SMS OTP against the configured provider and run the Android release gate on a supported Gradle/JDK host. Until that device acceptance completes, this PR only establishes and unit-tests the host boundary.

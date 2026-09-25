@@ -45,6 +45,10 @@ class CareNotificationProvider extends ChangeNotifier {
     }
   }
 
+  void detachApiClient(LifeMateApiClient apiClient) {
+    if (identical(_apiClient, apiClient)) _apiClient = null;
+  }
+
   Future<bool?> notificationPermissionEnabled() async {
     await initialize();
     final android = _notifications

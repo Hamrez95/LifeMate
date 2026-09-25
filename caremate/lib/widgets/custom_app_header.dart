@@ -2,8 +2,26 @@ import 'package:flutter/material.dart';
 import 'package:lifemate_client/lifemate_client.dart';
 import 'package:provider/provider.dart';
 
-import '../../core/constants/app_colors.dart';
+import '../core/constants/app_colors.dart';
+import '../core/constants/module_assets.dart';
 import '../screens/profile_screen.dart';
+
+class CareMateModuleHost extends InheritedWidget {
+  const CareMateModuleHost({
+    required this.onOpenGlobalProfile,
+    required super.child,
+    super.key,
+  });
+
+  final VoidCallback onOpenGlobalProfile;
+
+  static CareMateModuleHost? maybeOf(BuildContext context) =>
+      context.dependOnInheritedWidgetOfExactType<CareMateModuleHost>();
+
+  @override
+  bool updateShouldNotify(CareMateModuleHost oldWidget) =>
+      onOpenGlobalProfile != oldWidget.onOpenGlobalProfile;
+}
 
 class CustomAppHeader extends StatelessWidget {
   const CustomAppHeader({
@@ -29,6 +47,12 @@ class CustomAppHeader extends StatelessWidget {
       callback();
       return;
     }
+    final hostCallback =
+        CareMateModuleHost.maybeOf(context)?.onOpenGlobalProfile;
+    if (hostCallback != null) {
+      hostCallback();
+      return;
+    }
     Navigator.of(
       context,
     ).push(MaterialPageRoute<void>(builder: (_) => const ProfileScreen()));
@@ -39,11 +63,11 @@ class CustomAppHeader extends StatelessWidget {
     final isPersian = LifeMateRuntimeLocale.isPersian;
     final notificationLabel = isPersian
         ? (showNotificationDot
-              ? 'هشدارهای مراقبتی، مورد جدید دارید'
-              : 'هشدارهای مراقبتی')
+            ? 'هشدارهای مراقبتی، مورد جدید دارید'
+            : 'هشدارهای مراقبتی')
         : (showNotificationDot
-              ? 'Care alerts, new alert available'
-              : 'Care alerts');
+            ? 'Care alerts, new alert available'
+            : 'Care alerts');
     return Padding(
       padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 12),
       child: Row(
@@ -82,6 +106,7 @@ class CustomAppHeader extends StatelessWidget {
             image: true,
             child: Image.asset(
               'assets/images/CareMateWithoutBack.png',
+              package: careMateAssetPackage,
               height: 55,
               fit: BoxFit.contain,
               errorBuilder: (_, __, ___) => const Icon(
@@ -119,7 +144,8 @@ class CustomAppHeader extends StatelessWidget {
                         ),
                         boxShadow: [
                           BoxShadow(
-                            color: AppColors.primaryBlue.withValues(alpha: 0.10),
+                            color:
+                                AppColors.primaryBlue.withValues(alpha: 0.10),
                             blurRadius: 14,
                             offset: const Offset(0, 5),
                           ),

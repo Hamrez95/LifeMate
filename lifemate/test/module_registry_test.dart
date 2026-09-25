@@ -23,6 +23,21 @@ void main() {
     );
   });
 
+  test('production registry exposes the embedded product routes', () {
+    final registry = LifeMateModuleRegistry.production();
+
+    for (final entry in const {
+      LifeMateModuleId.wellMate: '/modules/wellmate',
+      LifeMateModuleId.careMate: '/modules/caremate',
+      LifeMateModuleId.cocoonMate: '/modules/cocoonmate',
+    }.entries) {
+      final module = registry.byId(entry.key);
+      expect(module?.routeName, entry.value);
+      expect(module?.availability, ModuleAvailability.available);
+      expect(module?.pageBuilder, isNotNull);
+    }
+  });
+
   test('registry rejects duplicate IDs and duplicate routes', () {
     const first = LifeMateModuleDefinition(
       id: LifeMateModuleId.wellMate,
@@ -69,7 +84,7 @@ void main() {
       labelFa: 'ول‌میت',
       icon: Icons.health_and_safety_outlined,
       availability: ModuleAvailability.available,
-      pageBuilder: (_, client) => Scaffold(
+      pageBuilder: (_, client, __) => Scaffold(
         body: Text(
           identical(client, apiClient) ? 'WellMate mounted' : 'Wrong client',
         ),
@@ -125,7 +140,7 @@ void main() {
       labelFa: 'کرمیت',
       icon: Icons.volunteer_activism_outlined,
       availability: ModuleAvailability.available,
-      pageBuilder: (_, __) => throw StateError('module failed'),
+      pageBuilder: (_, __, ___) => throw StateError('module failed'),
     );
 
     await tester.pumpWidget(

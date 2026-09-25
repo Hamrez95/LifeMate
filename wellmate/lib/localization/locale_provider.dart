@@ -5,12 +5,15 @@ import 'package:lifemate_client/lifemate_client.dart';
 import 'package:wellmate/core/widgets/medication_home_widget_service.dart';
 
 class LocaleProvider extends ChangeNotifier {
-  LocaleProvider() {
+  LocaleProvider({Locale initialLocale = const Locale('fa')})
+      : _locale = initialLocale.languageCode == 'en'
+            ? const Locale('en')
+            : const Locale('fa') {
     LifeMateRuntimeLocale.setLanguageCode(_locale.languageCode);
     unawaited(MedicationHomeWidgetService.updateLocale(_locale.languageCode));
   }
 
-  Locale _locale = const Locale('fa');
+  Locale _locale;
 
   Locale get locale => _locale;
 

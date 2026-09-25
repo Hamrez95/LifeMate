@@ -123,7 +123,7 @@ void main() {
           labelFa: 'ول‌میت',
           icon: Icons.health_and_safety_outlined,
           availability: ModuleAvailability.available,
-          pageBuilder: (_, client) => Scaffold(
+          pageBuilder: (_, client, __) => Scaffold(
             body: Text(
               identical(client, apiClient)
                   ? 'WellMate mounted'

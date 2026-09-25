@@ -585,8 +585,8 @@ class _DashboardScreenState extends State<DashboardScreen> {
     setState(() => _accepting = true);
     try {
       await context.read<LifeMateApiClient>().acceptCareInvitation(
-        token: token,
-      );
+            token: token,
+          );
       if (!mounted) return;
       LifeMateNotice.show(
         context,
@@ -653,6 +653,8 @@ class _DashboardScreenState extends State<DashboardScreen> {
             children: [
               CustomAppHeader(
                 onNotificationTap: _showAlerts,
+                onProfileTap:
+                    CareMateModuleHost.maybeOf(context)?.onOpenGlobalProfile,
                 showNotificationDot: (snapshot?.alertsToday ?? 0) > 0,
               ),
               Padding(

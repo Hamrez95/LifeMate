@@ -14,6 +14,14 @@ dependencies:
     sdk: flutter
   lifemate_client:
     path: ../packages/lifemate_client
+  lifemate_ui:
+    path: ../packages/lifemate_ui
+  wellmate:
+    path: ../wellmate
+  caremate:
+    path: ../caremate
+  cocoonmate:
+    path: ../cocoonmate
 
 dev_dependencies:
   flutter_test:

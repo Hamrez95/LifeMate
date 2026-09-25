@@ -69,7 +69,7 @@ void main() {
   test('injection countdown exposes bilingual care actions and vaccine icon', () {
     final homeSource = File(
       'lib/screens/home/home_screen_content.dart',
-    ).readAsStringSync();
+    ).readAsStringSync().replaceAll('\r\n', '\n');
     final scheduleCardSource = File(
       'lib/screens/home/soft_schedule_card.dart',
     ).readAsStringSync();

@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import '../../core/theme/app_style.dart';
 import '../../models/schedule_item_model.dart';
+import '../../core/constants/module_assets.dart';
 import '../../../core/utils/string_extensions.dart';
 import 'package:lifemate_client/lifemate_client.dart';
 
@@ -27,10 +28,10 @@ class SoftScheduleCard extends StatelessWidget {
   }) : super(key: key);
 
   IconData get _fallbackIcon => switch (item.type) {
-    'injection' => Icons.vaccines_rounded,
-    'appointment' || 'visit' => Icons.medical_services_rounded,
-    _ => Icons.medication,
-  };
+        'injection' => Icons.vaccines_rounded,
+        'appointment' || 'visit' => Icons.medical_services_rounded,
+        _ => Icons.medication,
+      };
 
   @override
   Widget build(BuildContext context) {
@@ -248,6 +249,7 @@ class SoftScheduleCard extends StatelessWidget {
                 child: assetPath?.trim().isNotEmpty == true
                     ? Image.asset(
                         assetPath!,
+                        package: wellMateAssetPackage,
                         width: 32,
                         height: 32,
                         color: isMissed ? Colors.red.shade700 : null,
@@ -260,9 +262,8 @@ class SoftScheduleCard extends StatelessWidget {
                       )
                     : Icon(
                         _fallbackIcon,
-                        color: isMissed
-                            ? Colors.red.shade700
-                            : AppColors.primary,
+                        color:
+                            isMissed ? Colors.red.shade700 : AppColors.primary,
                       ),
               ),
             ),

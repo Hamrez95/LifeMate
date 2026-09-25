@@ -8,10 +8,11 @@ import 'package:wellmate/providers/medication_provider.dart';
 
 import '../../models/schedule_item_model.dart';
 import '../../providers/notification_provider.dart';
+import '../../core/constants/module_assets.dart';
 import '../theme/app_style.dart';
 
-typedef MissedMedicationReporter =
-    Future<bool> Function(ScheduleItemModel item);
+typedef MissedMedicationReporter = Future<bool> Function(
+    ScheduleItemModel item);
 
 class WellMateAppHeader extends StatelessWidget {
   const WellMateAppHeader({
@@ -312,8 +313,7 @@ class WellMateAppHeader extends StatelessWidget {
             children: [
               _buildSoftButton(
                 icon: Icons.notifications_none_rounded,
-                onTap:
-                    onNotificationTap ??
+                onTap: onNotificationTap ??
                     () => _showMissedNotificationsPopup(context, missedItems),
               ),
               if (showRedDot)
@@ -334,6 +334,7 @@ class WellMateAppHeader extends StatelessWidget {
           ),
           Image.asset(
             'assets/images/WellMateWithoutBack.png',
+            package: wellMateAssetPackage,
             height: 55,
             fit: BoxFit.contain,
             errorBuilder: (context, error, stackTrace) {

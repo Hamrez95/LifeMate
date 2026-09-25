@@ -3,6 +3,7 @@ import 'dart:ui';
 import 'package:flutter/material.dart';
 import 'package:flutter_localizations/flutter_localizations.dart';
 import 'package:lifemate_client/lifemate_client.dart';
+import 'package:lifemate_ui/lifemate_ui.dart';
 
 import '../shell/lifemate_shell.dart';
 import 'lifemate_launch_overlay.dart';
@@ -128,7 +129,12 @@ class _LifeMateAppState extends State<LifeMateApp> {
         unauthenticatedBuilder: (context, _, __, ___) =>
             LifeMateShellAuth(isPersian: _locale.languageCode == 'fa'),
         authenticatedBuilder: (context, apiClient) =>
-            LifeMateShell(apiClient: apiClient, onLocaleChanged: _setLocale),
+            LifeMateAccountOnboardingGate(
+              child: LifeMateShell(
+                apiClient: apiClient,
+                onLocaleChanged: _setLocale,
+              ),
+            ),
       ),
     );
   }
