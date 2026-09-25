@@ -33,6 +33,7 @@ type TokenLookupRow = {
   app_user_id: string | null;
   app_user_status: string | null;
   token_key_version: number;
+  token_status: string;
 };
 
 type BootstrapStateRow = {
@@ -162,9 +163,10 @@ export function createIdentityResolver(
           transaction,
           active,
           previous!,
+          true,
         )
       )
-      : await lookupToken(sql(), active);
+      : await lookupToken(sql(), active, true);
     const distinctAccounts = new Set(tokenRows.map((row) => row.account_id));
     if (distinctAccounts.size > 1) {
       throw new ApiError(
@@ -181,7 +183,8 @@ export function createIdentityResolver(
       );
     }
     if (tokenRows[0]) {
-      assertBootstrapState(tokenRows[0]);
+      const activeRow = tokenRows.find((row) => row.token_status === "Active");
+      assertBootstrapState(activeRow ?? tokenRows[0]);
       return;
     }
 
@@ -275,6 +278,7 @@ export function createIdentityResolver(
   async function lookupToken(
     connection: any,
     candidate: TokenCandidate,
+    includeInactive = false,
   ): Promise<TokenLookupRow[]> {
     const rows: TokenLookupRow[] = await connection`
       select
@@ -282,7 +286,8 @@ export function createIdentityResolver(
         a.status as account_status,
         a.legacy_app_user_id::text as app_user_id,
         u.status as app_user_status,
-        t.key_version as token_key_version
+        t.key_version as token_key_version,
+        t.status as token_status
       from identity.external_identity_tokens t
       join identity.accounts a on a.id=t.account_id
       left join lifemate.app_users u on u.id=a.legacy_app_user_id
@@ -290,7 +295,7 @@ export function createIdentityResolver(
         and t.issuer='supabase'
         and t.subject_token=${candidate.subjectToken}
         and t.key_version=${candidate.keyVersion}
-        and t.status='Active'
+        and (${includeInactive} or t.status='Active')
       limit 2
     `;
     return rows;
@@ -333,6 +338,7 @@ export function createIdentityResolver(
     connection: any,
     active: TokenCandidate,
     previous: TokenCandidate,
+    includeInactive = false,
   ): Promise<TokenLookupRow[]> {
     const rows: TokenLookupRow[] = await connection`
       select
@@ -340,13 +346,14 @@ export function createIdentityResolver(
         a.status as account_status,
         a.legacy_app_user_id::text as app_user_id,
         u.status as app_user_status,
-        t.key_version as token_key_version
+        t.key_version as token_key_version,
+        t.status as token_status
       from identity.external_identity_tokens t
       join identity.accounts a on a.id=t.account_id
       left join lifemate.app_users u on u.id=a.legacy_app_user_id
       where t.provider='supabase_auth'
         and t.issuer='supabase'
-        and t.status='Active'
+        and (${includeInactive} or t.status='Active')
         and (
           (
             t.key_version=${active.keyVersion}
@@ -469,6 +476,13 @@ function assertBootstrapState(row: BootstrapStateRow | null): void {
       409,
       "account_disabled",
       "The LifeMate account is not active.",
+    );
+  }
+  if ("token_status" in row && row.token_status !== "Active") {
+    throw new ApiError(
+      409,
+      "identity_account_mapping_missing",
+      "The LifeMate account mapping is unavailable.",
     );
   }
 }
