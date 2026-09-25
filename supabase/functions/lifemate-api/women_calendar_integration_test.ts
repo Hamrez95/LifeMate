@@ -14,13 +14,15 @@ if (!databaseUrl) {
 }
 
 const contactSecret = "integration-only-women-calendar-secret-32-bytes-minimum";
+const adminDatabaseUrl = Deno.env.get("TEST_ADMIN_DATABASE_URL") ??
+  databaseUrl;
 
 Deno.test({
   name: "women calendar owner consent caregiver and revoke journey is isolated",
   sanitizeOps: false,
   sanitizeResources: false,
   fn: async () => {
-    const admin = postgres(databaseUrl, { max: 1, prepare: false });
+    const admin = postgres(adminDatabaseUrl, { max: 1, prepare: false });
     const db = createLifeMateDatabase(databaseUrl, contactSecret);
     const women = createWomenCalendarStore(databaseUrl);
     const suffix = crypto.randomUUID();
@@ -131,6 +133,12 @@ Deno.test({
         { canViewWomenCalendar: true },
       );
       assertEquals(permitted.canViewWomenCalendar, true);
+      await admin`
+        insert into lifemate.women_companion_privacy_scopes(
+          relationship_id,view_period_timing,view_phase_summary,
+          view_shared_wellbeing,view_calendar_detail,version
+        ) values (${String(relationship.id)}::uuid,true,true,true,true,1)
+      `;
 
       const privateDailyLog = await women.upsertOwnerDailyLog(
         patient.appUserId,
@@ -247,8 +255,8 @@ Deno.test({
       >;
       assertEquals(sharedSummary.mood, "good");
       assertEquals(sharedSummary.energyLevel, 4);
-      assertEquals(sharedSummary.painLevel, 1);
-      assertEquals(sharedSummary.symptoms, ["fatigue"]);
+      assertEquals("painLevel" in sharedSummary, false);
+      assertEquals("symptoms" in sharedSummary, false);
       assertEquals("privateNotes" in sharedSummary, false);
       assertEquals("shareSummaryWithCompanion" in sharedSummary, false);
 
@@ -436,6 +444,19 @@ async function cleanupWomenCalendarRun(
     await tx`
       delete from lifemate.privacy_consents
       where user_id in ${tx(userIds)}
+    `;
+    await tx`
+      delete from consent.consent_records
+      where actor_account_id in (
+        select id from identity.accounts
+        where legacy_app_user_id in ${tx(userIds)}
+      ) or subject_person_id in (
+        select person_id from core.account_person_links
+        where account_id in (
+          select id from identity.accounts
+          where legacy_app_user_id in ${tx(userIds)}
+        ) and link_type='Self'
+      )
     `;
     await tx`
       delete from lifemate.audit_logs

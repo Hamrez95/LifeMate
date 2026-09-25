@@ -13,7 +13,14 @@ enum CocoonSymptomSubmitState {
 
 /// Presentation-only state for the host-owned approved symptom catalog.
 /// It does not imply persistence, clinical evaluation, or server authority.
-enum CocoonSymptomCatalogState { loading, ready, empty, error, offline }
+enum CocoonSymptomCatalogState {
+  loading,
+  ready,
+  offlineReady,
+  empty,
+  error,
+  offline,
+}
 
 class CocoonSymptomOption {
   const CocoonSymptomOption({
@@ -71,7 +78,8 @@ class _CocoonSymptomLogScreenState extends State<CocoonSymptomLogScreen> {
 
   bool get _busy => widget.submitState == CocoonSymptomSubmitState.submitting;
   bool get _catalogReady =>
-      widget.catalogState == CocoonSymptomCatalogState.ready &&
+      (widget.catalogState == CocoonSymptomCatalogState.ready ||
+          widget.catalogState == CocoonSymptomCatalogState.offlineReady) &&
       widget.options.isNotEmpty;
   bool get _ready =>
       _catalogReady && _symptomId != null && _intensity != null && !_busy;
@@ -227,37 +235,49 @@ class _CocoonSymptomLogScreenState extends State<CocoonSymptomLogScreen> {
       );
 
   Widget _buildCatalog(BuildContext context) {
-    final state = widget.catalogState == CocoonSymptomCatalogState.ready &&
+    final state = (widget.catalogState == CocoonSymptomCatalogState.ready ||
+                widget.catalogState ==
+                    CocoonSymptomCatalogState.offlineReady) &&
             widget.options.isEmpty
         ? CocoonSymptomCatalogState.empty
         : widget.catalogState;
-    if (state != CocoonSymptomCatalogState.ready) {
+    if (state != CocoonSymptomCatalogState.ready &&
+        state != CocoonSymptomCatalogState.offlineReady) {
       return _SymptomCatalogStateCard(
         fa: widget.fa,
         state: state,
         onRetry: widget.onRetryCatalog,
       );
     }
-    return Wrap(
-      spacing: 9,
-      runSpacing: 9,
-      children: widget.options
-          .map(
-            (option) => Semantics(
-              selected: _symptomId == option.id,
-              button: true,
-              label: option.label,
-              child: ChoiceChip(
-                avatar: Icon(option.icon, size: 18),
-                selected: _symptomId == option.id,
-                onSelected: _busy
-                    ? null
-                    : (_) => setState(() => _symptomId = option.id),
-                label: Text(option.label),
-              ),
-            ),
-          )
-          .toList(),
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        if (state == CocoonSymptomCatalogState.offlineReady) ...[
+          _SymptomCatalogStateCard(fa: widget.fa, state: state, onRetry: null),
+          const SizedBox(height: 12),
+        ],
+        Wrap(
+          spacing: 9,
+          runSpacing: 9,
+          children: widget.options
+              .map(
+                (option) => Semantics(
+                  selected: _symptomId == option.id,
+                  button: true,
+                  label: option.label,
+                  child: ChoiceChip(
+                    avatar: Icon(option.icon, size: 18),
+                    selected: _symptomId == option.id,
+                    onSelected: _busy
+                        ? null
+                        : (_) => setState(() => _symptomId = option.id),
+                    label: Text(option.label),
+                  ),
+                ),
+              )
+              .toList(),
+        ),
+      ],
     );
   }
 
@@ -463,6 +483,13 @@ class _SymptomCatalogStateCard extends StatelessWidget {
               ? 'آفلاین هستی و فهرست تأییدشده روی این دستگاه موجود نیست.'
               : 'You are offline and no approved catalog is available on this device.',
           true,
+        ),
+      CocoonSymptomCatalogState.offlineReady => (
+          Icons.cloud_done_outlined,
+          fa
+              ? 'آفلاین هستی؛ از آخرین فهرست تأییدشده ذخیره‌شده در دستگاه استفاده می‌شود.'
+              : 'You are offline; using the latest approved catalog saved on this device.',
+          false,
         ),
       CocoonSymptomCatalogState.ready => (
           Icons.check_circle_outline,

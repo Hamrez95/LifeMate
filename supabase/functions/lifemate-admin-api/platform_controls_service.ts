@@ -90,7 +90,9 @@ export function createPlatformControlStore(databaseUrl: string) {
         definition: {
           key: String(row.control_key),
           kind: String(row.control_kind) as PlatformControlDefinition["kind"],
-          valueType: String(row.value_type) as PlatformControlDefinition["valueType"],
+          valueType: String(
+            row.value_type,
+          ) as PlatformControlDefinition["valueType"],
           defaultValue: row.default_value,
           failClosed: Boolean(row.fail_closed),
           version: Number(row.version),
@@ -98,7 +100,9 @@ export function createPlatformControlStore(databaseUrl: string) {
         rules: rules.map((r) => ({
           id: String(r.id),
           priority: Number(r.priority),
-          targetType: String(r.target_type) as PlatformControlRule["targetType"],
+          targetType: String(
+            r.target_type,
+          ) as PlatformControlRule["targetType"],
           targetKey: r.target_key == null ? null : String(r.target_key),
           rolloutBasisPoints: r.rollout_basis_points == null
             ? null

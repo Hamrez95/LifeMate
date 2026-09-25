@@ -166,4 +166,8 @@ jobs:
           end $$;
           SQL
           restricted_url="postgres://lifemate_edge_runtime:${runtime_password}@localhost:5432/lifemate_edge_tests"
-          (cd supabase/functions/lifemate-api && TEST_DATABASE_URL="$restricted_url" deno task test:integration)
+          (
+            cd supabase/functions/lifemate-api
+            TEST_ADMIN_DATABASE_URL="$TEST_DATABASE_URL" \
+              TEST_DATABASE_URL="$restricted_url" deno task test:integration
+          )

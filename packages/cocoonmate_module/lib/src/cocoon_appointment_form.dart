@@ -4,12 +4,43 @@ enum CocoonAppointmentKind { checkup, ultrasound, lab, other }
 
 enum CocoonAppointmentSubmitState { idle, submitting, queued, confirmed, error }
 
+/// A picker result deliberately keeps canonical local date separate from its
+/// localized presentation. Hosts must pass [localDate] to the shared care-event
+/// mutation and never parse [displayLabel] back into a date.
+class CocoonAppointmentDateSelection {
+  const CocoonAppointmentDateSelection({
+    required this.localDate,
+    required this.displayLabel,
+    required this.semanticLabel,
+  });
+
+  final DateTime localDate;
+  final String displayLabel;
+  final String semanticLabel;
+}
+
+/// Equivalent typed time selection for appointment creation. The host owns the
+/// timezone; this value is intentionally a wall-clock time rather than UTC.
+class CocoonAppointmentTimeSelection {
+  const CocoonAppointmentTimeSelection({
+    required this.localTime,
+    required this.displayLabel,
+    required this.semanticLabel,
+  });
+
+  final TimeOfDay localTime;
+  final String displayLabel;
+  final String semanticLabel;
+}
+
 class CocoonAppointmentDraft {
   const CocoonAppointmentDraft({
     required this.title,
     required this.kind,
     required this.dateLabel,
     required this.timeLabel,
+    required this.localDate,
+    required this.localTime,
     required this.reminderMinutes,
     this.provider,
     this.location,
@@ -19,6 +50,8 @@ class CocoonAppointmentDraft {
   final CocoonAppointmentKind kind;
   final String dateLabel;
   final String timeLabel;
+  final DateTime localDate;
+  final TimeOfDay localTime;
   final int reminderMinutes;
   final String? provider;
   final String? location;
@@ -31,18 +64,20 @@ class CocoonAppointmentFormScreen extends StatefulWidget {
     required this.onPickDate,
     required this.onPickTime,
     required this.onSubmit,
-    this.initialDateLabel,
-    this.initialTimeLabel,
+    this.initialDate,
+    this.initialTime,
+    this.initialDraft,
     super.key,
   });
 
   final bool fa;
   final CocoonAppointmentSubmitState submitState;
-  final Future<String?> Function() onPickDate;
-  final Future<String?> Function() onPickTime;
+  final Future<CocoonAppointmentDateSelection?> Function() onPickDate;
+  final Future<CocoonAppointmentTimeSelection?> Function() onPickTime;
   final Future<void> Function(CocoonAppointmentDraft draft) onSubmit;
-  final String? initialDateLabel;
-  final String? initialTimeLabel;
+  final CocoonAppointmentDateSelection? initialDate;
+  final CocoonAppointmentTimeSelection? initialTime;
+  final CocoonAppointmentDraft? initialDraft;
 
   @override
   State<CocoonAppointmentFormScreen> createState() =>
@@ -56,21 +91,34 @@ class _CocoonAppointmentFormScreenState
   final _location = TextEditingController();
   CocoonAppointmentKind _kind = CocoonAppointmentKind.checkup;
   int _reminderMinutes = 30;
-  String? _dateLabel;
-  String? _timeLabel;
+  CocoonAppointmentDateSelection? _date;
+  CocoonAppointmentTimeSelection? _time;
   bool _showErrors = false;
+  CocoonAppointmentSubmitState _localSubmitState =
+      CocoonAppointmentSubmitState.idle;
 
-  bool get _busy =>
-      widget.submitState == CocoonAppointmentSubmitState.submitting;
+  bool get _busy => _submitState == CocoonAppointmentSubmitState.submitting;
+  CocoonAppointmentSubmitState get _submitState =>
+      _localSubmitState == CocoonAppointmentSubmitState.idle
+          ? widget.submitState
+          : _localSubmitState;
   bool get _valid =>
-      _title.text.trim().isNotEmpty && _dateLabel != null && _timeLabel != null;
+      _title.text.trim().isNotEmpty && _date != null && _time != null;
   String t(String en, String fa) => widget.fa ? fa : en;
 
   @override
   void initState() {
     super.initState();
-    _dateLabel = widget.initialDateLabel;
-    _timeLabel = widget.initialTimeLabel;
+    _date = widget.initialDate;
+    _time = widget.initialTime;
+    final draft = widget.initialDraft;
+    if (draft != null) {
+      _title.text = draft.title;
+      _provider.text = draft.provider ?? '';
+      _location.text = draft.location ?? '';
+      _kind = draft.kind;
+      _reminderMinutes = draft.reminderMinutes;
+    }
   }
 
   @override
@@ -95,12 +143,12 @@ class _CocoonAppointmentFormScreenState
                     crossAxisAlignment: CrossAxisAlignment.stretch,
                     children: [
                       _FormIntroduction(fa: widget.fa),
-                      if (widget.submitState !=
+                      if (_submitState !=
                           CocoonAppointmentSubmitState.idle) ...[
                         const SizedBox(height: 16),
                         _AppointmentFormStatus(
                           fa: widget.fa,
-                          state: widget.submitState,
+                          state: _submitState,
                         ),
                       ],
                       const SizedBox(height: 28),
@@ -157,9 +205,9 @@ class _CocoonAppointmentFormScreenState
                             child: _PickerTile(
                               icon: Icons.calendar_today_outlined,
                               label: t('Date', 'تاریخ'),
-                              value: _dateLabel,
+                              value: _date?.displayLabel,
                               placeholder: t('Select', 'انتخاب'),
-                              error: _showErrors && _dateLabel == null,
+                              error: _showErrors && _date == null,
                               enabled: !_busy,
                               onTap: _pickDate,
                             ),
@@ -169,9 +217,9 @@ class _CocoonAppointmentFormScreenState
                             child: _PickerTile(
                               icon: Icons.schedule_outlined,
                               label: t('Time', 'ساعت'),
-                              value: _timeLabel,
+                              value: _time?.displayLabel,
                               placeholder: t('Select', 'انتخاب'),
-                              error: _showErrors && _timeLabel == null,
+                              error: _showErrors && _time == null,
                               enabled: !_busy,
                               onTap: _pickTime,
                             ),
@@ -276,12 +324,12 @@ class _CocoonAppointmentFormScreenState
 
   Future<void> _pickDate() async {
     final value = await widget.onPickDate();
-    if (value != null && mounted) setState(() => _dateLabel = value);
+    if (value != null && mounted) setState(() => _date = value);
   }
 
   Future<void> _pickTime() async {
     final value = await widget.onPickTime();
-    if (value != null && mounted) setState(() => _timeLabel = value);
+    if (value != null && mounted) setState(() => _time = value);
   }
 
   Future<void> _submit() async {
@@ -289,17 +337,35 @@ class _CocoonAppointmentFormScreenState
       setState(() => _showErrors = true);
       return;
     }
-    await widget.onSubmit(
-      CocoonAppointmentDraft(
-        title: _title.text.trim(),
-        kind: _kind,
-        dateLabel: _dateLabel!,
-        timeLabel: _timeLabel!,
-        reminderMinutes: _reminderMinutes,
-        provider: _optional(_provider.text),
-        location: _optional(_location.text),
-      ),
+    setState(
+      () => _localSubmitState = CocoonAppointmentSubmitState.submitting,
     );
+    try {
+      await widget.onSubmit(
+        CocoonAppointmentDraft(
+          title: _title.text.trim(),
+          kind: _kind,
+          dateLabel: _date!.displayLabel,
+          timeLabel: _time!.displayLabel,
+          localDate: DateUtils.dateOnly(_date!.localDate),
+          localTime: _time!.localTime,
+          reminderMinutes: _reminderMinutes,
+          provider: _optional(_provider.text),
+          location: _optional(_location.text),
+        ),
+      );
+      if (mounted) {
+        setState(
+          () => _localSubmitState = CocoonAppointmentSubmitState.confirmed,
+        );
+      }
+    } catch (_) {
+      if (mounted) {
+        setState(
+          () => _localSubmitState = CocoonAppointmentSubmitState.error,
+        );
+      }
+    }
   }
 
   String? _optional(String value) {

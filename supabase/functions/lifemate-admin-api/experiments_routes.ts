@@ -27,7 +27,9 @@ function mutationStatus(result: Record<string, unknown>): number {
 function mutationError(result: Record<string, unknown>): never {
   throw new ApiError(
     mutationStatus(result),
-    typeof result.code === "string" ? result.code : "experiment_workflow_unavailable",
+    typeof result.code === "string"
+      ? result.code
+      : "experiment_workflow_unavailable",
     typeof result.message === "string"
       ? result.message
       : "Experiment workflow was not completed.",
@@ -81,10 +83,16 @@ export function createExperimentRouteHandler(databaseUrl: string) {
     const statusMatch = path.match(/^\/api\/v1\/experiments\/([^/]+)\/status$/);
     if (request.method === "POST" && statusMatch) {
       requirePermission(admin, "experiments.write");
-      const experimentKey = parseExperimentKey(decodeURIComponent(statusMatch[1]));
+      const experimentKey = parseExperimentKey(
+        decodeURIComponent(statusMatch[1]),
+      );
       const current = await store.get(experimentKey);
       if (!current) {
-        throw new ApiError(404, "experiment_not_found", "Experiment was not found.");
+        throw new ApiError(
+          404,
+          "experiment_not_found",
+          "Experiment was not found.",
+        );
       }
       const payload = await parseExperimentStatusPayload(request);
       if (payload.status === "Scheduled" || payload.status === "Running") {
@@ -95,7 +103,10 @@ export function createExperimentRouteHandler(databaseUrl: string) {
         );
       }
       const idempotencyKey = requireIdempotencyKey(request);
-      const requestHash = await hashExperimentMutation({ experimentKey, ...payload });
+      const requestHash = await hashExperimentMutation({
+        experimentKey,
+        ...payload,
+      });
       const result = await store.setStatus({
         actorAccountId: accountId,
         experimentKey,
@@ -112,10 +123,16 @@ export function createExperimentRouteHandler(databaseUrl: string) {
     const detailMatch = path.match(/^\/api\/v1\/experiments\/([^/]+)$/);
     if (request.method === "GET" && detailMatch) {
       requirePermission(admin, "experiments.read");
-      const experimentKey = parseExperimentKey(decodeURIComponent(detailMatch[1]));
+      const experimentKey = parseExperimentKey(
+        decodeURIComponent(detailMatch[1]),
+      );
       const item = await store.get(experimentKey);
       if (!item) {
-        throw new ApiError(404, "experiment_not_found", "Experiment was not found.");
+        throw new ApiError(
+          404,
+          "experiment_not_found",
+          "Experiment was not found.",
+        );
       }
       return json(
         {

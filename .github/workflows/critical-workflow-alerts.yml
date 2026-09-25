@@ -69,6 +69,7 @@ jobs:
               continue
             fi
 
+            run_id="$(jq -r '.databaseId // ""' <<<"$run_json")"
             conclusion="$(jq -r '.conclusion // ""' <<<"$run_json")"
             run_url="$(jq -r '.url' <<<"$run_json")"
             head_sha="$(jq -r '.headSha' <<<"$run_json")"
@@ -97,14 +98,26 @@ jobs:
           - Conclusion: ${conclusion}
           - Event: ${event}
           - Run: ${run_url}
+          - Run ID: \`${run_id}\`
           - Source SHA: \`${head_sha}\`
           - Observed at UTC: ${updated_at}
           - Owner: @${GITHUB_REPOSITORY_OWNER}
 
           This alert contains workflow metadata only. No response body, token, secret, email, phone, Account/AppUser/Person identifier, healthcare payload or database content is copied into the incident.
+
+          <!-- critical-workflow-run-id:${run_id} -->
           EOF
 
               if [ -n "$issue_number" ]; then
+                issue_history="$(gh issue view "$issue_number" \
+                  --repo "$GITHUB_REPOSITORY" \
+                  --json body,comments \
+                  --jq '[.body, (.comments[].body)] | join("\n")')"
+                run_marker="<!-- critical-workflow-run-id:${run_id} -->"
+                if grep -Fq -- "$run_marker" <<<"$issue_history" \
+                  || grep -Fq -- "- Run: ${run_url}" <<<"$issue_history"; then
+                  continue
+                fi
                 gh issue comment "$issue_number" \
                   --repo "$GITHUB_REPOSITORY" \
                   --body-file "$body_file"

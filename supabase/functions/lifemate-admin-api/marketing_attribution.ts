@@ -30,7 +30,11 @@ function optionalCode(value: string | null, label: string): string | null {
   const normalized = value?.trim().toLowerCase() ?? "";
   if (!normalized) return null;
   if (!CODE_PATTERN.test(normalized)) {
-    throw new ApiError(400, "marketing_attribution_filter_invalid", `${label} is invalid.`);
+    throw new ApiError(
+      400,
+      "marketing_attribution_filter_invalid",
+      `${label} is invalid.`,
+    );
   }
   return normalized;
 }
@@ -39,20 +43,37 @@ function optionalDate(value: string | null, label: string): string | null {
   const normalized = value?.trim() ?? "";
   if (!normalized) return null;
   if (!/^\d{4}-\d{2}-\d{2}$/.test(normalized)) {
-    throw new ApiError(400, "marketing_attribution_filter_invalid", `${label} must use YYYY-MM-DD.`);
+    throw new ApiError(
+      400,
+      "marketing_attribution_filter_invalid",
+      `${label} must use YYYY-MM-DD.`,
+    );
   }
   const date = new Date(`${normalized}T00:00:00.000Z`);
-  if (Number.isNaN(date.getTime()) || date.toISOString().slice(0, 10) !== normalized) {
-    throw new ApiError(400, "marketing_attribution_filter_invalid", `${label} is invalid.`);
+  if (
+    Number.isNaN(date.getTime()) ||
+    date.toISOString().slice(0, 10) !== normalized
+  ) {
+    throw new ApiError(
+      400,
+      "marketing_attribution_filter_invalid",
+      `${label} is invalid.`,
+    );
   }
   return normalized;
 }
 
-export function parseMarketingAttributionQuery(url: URL): MarketingAttributionQuery {
+export function parseMarketingAttributionQuery(
+  url: URL,
+): MarketingAttributionQuery {
   const from = optionalDate(url.searchParams.get("from"), "from");
   const to = optionalDate(url.searchParams.get("to"), "to");
   if (from && to && from > to) {
-    throw new ApiError(400, "marketing_attribution_filter_invalid", "Attribution date range is invalid.");
+    throw new ApiError(
+      400,
+      "marketing_attribution_filter_invalid",
+      "Attribution date range is invalid.",
+    );
   }
   const campaign = url.searchParams.get("campaignId")?.trim() ?? "";
   return {
@@ -68,9 +89,14 @@ export const MARKETING_ATTRIBUTION_TAXONOMY = {
   model: "campaign-lifecycle-dimensions-v1",
   attributionState: "not_instrumented" as const,
   dimensions: ["campaign", "product", "channel"] as const,
-  supportedFacts: ["campaign_count", "active_campaign_count", "completed_campaign_count"] as const,
+  supportedFacts: [
+    "campaign_count",
+    "active_campaign_count",
+    "completed_campaign_count",
+  ] as const,
   unsupportedFacts: ["spend", "revenue", "conversions", "cac", "roas"] as const,
-  note: "Campaign lifecycle dimensions are observable, but causal conversion/revenue/spend attribution is not instrumented and must not be inferred.",
+  note:
+    "Campaign lifecycle dimensions are observable, but causal conversion/revenue/spend attribution is not instrumented and must not be inferred.",
 };
 
 const unavailableMetrics: MarketingAttributionMetric[] = [
@@ -83,7 +109,8 @@ const unavailableMetrics: MarketingAttributionMetric[] = [
   name: name as MarketingAttributionMetric["name"],
   state: "unavailable",
   value: null,
-  reason: "No canonical spend/revenue/conversion attribution fact is instrumented for campaigns or channels.",
+  reason:
+    "No canonical spend/revenue/conversion attribution fact is instrumented for campaigns or channels.",
 }));
 
 export function createMarketingAttributionStore(databaseUrl: string) {
@@ -133,7 +160,8 @@ export function createMarketingAttributionStore(databaseUrl: string) {
           status: "partial",
           asOfUtc: new Date().toISOString(),
           source: "admin.marketing_campaigns_v1 lifecycle metadata",
-          note: "Lifecycle facts are current relational state; spend/revenue/conversion attribution remains not instrumented.",
+          note:
+            "Lifecycle facts are current relational state; spend/revenue/conversion attribution remains not instrumented.",
         },
       };
     },

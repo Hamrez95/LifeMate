@@ -3,6 +3,7 @@ import postgres from "postgres";
 import { createAccountLifecycleStore } from "./account_lifecycle.ts";
 import { createBootstrapAccountStateGuard } from "./bootstrap_account_state.ts";
 import { closeLifeMateSqlClientsForTest } from "./database_client.ts";
+import { createIdentityResolver } from "./identity_resolver.ts";
 import { ApiError } from "./validation.ts";
 
 const databaseUrl = Deno.env.get("TEST_DATABASE_URL");
@@ -47,7 +48,9 @@ Deno.test({
     const personId = crypto.randomUUID();
     const authSubject = crypto.randomUUID();
     const store = createAccountLifecycleStore(databaseUrl);
-    const bootstrapGuard = createBootstrapAccountStateGuard(databaseUrl);
+    const bootstrapGuard = createBootstrapAccountStateGuard(
+      createIdentityResolver(databaseUrl, { mode: "legacy" }),
+    );
 
     try {
       await adminSql`
