@@ -1,4 +1,5 @@
 import 'cocoon_pregnancy_daily_api.dart';
+import 'cocoon_pregnancy_calendar_api.dart';
 import 'cocoon_pregnancy_measurements_api.dart';
 import 'cocoon_pregnancy_offline_owner.dart';
 import 'lifemate_api_client.dart';
@@ -92,6 +93,24 @@ typedef CocoonGate3MoodOfflineEnqueue =
       required DateTime localDate,
       required String moodCode,
     });
+typedef CocoonGate3CalendarOnlineSubmit =
+    Future<void> Function({
+      required String clientRequestId,
+      required CocoonPregnancyCalendarClassification classification,
+      required Map<String, dynamic> careEvent,
+    });
+typedef CocoonGate3CalendarOfflineEnqueue =
+    Future<void> Function({
+      required String clientRequestId,
+      required String classification,
+      required String eventType,
+      required String title,
+      String? providerName,
+      String? centerName,
+      required DateTime scheduledLocalDate,
+      required String scheduledLocalTime,
+      required int patientReminderMinutesBefore,
+    });
 
 /// Gate-3 mutation bridge for canonical pregnancy captures.
 ///
@@ -109,6 +128,8 @@ final class CocoonGate3MutationAdapter {
     CocoonGate3SymptomOfflineEnqueue? enqueueSymptomOffline,
     CocoonGate3MoodOnlineSubmit? submitMoodOnline,
     CocoonGate3MoodOfflineEnqueue? enqueueMoodOffline,
+    CocoonGate3CalendarOnlineSubmit? submitCalendarOnline,
+    CocoonGate3CalendarOfflineEnqueue? enqueueCalendarOffline,
     CocoonGate3RequestIdFactory? requestIdFactory,
     CocoonGate3Clock? clock,
     CocoonGate3Close? close,
@@ -120,6 +141,8 @@ final class CocoonGate3MutationAdapter {
        _enqueueSymptomOffline = enqueueSymptomOffline,
        _submitMoodOnline = submitMoodOnline,
        _enqueueMoodOffline = enqueueMoodOffline,
+       _submitCalendarOnline = submitCalendarOnline,
+       _enqueueCalendarOffline = enqueueCalendarOffline,
        _requestIdFactory =
            requestIdFactory ?? LifeMateApiClient.createClientRequestId,
        _clock = clock ?? DateTime.now,
@@ -137,6 +160,11 @@ final class CocoonGate3MutationAdapter {
         'Symptom online and offline mutation handlers must be configured together.',
       );
     }
+    if ((submitCalendarOnline == null) != (enqueueCalendarOffline == null)) {
+      throw ArgumentError(
+        'Calendar online and offline mutation handlers must be configured together.',
+      );
+    }
   }
 
   factory CocoonGate3MutationAdapter.production({
@@ -150,6 +178,10 @@ final class CocoonGate3MutationAdapter {
       accessToken: accessToken,
     );
     final measurements = CocoonPregnancyMeasurementsApiClient(
+      baseUri: baseUri,
+      accessToken: accessToken,
+    );
+    final calendar = CocoonPregnancyCalendarApiClient(
       baseUri: baseUri,
       accessToken: accessToken,
     );
@@ -295,9 +327,44 @@ final class CocoonGate3MutationAdapter {
             localDate: localDate,
             moodCode: moodCode,
           ),
+      submitCalendarOnline:
+          ({
+            required clientRequestId,
+            required classification,
+            required careEvent,
+          }) async {
+            await calendar.createEvent(
+              careEvent: careEvent,
+              classification: classification,
+            );
+          },
+      enqueueCalendarOffline:
+          ({
+            required clientRequestId,
+            required classification,
+            required eventType,
+            required title,
+            providerName,
+            centerName,
+            required scheduledLocalDate,
+            required scheduledLocalTime,
+            required patientReminderMinutesBefore,
+          }) => offlineOwner.enqueueCalendarEvent(
+            clientRequestId: clientRequestId,
+            classification: classification,
+            eventType: eventType,
+            title: title,
+            providerName: providerName,
+            centerName: centerName,
+            scheduledLocalDate: scheduledLocalDate,
+            scheduledLocalTime: scheduledLocalTime,
+            patientReminderMinutesBefore: patientReminderMinutesBefore,
+            caregiverReminderMinutesBefore: 0,
+          ),
       close: () {
         daily.close();
         measurements.close();
+        calendar.close();
       },
     );
   }
@@ -311,6 +378,8 @@ final class CocoonGate3MutationAdapter {
   final CocoonGate3SymptomOfflineEnqueue? _enqueueSymptomOffline;
   final CocoonGate3MoodOnlineSubmit? _submitMoodOnline;
   final CocoonGate3MoodOfflineEnqueue? _enqueueMoodOffline;
+  final CocoonGate3CalendarOnlineSubmit? _submitCalendarOnline;
+  final CocoonGate3CalendarOfflineEnqueue? _enqueueCalendarOffline;
   final CocoonGate3RequestIdFactory _requestIdFactory;
   final CocoonGate3Clock _clock;
   final CocoonGate3Close? _close;
@@ -320,6 +389,9 @@ final class CocoonGate3MutationAdapter {
 
   bool get supportsSymptom =>
       _submitSymptomOnline != null && _enqueueSymptomOffline != null;
+
+  bool get supportsCalendar =>
+      _submitCalendarOnline != null && _enqueueCalendarOffline != null;
 
   Future<CocoonGate3MutationResult> submitCheckIn({
     required CocoonPregnancyFeeling feeling,
@@ -504,6 +576,69 @@ final class CocoonGate3MutationAdapter {
         intensity: intensity.wireValue,
         approvedCatalog: approvedCatalog,
         note: note,
+      );
+      return CocoonGate3MutationResult(
+        clientRequestId: requestId,
+        disposition: CocoonGate3MutationDisposition.queued,
+      );
+    }
+  }
+
+  Future<CocoonGate3MutationResult> submitCalendarEvent({
+    required CocoonPregnancyCalendarClassification classification,
+    required String eventType,
+    required String title,
+    String? providerName,
+    String? centerName,
+    required DateTime scheduledLocalDate,
+    required String scheduledLocalTime,
+    required int patientReminderMinutesBefore,
+  }) async {
+    final online = _submitCalendarOnline;
+    final offline = _enqueueCalendarOffline;
+    if (online == null || offline == null) {
+      throw StateError('Calendar mutation is not configured.');
+    }
+    final requestId = _newRequestId();
+    final localDate = DateTime(
+      scheduledLocalDate.year,
+      scheduledLocalDate.month,
+      scheduledLocalDate.day,
+    );
+    final careEvent = <String, dynamic>{
+      'clientRequestId': requestId,
+      'eventType': eventType,
+      'title': title,
+      'scheduledLocalDate': _date(localDate),
+      'scheduledLocalTime': scheduledLocalTime,
+      'timeZone': timeZone,
+      'providerName': providerName,
+      'centerName': centerName,
+      'patientReminderMinutesBefore': patientReminderMinutesBefore,
+      'caregiverReminderMinutesBefore': 0,
+    }..removeWhere((_, value) => value == null);
+    try {
+      await online(
+        clientRequestId: requestId,
+        classification: classification,
+        careEvent: careEvent,
+      );
+      return CocoonGate3MutationResult(
+        clientRequestId: requestId,
+        disposition: CocoonGate3MutationDisposition.confirmed,
+      );
+    } on LifeMateApiException catch (error) {
+      if (error.statusCode != 0) rethrow;
+      await offline(
+        clientRequestId: requestId,
+        classification: classification.wireValue,
+        eventType: eventType,
+        title: title,
+        providerName: providerName,
+        centerName: centerName,
+        scheduledLocalDate: localDate,
+        scheduledLocalTime: scheduledLocalTime,
+        patientReminderMinutesBefore: patientReminderMinutesBefore,
       );
       return CocoonGate3MutationResult(
         clientRequestId: requestId,

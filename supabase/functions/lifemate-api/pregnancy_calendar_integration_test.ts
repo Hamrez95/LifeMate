@@ -16,7 +16,8 @@ if (!databaseUrl) {
   );
 }
 
-const sql = postgres(databaseUrl, {
+const adminDatabaseUrl = Deno.env.get("TEST_ADMIN_DATABASE_URL") ?? databaseUrl;
+const adminSql = postgres(adminDatabaseUrl, {
   max: 1,
   prepare: false,
   idle_timeout: 5,
@@ -61,7 +62,7 @@ Deno.test({
         otherPersonId,
         `pregnancy-calendar-other-${crypto.randomUUID()}`,
       );
-      await sql`
+      await adminSql`
         insert into pregnancy.episodes(
           id,mother_person_id,status,activated_at_utc,
           creation_idempotency_key_hash
@@ -109,7 +110,7 @@ Deno.test({
         400,
         "pregnancy_calendar_classification_invalid",
       );
-      const invalidMutationRows = await sql`
+      const invalidMutationRows = await adminSql`
         select count(*)::int as count
         from lifemate.care_events
         where patient_person_id=${ownerPersonId}::uuid
@@ -178,7 +179,7 @@ Deno.test({
       assertEquals(items[0].pregnancyClassification, "prenatal");
       assertEquals(String(items[0].seriesId ?? items[0].id), ownerEventId);
 
-      const links = await sql`
+      const links = await adminSql`
         select episode_id::text,care_event_id::text,classification,
                linked_by_account_id::text
         from pregnancy.care_event_links
@@ -215,7 +216,7 @@ Deno.test({
       repairEventId = String(
         precreatedRepairEvent.seriesId ?? precreatedRepairEvent.id,
       );
-      const beforeRepairLinks = await sql`
+      const beforeRepairLinks = await adminSql`
         select count(*)::int as count
         from pregnancy.care_event_links
         where care_event_id=${repairEventId}::uuid
@@ -237,7 +238,7 @@ Deno.test({
         String(repairedEvent.seriesId ?? repairedEvent.id),
         repairEventId,
       );
-      const repairedState = await sql`
+      const repairedState = await adminSql`
         select
           (select count(*)::int
            from lifemate.care_events
@@ -284,7 +285,7 @@ Deno.test({
         caregiverReminderMinutesBefore: 45,
       });
       conflictEventId = String(conflictCreated.seriesId ?? conflictCreated.id);
-      await sql`
+      await adminSql`
         insert into pregnancy.episodes(
           id,mother_person_id,status,activated_at_utc,ended_at_utc,outcome,
           creation_idempotency_key_hash
@@ -294,7 +295,7 @@ Deno.test({
           ${crypto.randomUUID().replaceAll("-", "").repeat(2)}
         )
       `;
-      await sql`
+      await adminSql`
         insert into pregnancy.care_event_links(
           episode_id,care_event_id,classification,linked_by_account_id
         ) values (
@@ -318,7 +319,7 @@ Deno.test({
         409,
         "care_event_already_linked",
       );
-      const preservedConflictLink = await sql`
+      const preservedConflictLink = await adminSql`
         select episode_id::text,classification
         from pregnancy.care_event_links
         where care_event_id=${conflictEventId}::uuid
@@ -360,7 +361,7 @@ Deno.test({
         "care_event_not_found",
       );
 
-      const crossLinkCount = await sql`
+      const crossLinkCount = await adminSql`
         select count(*)::int as count
         from pregnancy.care_event_links
         where care_event_id=${otherEventId}::uuid
@@ -381,7 +382,7 @@ Deno.test({
         "active_pregnancy_required",
       );
 
-      const ownerEventRows = await sql`
+      const ownerEventRows = await adminSql`
         select patient_person_id::text
         from lifemate.care_events
         where id=${ownerEventId}::uuid
@@ -390,7 +391,7 @@ Deno.test({
       assertEquals(ownerEventRows[0].patient_person_id, ownerPersonId);
     } finally {
       await closeLifeMateSqlClientsForTest().catch(() => undefined);
-      await sql`
+      await adminSql`
         delete from pregnancy.episodes
         where mother_person_id in (
           ${ownerPersonId}::uuid,${otherPersonId}::uuid
@@ -405,12 +406,12 @@ Deno.test({
         ]
       ) {
         if (!eventId) continue;
-        await sql`
+        await adminSql`
           delete from lifemate.audit_logs
           where resource_type='care_event'
             and resource_id=${eventId}::uuid
         `.catch(() => undefined);
-        await sql`
+        await adminSql`
           delete from lifemate.care_events where id=${eventId}::uuid
         `.catch(() => undefined);
       }
@@ -424,6 +425,64 @@ Deno.test({
         otherAccountId,
         otherPersonId,
       );
+    }
+  },
+});
+
+Deno.test({
+  name:
+    "pregnancy calendar leaves no canonical care event when active pregnancy is missing",
+  sanitizeOps: false,
+  sanitizeResources: false,
+  fn: async () => {
+    const appUserId = crypto.randomUUID();
+    const accountId = crypto.randomUUID();
+    const personId = crypto.randomUUID();
+    const clientRequestId = crypto.randomUUID();
+    const route = createPregnancyCalendarRouteHandler(databaseUrl);
+
+    try {
+      await seedIdentity(
+        appUserId,
+        accountId,
+        personId,
+        `pregnancy-calendar-atomicity-${crypto.randomUUID()}`,
+      );
+
+      await assertApiError(
+        () =>
+          route({
+            request: postRequest(
+              "/api/v1/cocoon/pregnancy/calendar/events",
+              {
+                classification: "prenatal",
+                careEvent: {
+                  clientRequestId,
+                  eventType: "appointment",
+                  title: "Synthetic prenatal visit",
+                  scheduledLocalDate: futureLocalDate(),
+                  scheduledLocalTime: "10:30",
+                  timeZone: "Asia/Tehran",
+                },
+              },
+            ),
+            path: "/api/v1/cocoon/pregnancy/calendar/events",
+            appUserId,
+          }),
+        409,
+        "active_pregnancy_required",
+      );
+
+      const rows = await adminSql`
+        select count(*)::int as event_count
+        from lifemate.care_events
+        where patient_person_id=${personId}::uuid
+          and client_request_id=${clientRequestId}::uuid
+      `;
+      assertEquals(Number(rows[0].event_count), 0);
+    } finally {
+      await closeLifeMateSqlClientsForTest().catch(() => undefined);
+      await cleanupIdentity(appUserId, accountId, personId);
     }
   },
 });
@@ -470,30 +529,30 @@ async function seedIdentity(
   personId: string,
   authSubject: string,
 ): Promise<void> {
-  await sql`
+  await adminSql`
     insert into lifemate.app_users(
       id,auth_subject,status,created_at_utc,updated_at_utc
     ) values (
       ${appUserId}::uuid,${authSubject},'Active',now(),now()
     )
   `;
-  await sql`
+  await adminSql`
     update identity.accounts
     set legacy_app_user_id=null,updated_at_utc=now()
     where id=${appUserId}::uuid
   `;
-  await sql`
+  await adminSql`
     insert into identity.accounts(
       id,legacy_app_user_id,status,created_at_utc,updated_at_utc
     ) values (
       ${accountId}::uuid,${appUserId}::uuid,'Active',now(),now()
     )
   `;
-  await sql`
+  await adminSql`
     insert into core.persons(id,status,subject_category)
     values(${personId}::uuid,'Active','Adult')
   `;
-  await sql`
+  await adminSql`
     insert into core.account_person_links(
       account_id,person_id,link_type,status,created_at_utc
     ) values (
@@ -507,42 +566,42 @@ async function cleanupIdentity(
   accountId: string,
   personId: string,
 ): Promise<void> {
-  await sql`
+  await adminSql`
     delete from commerce.entitlements
     where grantee_account_id in (${appUserId}::uuid,${accountId}::uuid)
        or beneficiary_person_id in (${appUserId}::uuid,${personId}::uuid)
   `.catch(() => undefined);
-  await sql`
+  await adminSql`
     delete from ecosystem.app_enrollments
     where account_id in (${appUserId}::uuid,${accountId}::uuid)
   `.catch(() => undefined);
-  await sql`
+  await adminSql`
     delete from identity.external_identities
     where account_id in (${appUserId}::uuid,${accountId}::uuid)
   `.catch(() => undefined);
-  await sql`
+  await adminSql`
     delete from core.account_person_links
     where account_id in (${appUserId}::uuid,${accountId}::uuid)
        or person_id in (${appUserId}::uuid,${personId}::uuid)
   `.catch(() => undefined);
-  await sql`
+  await adminSql`
     delete from core.person_profiles
     where person_id in (${appUserId}::uuid,${personId}::uuid)
   `.catch(() => undefined);
-  await sql`
+  await adminSql`
     delete from core.persons
     where id in (${appUserId}::uuid,${personId}::uuid)
   `.catch(() => undefined);
-  await sql`
+  await adminSql`
     update identity.accounts
     set legacy_app_user_id=null,updated_at_utc=now()
     where id in (${appUserId}::uuid,${accountId}::uuid)
   `.catch(() => undefined);
-  await sql`
+  await adminSql`
     delete from identity.accounts
     where id in (${appUserId}::uuid,${accountId}::uuid)
   `.catch(() => undefined);
-  await sql`
+  await adminSql`
     delete from lifemate.app_users where id=${appUserId}::uuid
   `.catch(() => undefined);
 }

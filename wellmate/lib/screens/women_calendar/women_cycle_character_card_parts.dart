@@ -240,9 +240,10 @@ class _StageCard extends StatelessWidget {
     child: Column(
       children: [
         Expanded(
-          child: Image.asset(
-            stage.asset,
-            fit: BoxFit.contain,
+              child: Image.asset(
+                stage.asset,
+                package: wellMateAssetPackage,
+                fit: BoxFit.contain,
             filterQuality: FilterQuality.high,
             errorBuilder: (_, __, ___) => Icon(
               Icons.favorite_rounded,

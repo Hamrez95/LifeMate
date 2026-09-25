@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:lifemate_client/lifemate_client.dart';
 
 import '../circle/api_camp_companion_selection_source.dart';
@@ -45,13 +46,14 @@ class LifeMateShell extends StatefulWidget {
 
 class _LifeMateShellState extends State<LifeMateShell> {
   late ShellDestination _destination = widget.initialDestination;
+  bool _overlayOpen = false;
   LifeMateApiClient? _defaultCampCompanionClient;
   ApiCampCompanionSelectionSource? _defaultCampCompanionSource;
 
   bool get _isPersian => Localizations.localeOf(context).languageCode == 'fa';
 
   LifeMateModuleRegistry get _moduleRegistry =>
-      widget.moduleRegistry ?? LifeMateModuleRegistry.foundation();
+      widget.moduleRegistry ?? LifeMateModuleRegistry.production();
 
   TodaySnapshotSource get _todaySource =>
       widget.todaySource ?? const UnavailableTodaySource();
@@ -98,10 +100,23 @@ class _LifeMateShellState extends State<LifeMateShell> {
   Future<void> _openModule(LifeMateModuleId moduleId) async {
     final module = _moduleRegistry.byId(moduleId);
     if (module == null || !mounted) return;
-
-    await Future<void>.delayed(const Duration(milliseconds: 350));
-    if (!mounted) return;
-    await openLifeMateModule(context, module: module, isPersian: _isPersian);
+    setState(() => _overlayOpen = true);
+    try {
+      await Future<void>.delayed(const Duration(milliseconds: 350));
+      if (!mounted) return;
+      await openLifeMateModule(
+        context,
+        module: module,
+        isPersian: _isPersian,
+        apiClient: widget.apiClient,
+        hostActions: LifeMateModuleHostActions(
+          onOpenGlobalProfile: _openGlobalProfileFromModule,
+          onReturnHome: () => Navigator.of(context).pop(),
+        ),
+      );
+    } finally {
+      if (mounted) setState(() => _overlayOpen = false);
+    }
   }
 
   Future<void> _openTodayAction(TodayActionIntent intent) async {
@@ -118,6 +133,11 @@ class _LifeMateShellState extends State<LifeMateShell> {
           context,
           module: module,
           isPersian: _isPersian,
+          apiClient: widget.apiClient,
+          hostActions: LifeMateModuleHostActions(
+            onOpenGlobalProfile: _openGlobalProfileFromModule,
+            onReturnHome: () => Navigator.of(context).pop(),
+          ),
         );
         return;
       case TodayActionKind.shellRoute:
@@ -132,23 +152,38 @@ class _LifeMateShellState extends State<LifeMateShell> {
     }
   }
 
+  void _openGlobalProfileFromModule() {
+    Navigator.of(context).pop();
+    _select(ShellDestination.you);
+  }
+
   Future<void> _showTodayPeek() async {
-    await showTodayPeekSheet(
-      context: context,
-      source: _todaySource,
-      isPersian: _isPersian,
-      onViewFullDay: () => _select(ShellDestination.today),
-      onAction: _openTodayAction,
-    );
+    setState(() => _overlayOpen = true);
+    try {
+      await showTodayPeekSheet(
+        context: context,
+        source: _todaySource,
+        isPersian: _isPersian,
+        onViewFullDay: () => _select(ShellDestination.today),
+        onAction: _openTodayAction,
+      );
+    } finally {
+      if (mounted) setState(() => _overlayOpen = false);
+    }
   }
 
   Future<void> _showNotificationCenter() async {
-    await showNotificationCenter(
-      context: context,
-      source: _notificationSource,
-      isPersian: _isPersian,
-      onAction: _openTodayAction,
-    );
+    setState(() => _overlayOpen = true);
+    try {
+      await showNotificationCenter(
+        context: context,
+        source: _notificationSource,
+        isPersian: _isPersian,
+        onAction: _openTodayAction,
+      );
+    } finally {
+      if (mounted) setState(() => _overlayOpen = false);
+    }
   }
 
   void _showActionUnavailable() {
@@ -168,51 +203,150 @@ class _LifeMateShellState extends State<LifeMateShell> {
   @override
   Widget build(BuildContext context) {
     final destinations = shellDestinationOrder;
+    final primaryDestinations = shellPrimaryDestinationOrder;
     return PopScope<Object?>(
       canPop: _destination == ShellDestination.home,
       onPopInvokedWithResult: _handleBack,
       child: Scaffold(
+        extendBody: _destination == ShellDestination.home,
+        extendBodyBehindAppBar: _destination == ShellDestination.home,
         appBar: AppBar(
-          title: Text(_title(_destination)),
+          leading: _destination == ShellDestination.today
+              ? IconButton(
+                  tooltip: _t('Back to Home', 'بازگشت به خانه'),
+                  onPressed: () => _select(ShellDestination.home),
+                  icon: const Icon(Icons.arrow_back_rounded),
+                )
+              : null,
+          toolbarHeight: _destination == ShellDestination.home ? 76 : 68,
+          backgroundColor: _destination == ShellDestination.home
+              ? Colors.transparent
+              : null,
+          elevation: 0,
+          systemOverlayStyle: _destination == ShellDestination.home
+              ? SystemUiOverlayStyle.light
+              : null,
+          title: _destination == ShellDestination.home
+              ? _HomeShellTitle(isPersian: _isPersian)
+              : Text(
+                  _title(_destination),
+                  style: const TextStyle(fontWeight: FontWeight.w800),
+                ),
           actions: [
             IconButton(
               tooltip: _t('Notifications', 'اعلان‌ها'),
               onPressed: _showNotificationCenter,
+              style: _destination == ShellDestination.home
+                  ? IconButton.styleFrom(
+                      backgroundColor: const Color(0xB52A3444),
+                      foregroundColor: Colors.white,
+                    )
+                  : null,
               icon: const Icon(Icons.notifications_none_rounded),
             ),
+            if (_destination != ShellDestination.you)
+              IconButton(
+                key: const ValueKey('shell-open-profile'),
+                tooltip: _t('Open profile', 'باز کردن پروفایل'),
+                onPressed: () => _select(ShellDestination.you),
+                icon: CircleAvatar(
+                  radius: 19,
+                  backgroundColor: _destination == ShellDestination.home
+                      ? const Color(0xFFE8D8C8)
+                      : null,
+                  child: const Icon(Icons.person_outline_rounded, size: 21),
+                ),
+              ),
+            const SizedBox(width: 8),
           ],
         ),
         body: IndexedStack(
           index: destinations.indexOf(_destination),
           children: destinations.map(_buildDestination).toList(growable: false),
         ),
-        bottomNavigationBar: NavigationBar(
-          selectedIndex: destinations.indexOf(_destination),
-          onDestinationSelected: (index) => _select(destinations[index]),
-          destinations: [
-            for (final destination in destinations)
-              NavigationDestination(
-                icon: Icon(destination.icon),
-                selectedIcon: Icon(destination.selectedIcon),
-                label: _title(destination),
-              ),
-          ],
-        ),
+        bottomNavigationBar: _destination == ShellDestination.today
+            ? null
+            : _destination == ShellDestination.home
+            ? SafeArea(
+                top: false,
+                child: Padding(
+                  padding: const EdgeInsets.fromLTRB(20, 0, 20, 12),
+                  child: ClipRRect(
+                    borderRadius: BorderRadius.circular(30),
+                    child: Theme(
+                      data: Theme.of(context).copyWith(
+                        navigationBarTheme: NavigationBarThemeData(
+                          labelTextStyle: WidgetStateProperty.resolveWith(
+                            (states) => TextStyle(
+                              color: states.contains(WidgetState.selected)
+                                  ? const Color(0xFFFFE2A0)
+                                  : Colors.white,
+                              fontWeight: states.contains(WidgetState.selected)
+                                  ? FontWeight.w700
+                                  : FontWeight.w400,
+                            ),
+                          ),
+                          iconTheme: WidgetStateProperty.resolveWith(
+                            (states) => IconThemeData(
+                              color: states.contains(WidgetState.selected)
+                                  ? const Color(0xFFFFE2A0)
+                                  : Colors.white,
+                            ),
+                          ),
+                        ),
+                      ),
+                      child: _navigationBar(
+                        primaryDestinations,
+                        isOverlay: true,
+                      ),
+                    ),
+                  ),
+                ),
+              )
+            : _navigationBar(primaryDestinations),
       ),
     );
   }
 
+  NavigationBar _navigationBar(
+    List<ShellDestination> destinations, {
+    bool isOverlay = false,
+  }) => NavigationBar(
+    height: isOverlay ? 76 : null,
+    backgroundColor: isOverlay
+        ? const Color(0xEC232E38)
+        : Theme.of(context).colorScheme.surface,
+    indicatorColor: isOverlay
+        ? const Color(0x333A4D50)
+        : Theme.of(context).colorScheme.primaryContainer,
+    selectedIndex: destinations.contains(_destination)
+        ? destinations.indexOf(_destination)
+        : 0,
+    onDestinationSelected: (index) => _select(destinations[index]),
+    destinations: [
+      for (final destination in destinations)
+        NavigationDestination(
+          icon: Icon(destination.icon),
+          selectedIcon: Icon(destination.selectedIcon),
+          label: _title(destination),
+        ),
+    ],
+  );
+
   Widget _buildDestination(ShellDestination destination) {
     return switch (destination) {
-      ShellDestination.home => CampHome(
-        isPersian: _isPersian,
-        onOpenToday: _showTodayPeek,
-        onOpenWellMate: () => _openModule(LifeMateModuleId.wellMate),
-        onOpenCareMate: () => _openModule(LifeMateModuleId.careMate),
-        onOpenReproductiveContext: () =>
-            _openModule(LifeMateModuleId.womenHealth),
-        onOpenFitMate: () => _openModule(LifeMateModuleId.fitMate),
-        zonePresentations: widget.campZonePresentations,
+      ShellDestination.home => TickerMode(
+        enabled: _destination == ShellDestination.home && !_overlayOpen,
+        child: CampHome(
+          isPersian: _isPersian,
+          onOpenToday: _showTodayPeek,
+          onOpenWellMate: () => _openModule(LifeMateModuleId.wellMate),
+          onOpenCareMate: () => _openModule(LifeMateModuleId.careMate),
+          onOpenReproductiveContext: () =>
+              _openModule(LifeMateModuleId.womenHealth),
+          onOpenFitMate: () => _openModule(LifeMateModuleId.fitMate),
+          zonePresentations: widget.campZonePresentations,
+        ),
       ),
       ShellDestination.today => TodayFullDay(
         source: _todaySource,
@@ -247,10 +381,25 @@ class _LifeMateShellState extends State<LifeMateShell> {
         ),
       );
     }
+    final productSections = <Widget>[];
+    for (final module in _moduleRegistry.modules) {
+      if (module.availability != ModuleAvailability.available ||
+          module.profileSectionsBuilder == null) {
+        continue;
+      }
+      try {
+        productSections.addAll(
+          module.profileSectionsBuilder!(context, apiClient, _isPersian),
+        );
+      } catch (_) {
+        // A product profile extension must not take down the global profile.
+      }
+    }
     return ProfileYouScreen(
       apiClient: apiClient,
       isPersian: _isPersian,
       onLocaleChanged: widget.onLocaleChanged ?? (_) {},
+      productSections: productSections,
     );
   }
 
@@ -261,6 +410,58 @@ class _LifeMateShellState extends State<LifeMateShell> {
     ShellDestination.circle => _t('Circle', 'دایره'),
     ShellDestination.you => _t('You', 'شما'),
   };
+}
+
+class _HomeShellTitle extends StatelessWidget {
+  const _HomeShellTitle({required this.isPersian});
+
+  final bool isPersian;
+
+  @override
+  Widget build(BuildContext context) => Row(
+    mainAxisSize: MainAxisSize.max,
+    children: [
+      Container(
+        width: 34,
+        height: 34,
+        decoration: BoxDecoration(
+          color: const Color(0xFFFFE2A0),
+          borderRadius: BorderRadius.circular(18),
+        ),
+        padding: const EdgeInsets.all(4),
+        child: Image.asset(
+          'assets/branding/lifemate_logo.png',
+          fit: BoxFit.contain,
+          filterQuality: FilterQuality.medium,
+        ),
+      ),
+      const SizedBox(width: 9),
+      Flexible(
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            const Text(
+              'LifeMate',
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
+              style: TextStyle(
+                fontSize: 24,
+                fontWeight: FontWeight.w800,
+                color: Colors.white,
+              ),
+            ),
+            Text(
+              isPersian ? 'زندگی، با هم' : 'Your Life. Together.',
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
+              style: const TextStyle(color: Colors.white, fontSize: 10),
+            ),
+          ],
+        ),
+      ),
+    ],
+  );
 }
 
 class _StagedDestination extends StatelessWidget {

@@ -80,6 +80,8 @@ class LifeMateAuth {
     final normalized = appName.trim().toLowerCase();
     final scheme = normalized.contains('cocoon')
         ? 'com.mylifemate.cocoonmate'
+        : normalized.contains('lifemate')
+        ? 'com.mylifemate.lifemate'
         : normalized.contains('care')
         ? 'com.lifemate.caremate'
         : 'com.lifemate.wellmate';

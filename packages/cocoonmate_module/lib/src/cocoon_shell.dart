@@ -307,8 +307,12 @@ class _CocoonShellState extends State<CocoonShell> {
             fa: _fa,
             state: widget.config.recordsState,
             items: widget.config.records,
+            hasMore: widget.config.recordsHasMore,
+            isLoadingMore: widget.config.recordsLoadingMore,
+            loadMoreError: widget.config.recordsLoadMoreError,
             onOpen: widget.config.onOpenRecord,
             onRetry: widget.config.onRetryRecords ?? host.refresh,
+            onLoadMore: widget.config.onLoadMoreRecords,
             onAdd:
                 widget.config.onAddRecord ?? () => setState(() => _index = 2),
           ),

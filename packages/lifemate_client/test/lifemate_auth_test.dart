@@ -14,6 +14,10 @@ void main() {
       LifeMateAuth.callbackUrlForApp('CareMate'),
       'com.lifemate.caremate://login-callback/',
     );
+    expect(
+      LifeMateAuth.callbackUrlForApp('LifeMate'),
+      'com.mylifemate.lifemate://login-callback/',
+    );
   });
 
   test('external auth providers are fail-closed by default', () {

@@ -4,6 +4,9 @@ enum CocoonAppointmentKind { checkup, ultrasound, lab, other }
 
 enum CocoonAppointmentSubmitState { idle, submitting, queued, confirmed, error }
 
+/// Host-confirmed result; [queued] means local durable storage accepted it only.
+enum CocoonAppointmentSubmitDisposition { queued, confirmed }
+
 /// A picker result deliberately keeps canonical local date separate from its
 /// localized presentation. Hosts must pass [localDate] to the shared care-event
 /// mutation and never parse [displayLabel] back into a date.
@@ -74,7 +77,9 @@ class CocoonAppointmentFormScreen extends StatefulWidget {
   final CocoonAppointmentSubmitState submitState;
   final Future<CocoonAppointmentDateSelection?> Function() onPickDate;
   final Future<CocoonAppointmentTimeSelection?> Function() onPickTime;
-  final Future<void> Function(CocoonAppointmentDraft draft) onSubmit;
+  final Future<CocoonAppointmentSubmitDisposition> Function(
+    CocoonAppointmentDraft draft,
+  ) onSubmit;
   final CocoonAppointmentDateSelection? initialDate;
   final CocoonAppointmentTimeSelection? initialTime;
   final CocoonAppointmentDraft? initialDraft;
@@ -98,6 +103,8 @@ class _CocoonAppointmentFormScreenState
       CocoonAppointmentSubmitState.idle;
 
   bool get _busy => _submitState == CocoonAppointmentSubmitState.submitting;
+  bool get _queued => _submitState == CocoonAppointmentSubmitState.queued;
+  bool get _locked => _busy || _queued;
   CocoonAppointmentSubmitState get _submitState =>
       _localSubmitState == CocoonAppointmentSubmitState.idle
           ? widget.submitState
@@ -159,7 +166,7 @@ class _CocoonAppointmentFormScreenState
                           'مثلاً: ویزیت دوره‌ای بارداری',
                         ),
                         controller: _title,
-                        enabled: !_busy,
+                        enabled: !_locked,
                         error: _showErrors && _title.text.trim().isEmpty
                             ? t('Enter a clear title', 'یک عنوان روشن وارد کن')
                             : null,
@@ -182,7 +189,7 @@ class _CocoonAppointmentFormScreenState
                             .map(
                               (kind) => ChoiceChip(
                                 selected: _kind == kind,
-                                onSelected: _busy
+                                onSelected: _locked
                                     ? null
                                     : (_) => setState(() => _kind = kind),
                                 label: Text(_kindLabel(kind)),
@@ -208,7 +215,7 @@ class _CocoonAppointmentFormScreenState
                               value: _date?.displayLabel,
                               placeholder: t('Select', 'انتخاب'),
                               error: _showErrors && _date == null,
-                              enabled: !_busy,
+                              enabled: !_locked,
                               onTap: _pickDate,
                             ),
                           ),
@@ -220,7 +227,7 @@ class _CocoonAppointmentFormScreenState
                               value: _time?.displayLabel,
                               placeholder: t('Select', 'انتخاب'),
                               error: _showErrors && _time == null,
-                              enabled: !_busy,
+                              enabled: !_locked,
                               onTap: _pickTime,
                             ),
                           ),
@@ -231,7 +238,7 @@ class _CocoonAppointmentFormScreenState
                         label: t('Doctor or specialist', 'پزشک یا متخصص'),
                         supporting: t('Optional', 'اختیاری'),
                         controller: _provider,
-                        enabled: !_busy,
+                        enabled: !_locked,
                         icon: Icons.person_outline_rounded,
                       ),
                       const SizedBox(height: 18),
@@ -239,7 +246,7 @@ class _CocoonAppointmentFormScreenState
                         label: t('Center or location', 'مرکز یا محل مراجعه'),
                         supporting: t('Optional', 'اختیاری'),
                         controller: _location,
-                        enabled: !_busy,
+                        enabled: !_locked,
                         icon: Icons.location_on_outlined,
                       ),
                       const SizedBox(height: 26),
@@ -258,7 +265,7 @@ class _CocoonAppointmentFormScreenState
                             .map(
                               (minutes) => ChoiceChip(
                                 selected: _reminderMinutes == minutes,
-                                onSelected: _busy
+                                onSelected: _locked
                                     ? null
                                     : (_) => setState(
                                           () => _reminderMinutes = minutes,
@@ -288,7 +295,11 @@ class _CocoonAppointmentFormScreenState
           child: Padding(
             padding: const EdgeInsetsDirectional.fromSTEB(20, 10, 20, 14),
             child: FilledButton.icon(
-              onPressed: _busy ? null : _submit,
+              onPressed: _busy
+                  ? null
+                  : _queued
+                      ? () => Navigator.of(context).maybePop()
+                      : _submit,
               icon: _busy
                   ? const SizedBox.square(
                       dimension: 18,
@@ -297,11 +308,14 @@ class _CocoonAppointmentFormScreenState
                         color: Colors.white,
                       ),
                     )
-                  : const Icon(Icons.check_rounded),
+                  : Icon(
+                      _queued ? Icons.done_all_rounded : Icons.check_rounded),
               label: Text(
                 _busy
                     ? t('Saving…', 'در حال ثبت…')
-                    : t('Save appointment', 'ثبت قرار'),
+                    : _queued
+                        ? t('Close', 'بستن')
+                        : t('Save appointment', 'ثبت قرار'),
               ),
             ),
           ),
@@ -341,7 +355,7 @@ class _CocoonAppointmentFormScreenState
       () => _localSubmitState = CocoonAppointmentSubmitState.submitting,
     );
     try {
-      await widget.onSubmit(
+      final disposition = await widget.onSubmit(
         CocoonAppointmentDraft(
           title: _title.text.trim(),
           kind: _kind,
@@ -356,7 +370,12 @@ class _CocoonAppointmentFormScreenState
       );
       if (mounted) {
         setState(
-          () => _localSubmitState = CocoonAppointmentSubmitState.confirmed,
+          () => _localSubmitState = switch (disposition) {
+            CocoonAppointmentSubmitDisposition.queued =>
+              CocoonAppointmentSubmitState.queued,
+            CocoonAppointmentSubmitDisposition.confirmed =>
+              CocoonAppointmentSubmitState.confirmed,
+          },
         );
       }
     } catch (_) {

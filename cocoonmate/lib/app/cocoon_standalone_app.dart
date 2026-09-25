@@ -13,10 +13,10 @@ const cocoonAppVersion = '0.1.0+1';
 typedef CocoonRuntimeLoader = Future<LifeMateRuntimeConfigSnapshot> Function();
 typedef CocoonBootstrapLoader = Future<CocoonBootstrapSnapshot> Function();
 typedef CocoonSignOut = Future<void> Function();
-typedef CocoonOfflineBootstrapCache = Future<void> Function(
-    CocoonBootstrapSnapshot snapshot);
-typedef CocoonOfflineSnapshotLoader = Future<CocoonPregnancySnapshot?>
-    Function();
+typedef CocoonOfflineBootstrapCache =
+    Future<void> Function(CocoonBootstrapSnapshot snapshot);
+typedef CocoonOfflineSnapshotLoader =
+    Future<CocoonPregnancySnapshot?> Function();
 typedef CocoonOfflineOwnerForget = Future<void> Function();
 
 class CocoonStandaloneApp extends StatelessWidget {
@@ -74,9 +74,9 @@ class CocoonStandaloneApp extends StatelessWidget {
       logoAssetPath: 'assets/cocoonmate-logo.png',
       unauthenticatedBuilder: (context, _, appName, logoAssetPath) =>
           LifeMateSharedAuthExperience(
-        appName: appName,
-        logoAssetPath: logoAssetPath,
-      ),
+            appName: appName,
+            logoAssetPath: logoAssetPath,
+          ),
       authenticatedBuilder: (context, _) => CocoonAuthenticatedHost(
         config: config,
         locale: Localizations.localeOf(context),
@@ -92,8 +92,10 @@ class CocoonAuthenticatedHost extends StatefulWidget {
     this.runtimeLoader,
     this.bootstrapLoader,
     this.gate3ReadLoader,
+    this.gate3RecordsPageLoader,
     this.gate3MutationAdapter,
     this.signOut,
+    this.onOpenGlobalProfile,
     this.offlineBootstrapCache,
     this.offlineSnapshotLoader,
     this.offlineOwnerForget,
@@ -105,8 +107,10 @@ class CocoonAuthenticatedHost extends StatefulWidget {
   final CocoonRuntimeLoader? runtimeLoader;
   final CocoonBootstrapLoader? bootstrapLoader;
   final CocoonGate3ReadLoader? gate3ReadLoader;
+  final CocoonGate3RecordsPageLoader? gate3RecordsPageLoader;
   final CocoonGate3MutationAdapter? gate3MutationAdapter;
   final CocoonSignOut? signOut;
+  final VoidCallback? onOpenGlobalProfile;
   final CocoonOfflineBootstrapCache? offlineBootstrapCache;
   final CocoonOfflineSnapshotLoader? offlineSnapshotLoader;
   final CocoonOfflineOwnerForget? offlineOwnerForget;
@@ -135,6 +139,11 @@ class _CocoonAuthenticatedHostState extends State<CocoonAuthenticatedHost>
   DateTime? _calendarAsOfLocalDate;
   CocoonRecordsState _recordsState = CocoonRecordsState.loading;
   List<CocoonRecordViewData> _records = const [];
+  Map<String, CocoonRecordSourceIdentity> _recordSources = const {};
+  String? _recordsNextCursor;
+  bool _loadingMoreRecords = false;
+  bool _recordsMoreError = false;
+  int _recordsReadGeneration = 0;
   CocoonCheckInSyncState _checkInSyncState = CocoonCheckInSyncState.idle;
   CocoonApprovedSymptomCatalog? _symptomCatalog;
   CocoonSymptomCatalogState _symptomCatalogState =
@@ -152,67 +161,60 @@ class _CocoonAuthenticatedHostState extends State<CocoonAuthenticatedHost>
 
   late final LifeMateRemoteConfigClient? _runtimeClient =
       widget.runtimeLoader == null
-          ? LifeMateRemoteConfigClient.fromEnvironment(
-              product: 'cocoonmate',
-              currentVersion: cocoonAppVersion,
-            )
-          : null;
+      ? LifeMateRemoteConfigClient.fromEnvironment(
+          product: 'cocoonmate',
+          currentVersion: cocoonAppVersion,
+        )
+      : null;
   late final CocoonPregnancyApiClient? _pregnancyClient =
       widget.bootstrapLoader == null
-          ? CocoonPregnancyApiClient(
-              baseUri: widget.config.apiBaseUri,
-              accessToken: () => LifeMateAuth.currentAccessToken,
-            )
-          : null;
+      ? CocoonPregnancyApiClient(
+          baseUri: widget.config.apiBaseUri,
+          accessToken: () => LifeMateAuth.currentAccessToken,
+        )
+      : null;
   late final CocoonGate3ReadModelLoader? _gate3ReadModelLoader =
       widget.gate3ReadLoader == null && widget.bootstrapLoader == null
-          ? CocoonGate3ReadModelLoader(
-              baseUri: widget.config.apiBaseUri,
-              accessToken: () => LifeMateAuth.currentAccessToken,
-            )
-          : null;
-  late final CocoonPregnancyCalendarApiClient? _calendarMutationClient =
-      widget.bootstrapLoader == null
-          ? CocoonPregnancyCalendarApiClient(
-              baseUri: widget.config.apiBaseUri,
-              accessToken: () => LifeMateAuth.currentAccessToken,
-            )
-          : null;
+      ? CocoonGate3ReadModelLoader(
+          baseUri: widget.config.apiBaseUri,
+          accessToken: () => LifeMateAuth.currentAccessToken,
+        )
+      : null;
   late final LifeMateEditApi? _calendarEditClient =
       widget.bootstrapLoader == null
-          ? LifeMateEditApi(
-              baseUri: widget.config.apiBaseUri,
-              accessToken: () => LifeMateAuth.currentAccessToken,
-            )
-          : null;
+      ? LifeMateEditApi(
+          baseUri: widget.config.apiBaseUri,
+          accessToken: () => LifeMateAuth.currentAccessToken,
+        )
+      : null;
   late final CocoonPregnancyTreatmentsApiClient? _treatmentsClient =
       widget.bootstrapLoader == null
-          ? CocoonPregnancyTreatmentsApiClient(
-              baseUri: widget.config.apiBaseUri,
-              accessToken: () => LifeMateAuth.currentAccessToken,
-            )
-          : null;
+      ? CocoonPregnancyTreatmentsApiClient(
+          baseUri: widget.config.apiBaseUri,
+          accessToken: () => LifeMateAuth.currentAccessToken,
+        )
+      : null;
   late final CocoonPregnancyMeasurementsApiClient? _measurementsHistoryClient =
       widget.bootstrapLoader == null
-          ? CocoonPregnancyMeasurementsApiClient(
-              baseUri: widget.config.apiBaseUri,
-              accessToken: () => LifeMateAuth.currentAccessToken,
-            )
-          : null;
+      ? CocoonPregnancyMeasurementsApiClient(
+          baseUri: widget.config.apiBaseUri,
+          accessToken: () => LifeMateAuth.currentAccessToken,
+        )
+      : null;
   late final CocoonPregnancyDailyApiClient? _dailyClient =
       widget.bootstrapLoader == null
-          ? CocoonPregnancyDailyApiClient(
-              baseUri: widget.config.apiBaseUri,
-              accessToken: () => LifeMateAuth.currentAccessToken,
-            )
-          : null;
+      ? CocoonPregnancyDailyApiClient(
+          baseUri: widget.config.apiBaseUri,
+          accessToken: () => LifeMateAuth.currentAccessToken,
+        )
+      : null;
   late final LifeMateApiClient? _treatmentMutationClient =
       widget.bootstrapLoader == null
-          ? LifeMateApiClient(
-              baseUri: widget.config.apiBaseUri,
-              accessToken: () => LifeMateAuth.currentAccessToken,
-            )
-          : null;
+      ? LifeMateApiClient(
+          baseUri: widget.config.apiBaseUri,
+          accessToken: () => LifeMateAuth.currentAccessToken,
+        )
+      : null;
 
   @override
   void initState() {
@@ -226,7 +228,6 @@ class _CocoonAuthenticatedHostState extends State<CocoonAuthenticatedHost>
     _runtimeClient?.close();
     _pregnancyClient?.close();
     _gate3ReadModelLoader?.close();
-    _calendarMutationClient?.close();
     _treatmentsClient?.close();
     _measurementsHistoryClient?.close();
     _dailyClient?.close();
@@ -253,53 +254,68 @@ class _CocoonAuthenticatedHostState extends State<CocoonAuthenticatedHost>
 
   @override
   Widget build(BuildContext context) => CocoonMateModule(
-        config: CocoonModuleConfig(
-          host: this,
-          calendarState: _calendarState,
-          calendarItems: _calendarItems,
-          calendarAsOfLocalDate: _calendarAsOfLocalDate,
-          timezone: _calendarTimeZone,
-          onAddCalendarAppointment:
-              _calendarMutationClient == null ? null : _openNewAppointment,
-          onOpenCalendarItem:
-              _calendarEditClient == null ? null : _openCalendarItem,
-          onRetryCalendar: () => _refreshGate3ReadModels(),
-          recordsState: _recordsState,
-          records: _records,
-          onOpenRecord: _openRecord,
-          onRetryRecords: () => _refreshGate3ReadModels(),
-          checkInSyncState: _checkInSyncState,
-          onSubmitCheckIn:
-              _gate3MutationAdapter == null ? null : _submitCheckIn,
-          symptomOptions: _symptomOptions,
-          symptomCatalogState: _symptomCatalogState,
-          symptomSubmitState: _symptomSubmitState,
-          onRetrySymptomCatalog: _refreshSymptomCatalog,
-          onSubmitSymptom: _gate3MutationAdapter?.supportsSymptom == true &&
-                  (_symptomCatalogState == CocoonSymptomCatalogState.ready ||
-                      _symptomCatalogState ==
-                          CocoonSymptomCatalogState.offlineReady)
-              ? _submitSymptom
-              : null,
-          moodSubmitState: _moodSubmitState,
-          onSubmitMood:
-              _gate3MutationAdapter?.supportsMood == true ? _submitMood : null,
-          measurementOptions: _measurementOptions,
-          measurementSubmitState: _measurementSubmitState,
-          onSubmitMeasurement:
-              _gate3MutationAdapter == null ? null : _submitMeasurement,
-          onOpenMeasurementHistory: _measurementsHistoryClient == null
-              ? null
-              : _openMeasurementHistory,
-          medicationOptions: _medicationOptions,
-          medicationSubmitState: _medicationSubmitState,
-          onPickMedicationTime:
-              _treatmentMutationClient == null ? null : _pickMedicationTime,
-          onSubmitMedication:
-              _treatmentMutationClient == null ? null : _submitMedication,
-          onOpenTreatments: _treatmentsClient == null ? null : _openTreatments,
-        ),
-      );
+    config: CocoonModuleConfig(
+      host: this,
+      calendarState: _calendarState,
+      calendarItems: _calendarItems,
+      calendarAsOfLocalDate: _calendarAsOfLocalDate,
+      timezone: _calendarTimeZone,
+      onAddCalendarAppointment: _gate3MutationAdapter?.supportsCalendar == true
+          ? _openNewAppointment
+          : null,
+      onOpenCalendarItem: _calendarEditClient == null
+          ? null
+          : _openCalendarItem,
+      onRetryCalendar: () => _refreshGate3ReadModels(),
+      recordsState: _recordsState,
+      records: _records,
+      recordsHasMore: _recordsNextCursor != null,
+      recordsLoadingMore: _loadingMoreRecords,
+      recordsLoadMoreError: _recordsMoreError,
+      onLoadMoreRecords:
+          _recordsNextCursor == null ||
+              (_gate3ReadModelLoader == null &&
+                  widget.gate3RecordsPageLoader == null)
+          ? null
+          : _loadMoreRecords,
+      onOpenRecord: _openRecord,
+      onRetryRecords: () => _refreshGate3ReadModels(),
+      checkInSyncState: _checkInSyncState,
+      onSubmitCheckIn: _gate3MutationAdapter == null ? null : _submitCheckIn,
+      symptomOptions: _symptomOptions,
+      symptomCatalogState: _symptomCatalogState,
+      symptomSubmitState: _symptomSubmitState,
+      onRetrySymptomCatalog: _refreshSymptomCatalog,
+      onSubmitSymptom:
+          _gate3MutationAdapter?.supportsSymptom == true &&
+              (_symptomCatalogState == CocoonSymptomCatalogState.ready ||
+                  _symptomCatalogState ==
+                      CocoonSymptomCatalogState.offlineReady)
+          ? _submitSymptom
+          : null,
+      moodSubmitState: _moodSubmitState,
+      onSubmitMood: _gate3MutationAdapter?.supportsMood == true
+          ? _submitMood
+          : null,
+      measurementOptions: _measurementOptions,
+      measurementSubmitState: _measurementSubmitState,
+      onSubmitMeasurement: _gate3MutationAdapter == null
+          ? null
+          : _submitMeasurement,
+      onOpenMeasurementHistory: _measurementsHistoryClient == null
+          ? null
+          : _openMeasurementHistory,
+      medicationOptions: _medicationOptions,
+      medicationSubmitState: _medicationSubmitState,
+      onPickMedicationTime: _treatmentMutationClient == null
+          ? null
+          : _pickMedicationTime,
+      onSubmitMedication: _treatmentMutationClient == null
+          ? null
+          : _submitMedication,
+      onOpenTreatments: _treatmentsClient == null ? null : _openTreatments,
+    ),
+  );
 
   @override
   Future<void> refresh() async {
@@ -307,8 +323,9 @@ class _CocoonAuthenticatedHostState extends State<CocoonAuthenticatedHost>
     _refreshing = true;
     if (mounted) setState(() => _entryState = CocoonEntryState.loading);
     try {
-      final runtime = await (widget.runtimeLoader?.call() ??
-          _runtimeClient!.load(forceRefresh: true));
+      final runtime =
+          await (widget.runtimeLoader?.call() ??
+              _runtimeClient!.load(forceRefresh: true));
       if (runtime.product != 'cocoonmate' ||
           runtime.platform.trim().isEmpty ||
           !runtime.isTrustedForUpdatePolicy(DateTime.now())) {
@@ -316,8 +333,9 @@ class _CocoonAuthenticatedHostState extends State<CocoonAuthenticatedHost>
         return;
       }
 
-      final snapshot = await (widget.bootstrapLoader?.call() ??
-          _pregnancyClient!.bootstrap(asOfDate: DateTime.now()));
+      final snapshot =
+          await (widget.bootstrapLoader?.call() ??
+              _pregnancyClient!.bootstrap(asOfDate: DateTime.now()));
       if (!await _cacheAuthoritativeBootstrap(snapshot)) return;
       final next = resolveCocoonEntryState(snapshot);
       _apply(
@@ -364,6 +382,7 @@ class _CocoonAuthenticatedHostState extends State<CocoonAuthenticatedHost>
     if (injected == null && production == null) return;
 
     _refreshingGate3 = true;
+    _recordsReadGeneration++;
     if (mounted && _calendarItems.isEmpty && _records.isEmpty) {
       setState(() {
         _calendarState = CocoonCalendarLoadState.loading;
@@ -387,6 +406,10 @@ class _CocoonAuthenticatedHostState extends State<CocoonAuthenticatedHost>
         _calendarAsOfLocalDate = values.calendarAsOfLocalDate;
         _recordsState = values.recordsState;
         _records = values.records;
+        _recordSources = values.recordSources;
+        _recordsNextCursor = values.recordsNextCursor;
+        _loadingMoreRecords = false;
+        _recordsMoreError = false;
       });
       await _refreshMedicationOptions();
       await _refreshSymptomCatalog();
@@ -397,13 +420,70 @@ class _CocoonAuthenticatedHostState extends State<CocoonAuthenticatedHost>
     }
   }
 
+  Future<void> _loadMoreRecords() async {
+    final cursor = _recordsNextCursor;
+    if (cursor == null || _loadingMoreRecords) return;
+    final generation = _recordsReadGeneration;
+    final injected = widget.gate3RecordsPageLoader;
+    final production = _gate3ReadModelLoader;
+    if (injected == null && production == null) return;
+
+    setState(() {
+      _loadingMoreRecords = true;
+      _recordsMoreError = false;
+    });
+    try {
+      final page = injected != null
+          ? await injected(
+              fa: widget.locale.languageCode == 'fa',
+              cursor: cursor,
+            )
+          : await production!.loadMoreRecords(
+              fa: widget.locale.languageCode == 'fa',
+              cursor: cursor,
+            );
+      if (!mounted ||
+          _entryState != CocoonEntryState.activePregnancy ||
+          generation != _recordsReadGeneration) {
+        return;
+      }
+      setState(() {
+        final existingIds = _records.map((record) => record.id).toSet();
+        _records = [
+          ..._records,
+          ...page.records.where((record) => !existingIds.contains(record.id)),
+        ];
+        _recordSources = Map.unmodifiable({
+          ..._recordSources,
+          ...page.recordSources,
+        });
+        _recordsNextCursor =
+            page.nextCursor == null || page.nextCursor!.trim().isEmpty
+            ? null
+            : page.nextCursor!.trim();
+        _recordsState = _records.isEmpty
+            ? CocoonRecordsState.empty
+            : CocoonRecordsState.ready;
+        _recordsMoreError = false;
+      });
+    } catch (_) {
+      if (mounted && generation == _recordsReadGeneration) {
+        setState(() => _recordsMoreError = true);
+      }
+    } finally {
+      if (mounted && generation == _recordsReadGeneration) {
+        setState(() => _loadingMoreRecords = false);
+      }
+    }
+  }
+
   // CocoonMate's closed-beta locale is Iran. This is an explicit IANA zone in
   // the canonical care-event contract, never a device-specific abbreviation.
   // A future profile-settings slice will provide the owner's saved time zone.
   static const _calendarTimeZone = 'Asia/Tehran';
 
   Future<void> _openNewAppointment() async {
-    if (!mounted || _calendarMutationClient == null) return;
+    if (!mounted || _gate3MutationAdapter?.supportsCalendar != true) return;
     final now = DateTime.now();
     await Navigator.of(context).push<void>(
       MaterialPageRoute<void>(
@@ -466,12 +546,14 @@ class _CocoonAuthenticatedHostState extends State<CocoonAuthenticatedHost>
     );
   }
 
-  Future<void> _submitAppointment(CocoonAppointmentDraft draft) async {
-    final client = _calendarMutationClient;
-    if (client == null) {
-      throw StateError('Canonical calendar client is unavailable.');
+  Future<CocoonAppointmentSubmitDisposition> _submitAppointment(
+    CocoonAppointmentDraft draft,
+  ) async {
+    final adapter = _gate3MutationAdapter;
+    if (adapter == null) {
+      throw StateError('Canonical calendar mutation adapter is unavailable.');
     }
-    await client.createEvent(
+    final result = await adapter.submitCalendarEvent(
       classification: switch (draft.kind) {
         CocoonAppointmentKind.checkup =>
           CocoonPregnancyCalendarClassification.checkup,
@@ -482,19 +564,19 @@ class _CocoonAuthenticatedHostState extends State<CocoonAuthenticatedHost>
         CocoonAppointmentKind.other =>
           CocoonPregnancyCalendarClassification.other,
       },
-      careEvent: <String, dynamic>{
-        'clientRequestId': LifeMateApiClient.createClientRequestId(),
-        'eventType': 'appointment',
-        'title': draft.title,
-        'scheduledLocalDate': _careEventDate(draft.localDate),
-        'scheduledLocalTime': _careEventTime(draft.localTime),
-        'timeZone': _calendarTimeZone,
-        'providerName': draft.provider,
-        'centerName': draft.location,
-        'patientReminderMinutesBefore': draft.reminderMinutes,
-      }..removeWhere((_, value) => value == null),
+      eventType: 'appointment',
+      title: draft.title,
+      providerName: draft.provider,
+      centerName: draft.location,
+      scheduledLocalDate: draft.localDate,
+      scheduledLocalTime: _careEventTime(draft.localTime),
+      patientReminderMinutesBefore: draft.reminderMinutes,
     );
-    await _refreshGate3ReadModels();
+    if (result.disposition == CocoonGate3MutationDisposition.confirmed) {
+      await _refreshGate3ReadModels();
+      return CocoonAppointmentSubmitDisposition.confirmed;
+    }
+    return CocoonAppointmentSubmitDisposition.queued;
   }
 
   Future<void> _openCalendarItem(CocoonCalendarItem item) async {
@@ -530,32 +612,30 @@ class _CocoonAuthenticatedHostState extends State<CocoonAuthenticatedHost>
   CocoonAppointmentDetailViewData _appointmentDetailData(
     CocoonCalendarItem item,
     Map<String, dynamic> event,
-  ) =>
-      CocoonAppointmentDetailViewData(
-        appointment: CocoonAppointmentViewData(
-          id: item.id,
-          title: event['title']?.toString().trim().isNotEmpty == true
-              ? event['title'].toString()
-              : item.title,
-          dateLabel: item.dateLabel,
-          timeLabel: item.timeLabel ?? '',
-          status: switch (event['status']?.toString().toLowerCase()) {
-            'completed' => CocoonAppointmentStatus.completed,
-            'cancelled' => CocoonAppointmentStatus.cancelled,
-            _ => CocoonAppointmentStatus.scheduled,
-          },
-          provider: _optionalText(event['providerName']),
-          location: _optionalText(event['centerName']),
-        ),
-        reminderLabel: _reminderLabel(
-          int.tryParse(
-                  event['patientReminderMinutesBefore']?.toString() ?? '') ??
-              30,
-        ),
-        address: _optionalText(event['addressLine']),
-        phone: _optionalText(event['phoneNumber']),
-        note: _optionalText(event['instructions']),
-      );
+  ) => CocoonAppointmentDetailViewData(
+    appointment: CocoonAppointmentViewData(
+      id: item.id,
+      title: event['title']?.toString().trim().isNotEmpty == true
+          ? event['title'].toString()
+          : item.title,
+      dateLabel: item.dateLabel,
+      timeLabel: item.timeLabel ?? '',
+      status: switch (event['status']?.toString().toLowerCase()) {
+        'completed' => CocoonAppointmentStatus.completed,
+        'cancelled' => CocoonAppointmentStatus.cancelled,
+        _ => CocoonAppointmentStatus.scheduled,
+      },
+      provider: _optionalText(event['providerName']),
+      location: _optionalText(event['centerName']),
+    ),
+    reminderLabel: _reminderLabel(
+      int.tryParse(event['patientReminderMinutesBefore']?.toString() ?? '') ??
+          30,
+    ),
+    address: _optionalText(event['addressLine']),
+    phone: _optionalText(event['phoneNumber']),
+    note: _optionalText(event['instructions']),
+  );
 
   Future<void> _cancelAppointment(String eventId) async {
     final client = _calendarEditClient;
@@ -599,9 +679,9 @@ class _CocoonAuthenticatedHostState extends State<CocoonAuthenticatedHost>
   ) {
     final date =
         DateTime.tryParse(event['scheduledLocalDate']?.toString() ?? '') ??
-            DateTime.now();
-    final timeParts =
-        (event['scheduledLocalTime']?.toString() ?? '00:00').split(':');
+        DateTime.now();
+    final timeParts = (event['scheduledLocalTime']?.toString() ?? '00:00')
+        .split(':');
     final hour = int.tryParse(timeParts.first) ?? 0;
     final minute = timeParts.length > 1 ? int.tryParse(timeParts[1]) ?? 0 : 0;
     return CocoonAppointmentDraft(
@@ -616,15 +696,17 @@ class _CocoonAuthenticatedHostState extends State<CocoonAuthenticatedHost>
       timeLabel: item.timeLabel ?? '',
       localDate: DateUtils.dateOnly(date),
       localTime: TimeOfDay(hour: hour, minute: minute),
-      reminderMinutes: int.tryParse(
-              event['patientReminderMinutesBefore']?.toString() ?? '') ??
+      reminderMinutes:
+          int.tryParse(
+            event['patientReminderMinutesBefore']?.toString() ?? '',
+          ) ??
           30,
       provider: _optionalText(event['providerName']),
       location: _optionalText(event['centerName']),
     );
   }
 
-  Future<void> _updateAppointment(
+  Future<CocoonAppointmentSubmitDisposition> _updateAppointment(
     CocoonCalendarItem item,
     Map<String, dynamic> current,
     CocoonAppointmentDraft draft,
@@ -646,8 +728,10 @@ class _CocoonAuthenticatedHostState extends State<CocoonAuthenticatedHost>
       scheduledLocalTime: _careEventTime(draft.localTime),
       timeZone: _optionalText(current['timeZone']) ?? _calendarTimeZone,
       patientReminderMinutesBefore: draft.reminderMinutes,
-      caregiverReminderMinutesBefore: int.tryParse(
-              current['caregiverReminderMinutesBefore']?.toString() ?? '') ??
+      caregiverReminderMinutesBefore:
+          int.tryParse(
+            current['caregiverReminderMinutesBefore']?.toString() ?? '',
+          ) ??
           60,
       centerName: draft.location,
       addressLine: _optionalText(current['addressLine']),
@@ -659,20 +743,19 @@ class _CocoonAuthenticatedHostState extends State<CocoonAuthenticatedHost>
           : 'scheduled',
     );
     await _refreshGate3ReadModels();
+    return CocoonAppointmentSubmitDisposition.confirmed;
   }
 
   String _reminderLabel(int minutes) => switch (minutes) {
-        0 =>
-          widget.locale.languageCode == 'fa' ? 'بدون یادآوری' : 'No reminder',
-        30 => widget.locale.languageCode == 'fa'
-            ? '۳۰ دقیقه قبل'
-            : '30 minutes before',
-        60 =>
-          widget.locale.languageCode == 'fa' ? '۱ ساعت قبل' : '1 hour before',
-        _ => widget.locale.languageCode == 'fa'
-            ? '$minutes دقیقه قبل'
-            : '$minutes minutes before',
-      };
+    0 => widget.locale.languageCode == 'fa' ? 'بدون یادآوری' : 'No reminder',
+    30 =>
+      widget.locale.languageCode == 'fa' ? '۳۰ دقیقه قبل' : '30 minutes before',
+    60 => widget.locale.languageCode == 'fa' ? '۱ ساعت قبل' : '1 hour before',
+    _ =>
+      widget.locale.languageCode == 'fa'
+          ? '$minutes دقیقه قبل'
+          : '$minutes minutes before',
+  };
 
   String? _optionalText(Object? value) {
     final text = value?.toString().trim() ?? '';
@@ -707,9 +790,7 @@ class _CocoonAuthenticatedHostState extends State<CocoonAuthenticatedHost>
     }
     try {
       final locale = widget.locale.languageCode == 'fa' ? 'fa' : 'en';
-      final catalog = await client.symptomCatalog(
-        locale: locale,
-      );
+      final catalog = await client.symptomCatalog(locale: locale);
       if (!mounted || _entryState != CocoonEntryState.activePregnancy) return;
       setState(() {
         _symptomCatalog = catalog;
@@ -718,8 +799,10 @@ class _CocoonAuthenticatedHostState extends State<CocoonAuthenticatedHost>
             : CocoonSymptomCatalogState.ready;
       });
       try {
-        await _productionOfflineOwnerCoordinator()
-            ?.cacheApprovedSymptomCatalog(locale: locale, catalog: catalog);
+        await _productionOfflineOwnerCoordinator()?.cacheApprovedSymptomCatalog(
+          locale: locale,
+          catalog: catalog,
+        );
       } catch (_) {
         // The catalog is usable online even when protected cache persistence
         // is unavailable; do not fall back to an unprotected store.
@@ -748,13 +831,14 @@ class _CocoonAuthenticatedHostState extends State<CocoonAuthenticatedHost>
         _symptomCatalogState = catalog == null
             ? CocoonSymptomCatalogState.offline
             : catalog.entries.isEmpty
-                ? CocoonSymptomCatalogState.empty
-                : CocoonSymptomCatalogState.offlineReady;
+            ? CocoonSymptomCatalogState.empty
+            : CocoonSymptomCatalogState.offlineReady;
       });
     } catch (_) {
       if (mounted) {
         setState(
-            () => _symptomCatalogState = CocoonSymptomCatalogState.offline);
+          () => _symptomCatalogState = CocoonSymptomCatalogState.offline,
+        );
       }
     }
   }
@@ -817,44 +901,50 @@ class _CocoonAuthenticatedHostState extends State<CocoonAuthenticatedHost>
         for (final occurrence in treatmentContext.typedDoseOccurrences)
           occurrence.treatmentPlanId: occurrence,
       };
-      final items = treatmentContext.typedTreatmentPlans.map((plan) {
-        final occurrence = next[plan.id];
-        return CocoonActiveTreatmentViewData(
-          id: plan.id,
-          title: plan.medicationName,
-          details: [plan.doseText, plan.strengthText]
-              .whereType<String>()
-              .where((value) => value.isNotEmpty)
-              .join(' · '),
-          nextDoseLabel: occurrence == null
-              ? null
-              : '${occurrence.scheduledLocalDate} · ${occurrence.scheduledLocalTime}',
-          statusLabel: plan.status,
-        );
-      }).toList(growable: false);
+      final items = treatmentContext.typedTreatmentPlans
+          .map((plan) {
+            final occurrence = next[plan.id];
+            return CocoonActiveTreatmentViewData(
+              id: plan.id,
+              title: plan.medicationName,
+              details: [plan.doseText, plan.strengthText]
+                  .whereType<String>()
+                  .where((value) => value.isNotEmpty)
+                  .join(' · '),
+              nextDoseLabel: occurrence == null
+                  ? null
+                  : '${occurrence.scheduledLocalDate} · ${occurrence.scheduledLocalTime}',
+              statusLabel: plan.status,
+            );
+          })
+          .toList(growable: false);
       if (!mounted) return;
-      Navigator.of(context).push(MaterialPageRoute<void>(
-        builder: (_) => CocoonTreatmentsScreen(
-          fa: widget.locale.languageCode == 'fa',
-          state: items.isEmpty
-              ? CocoonTreatmentsLoadState.empty
-              : CocoonTreatmentsLoadState.ready,
-          items: items,
-          onRetry: _openTreatments,
-          onOpenTreatment: (_) {},
+      Navigator.of(context).push(
+        MaterialPageRoute<void>(
+          builder: (_) => CocoonTreatmentsScreen(
+            fa: widget.locale.languageCode == 'fa',
+            state: items.isEmpty
+                ? CocoonTreatmentsLoadState.empty
+                : CocoonTreatmentsLoadState.ready,
+            items: items,
+            onRetry: _openTreatments,
+            onOpenTreatment: (_) {},
+          ),
         ),
-      ));
+      );
     } on Object {
       if (!mounted) return;
-      Navigator.of(context).push(MaterialPageRoute<void>(
-        builder: (_) => CocoonTreatmentsScreen(
-          fa: widget.locale.languageCode == 'fa',
-          state: CocoonTreatmentsLoadState.error,
-          items: const [],
-          onRetry: _openTreatments,
-          onOpenTreatment: (_) {},
+      Navigator.of(context).push(
+        MaterialPageRoute<void>(
+          builder: (_) => CocoonTreatmentsScreen(
+            fa: widget.locale.languageCode == 'fa',
+            state: CocoonTreatmentsLoadState.error,
+            items: const [],
+            onRetry: _openTreatments,
+            onOpenTreatment: (_) {},
+          ),
         ),
-      ));
+      );
     }
   }
 
@@ -885,8 +975,9 @@ class _CocoonAuthenticatedHostState extends State<CocoonAuthenticatedHost>
       return;
     }
     if (mounted) {
-      setState(() =>
-          _measurementHistoryState = CocoonMeasurementHistoryState.loading);
+      setState(
+        () => _measurementHistoryState = CocoonMeasurementHistoryState.loading,
+      );
     }
     final now = DateTime.now();
     try {
@@ -894,24 +985,28 @@ class _CocoonAuthenticatedHostState extends State<CocoonAuthenticatedHost>
         fromDate: DateTime(now.year, now.month, now.day - 90),
         toDate: DateTime(now.year, now.month, now.day),
       );
-      final items = response.items.map((observation) {
-        final primary = observation.valuePrimary;
-        final secondary = observation.valueSecondary;
-        final value = primary == null
-            ? ''
-            : secondary == null
+      final items = response.items
+          .map((observation) {
+            final primary = observation.valuePrimary;
+            final secondary = observation.valueSecondary;
+            final value = primary == null
+                ? ''
+                : secondary == null
                 ? '${_numberLabel(primary)} ${observation.unitPrimary ?? ''}'
-                    .trim()
+                      .trim()
                 : '${_numberLabel(primary)}/${_numberLabel(secondary)} ${observation.unitPrimary ?? observation.unitSecondary ?? ''}'
-                    .trim();
-        return CocoonMeasurementHistoryItem(
-          id: observation.id,
-          metricLabel: _measurementHistoryTitle(observation.observationType),
-          recordedAtLabel: _careEventDate(observation.observedLocalDate),
-          valueLabel: value,
-          syncState: CocoonMeasurementHistorySyncState.confirmed,
-        );
-      }).toList(growable: false);
+                      .trim();
+            return CocoonMeasurementHistoryItem(
+              id: observation.id,
+              metricLabel: _measurementHistoryTitle(
+                observation.observationType,
+              ),
+              recordedAtLabel: _careEventDate(observation.observedLocalDate),
+              valueLabel: value,
+              syncState: CocoonMeasurementHistorySyncState.confirmed,
+            );
+          })
+          .toList(growable: false);
       if (mounted) {
         setState(() {
           _measurementHistory = items;
@@ -922,13 +1017,15 @@ class _CocoonAuthenticatedHostState extends State<CocoonAuthenticatedHost>
       }
     } on LifeMateApiException {
       if (mounted) {
-        setState(() =>
-            _measurementHistoryState = CocoonMeasurementHistoryState.error);
+        setState(
+          () => _measurementHistoryState = CocoonMeasurementHistoryState.error,
+        );
       }
     } catch (_) {
       if (mounted) {
-        setState(() =>
-            _measurementHistoryState = CocoonMeasurementHistoryState.error);
+        setState(
+          () => _measurementHistoryState = CocoonMeasurementHistoryState.error,
+        );
       }
     }
   }
@@ -1093,7 +1190,8 @@ class _CocoonAuthenticatedHostState extends State<CocoonAuthenticatedHost>
       await _refreshMeasurementHistory();
       if (mounted) {
         setState(
-            () => _symptomSubmitState = CocoonSymptomSubmitState.confirmed);
+          () => _symptomSubmitState = CocoonSymptomSubmitState.confirmed,
+        );
       }
     } on LifeMateApiException catch (error) {
       if (mounted) {
@@ -1161,12 +1259,11 @@ class _CocoonAuthenticatedHostState extends State<CocoonAuthenticatedHost>
       String en,
       String faValue,
       String unit,
-    ) =>
-        CocoonMeasurementFieldSpec(
-          id: id,
-          label: label(en, faValue),
-          unit: unit,
-        );
+    ) => CocoonMeasurementFieldSpec(
+      id: id,
+      label: label(en, faValue),
+      unit: unit,
+    );
     return [
       CocoonMeasurementOption(
         id: CocoonPregnancyMeasurementType.weight.wireValue,
@@ -1271,17 +1368,25 @@ class _CocoonAuthenticatedHostState extends State<CocoonAuthenticatedHost>
     setState(() {
       _calendarState = CocoonCalendarLoadState.error;
       _recordsState = CocoonRecordsState.error;
+      _loadingMoreRecords = false;
+      _recordsMoreError = false;
+      _recordsMoreError = false;
     });
   }
 
   void _clearGate3ReadModels() {
     if (!mounted) return;
+    _recordsReadGeneration++;
     setState(() {
       _calendarState = CocoonCalendarLoadState.loading;
       _calendarItems = const [];
       _calendarAsOfLocalDate = null;
       _recordsState = CocoonRecordsState.loading;
       _records = const [];
+      _recordSources = const {};
+      _recordsNextCursor = null;
+      _loadingMoreRecords = false;
+      _recordsMoreError = false;
       _checkInSyncState = CocoonCheckInSyncState.idle;
       _symptomCatalog = null;
       _symptomCatalogState = CocoonSymptomCatalogState.loading;
@@ -1326,7 +1431,7 @@ class _CocoonAuthenticatedHostState extends State<CocoonAuthenticatedHost>
       final cached = widget.offlineSnapshotLoader != null
           ? await widget.offlineSnapshotLoader!.call()
           : await _productionOfflineOwnerCoordinator()
-              ?.readCachedOwnerSnapshot();
+                ?.readCachedOwnerSnapshot();
       final episode = cached?.episode;
       if (cached != null &&
           episode != null &&
@@ -1470,6 +1575,7 @@ class _CocoonAuthenticatedHostState extends State<CocoonAuthenticatedHost>
   @override
   Future<void> openGlobalProfile() async {
     recordSafeEvent('cocoon_global_profile_requested');
+    widget.onOpenGlobalProfile?.call();
   }
 
   @override

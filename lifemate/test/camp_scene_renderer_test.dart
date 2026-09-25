@@ -3,6 +3,22 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:lifemate/living_camp/camp_scene_renderer.dart';
 
 void main() {
+  testWidgets('wide panes keep a centered phone-width camp scene', (
+    tester,
+  ) async {
+    await tester.binding.setSurfaceSize(const Size(900, 600));
+    addTearDown(() => tester.binding.setSurfaceSize(null));
+    await tester.pumpWidget(
+      const MaterialApp(
+        home: CampSceneRenderer(zones: [], presentations: [], layers: []),
+      ),
+    );
+
+    final viewport = find.byKey(const ValueKey('camp-scene-viewport'));
+    expect(tester.getSize(viewport), const Size(360, 600));
+    expect(tester.getCenter(viewport).dx, closeTo(450, .1));
+  });
+
   test('zone visual resolver falls back to Stage 1 default', () {
     final stage1 = CampZoneVisual(
       stage: 1,

@@ -1,10 +1,45 @@
 import 'package:flutter/material.dart';
+import 'package:lifemate_client/lifemate_client.dart';
+import 'package:wellmate/main.dart' show WellMateEmbeddedModule;
+import 'package:caremate/main.dart' show CareMateEmbeddedModule;
+import 'package:cocoonmate/app/cocoon_standalone_app.dart'
+    show CocoonAuthenticatedHost;
 
 enum LifeMateModuleId { wellMate, careMate, cocoonMate, womenHealth, fitMate }
 
 enum ModuleAvailability { available, locked, unavailable }
 
-typedef ModulePageBuilder = Widget Function(BuildContext context);
+/// Modules receive the same authenticated API boundary adopted by the shell.
+/// Product modules must not create another auth gate or Supabase client.
+typedef ModulePageBuilder =
+    Widget Function(
+      BuildContext context,
+      LifeMateApiClient apiClient,
+      LifeMateModuleHostActions hostActions,
+    );
+
+/// Navigation handoffs a product may request from the parent shell.
+class LifeMateModuleHostActions {
+  const LifeMateModuleHostActions({
+    this.onOpenGlobalProfile = _moduleNoop,
+    this.onReturnHome = _moduleNoop,
+  });
+
+  final VoidCallback onOpenGlobalProfile;
+  final VoidCallback onReturnHome;
+}
+
+void _moduleNoop() {}
+
+/// Product-owned settings that appear inside the shell's single You/Profile
+/// destination. Builders receive the shell's authenticated client and must not
+/// add another account/profile header or authentication gate.
+typedef ModuleProfileSectionsBuilder =
+    List<Widget> Function(
+      BuildContext context,
+      LifeMateApiClient apiClient,
+      bool isPersian,
+    );
 
 @immutable
 class LifeMateModuleDefinition {
@@ -16,6 +51,7 @@ class LifeMateModuleDefinition {
     required this.icon,
     required this.availability,
     this.pageBuilder,
+    this.profileSectionsBuilder,
   });
 
   final LifeMateModuleId id;
@@ -25,6 +61,7 @@ class LifeMateModuleDefinition {
   final IconData icon;
   final ModuleAvailability availability;
   final ModulePageBuilder? pageBuilder;
+  final ModuleProfileSectionsBuilder? profileSectionsBuilder;
 
   bool get canOpen =>
       availability == ModuleAvailability.available && pageBuilder != null;
@@ -112,6 +149,61 @@ class LifeMateModuleRegistry {
         labelFa: 'فیت‌میت',
         icon: Icons.directions_run_outlined,
         availability: ModuleAvailability.unavailable,
+      ),
+    ]);
+  }
+
+  /// Production product roots. The shell passes its own authenticated API
+  /// client and navigation actions into each mounted product experience.
+  factory LifeMateModuleRegistry.production() {
+    return LifeMateModuleRegistry([
+      LifeMateModuleDefinition(
+        id: LifeMateModuleId.wellMate,
+        routeName: '/modules/wellmate',
+        labelEn: 'WellMate',
+        labelFa: 'ول‌میت',
+        icon: Icons.health_and_safety_outlined,
+        availability: ModuleAvailability.available,
+        pageBuilder: (context, apiClient, hostActions) =>
+            WellMateEmbeddedModule(
+              apiClient: apiClient,
+              locale: Localizations.localeOf(context),
+              onOpenGlobalProfile: hostActions.onOpenGlobalProfile,
+            ),
+      ),
+      LifeMateModuleDefinition(
+        id: LifeMateModuleId.careMate,
+        routeName: '/modules/caremate',
+        labelEn: 'CareMate',
+        labelFa: 'کرمیت',
+        icon: Icons.volunteer_activism_outlined,
+        availability: ModuleAvailability.available,
+        pageBuilder: (context, apiClient, hostActions) =>
+            CareMateEmbeddedModule(
+              apiClient: apiClient,
+              locale: Localizations.localeOf(context),
+              onOpenGlobalProfile: hostActions.onOpenGlobalProfile,
+            ),
+      ),
+      LifeMateModuleDefinition(
+        id: LifeMateModuleId.cocoonMate,
+        routeName: '/modules/cocoonmate',
+        labelEn: 'CocoonMate',
+        labelFa: 'کوکون‌میت',
+        icon: Icons.child_friendly_outlined,
+        availability: ModuleAvailability.available,
+        pageBuilder: (context, apiClient, hostActions) =>
+            CocoonAuthenticatedHost(
+              config: AppConfig.fromEnvironment(),
+              locale: Localizations.localeOf(context),
+              onOpenGlobalProfile: hostActions.onOpenGlobalProfile,
+            ),
+      ),
+      ...LifeMateModuleRegistry.foundation().modules.where(
+        (module) =>
+            module.id != LifeMateModuleId.wellMate &&
+            module.id != LifeMateModuleId.careMate &&
+            module.id != LifeMateModuleId.cocoonMate,
       ),
     ]);
   }

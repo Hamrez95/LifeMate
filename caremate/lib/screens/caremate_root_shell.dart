@@ -88,27 +88,27 @@ class _CareMateRootShellState extends State<CareMateRootShell>
     if (!_visitedTabs.contains(index)) return const SizedBox.shrink();
     return switch (index) {
       0 => CalendarScreen(
-        refreshToken: _refreshTokens[0],
-        onNavigationTap: _selectTab,
-      ),
+          refreshToken: _refreshTokens[0],
+          onNavigationTap: _selectTab,
+        ),
       1 => CareMateFeaturePreviewScreen(
-        initialIndex: 1,
-        refreshToken: _refreshTokens[1],
-        onNavigationTap: _selectTab,
-      ),
+          initialIndex: 1,
+          refreshToken: _refreshTokens[1],
+          onNavigationTap: _selectTab,
+        ),
       2 => CareEventManagementScreen(
-        refreshToken: _refreshTokens[2],
-        onNavigationTap: _selectTab,
-      ),
+          refreshToken: _refreshTokens[2],
+          onNavigationTap: _selectTab,
+        ),
       3 => CareMateFeaturePreviewScreen(
-        initialIndex: 3,
-        refreshToken: _refreshTokens[3],
-        onNavigationTap: _selectTab,
-      ),
+          initialIndex: 3,
+          refreshToken: _refreshTokens[3],
+          onNavigationTap: _selectTab,
+        ),
       _ => DashboardScreen(
-        refreshToken: _refreshTokens[4],
-        onNavigationTap: _selectTab,
-      ),
+          refreshToken: _refreshTokens[4],
+          onNavigationTap: _selectTab,
+        ),
     };
   }
 
@@ -119,11 +119,12 @@ class _CareMateRootShellState extends State<CareMateRootShell>
       index: _currentIndex,
       children: List<Widget>.generate(5, _tab),
     );
-    final pairingEnabled = LifeMateRuntimeConfigScope.maybeOf(context)?.boolFlag(
-          'client.care_pairing.enabled',
-          defaultValue: false,
-        ) ??
-        false;
+    final pairingEnabled =
+        LifeMateRuntimeConfigScope.maybeOf(context)?.boolFlag(
+              'client.care_pairing.enabled',
+              defaultValue: false,
+            ) ??
+            false;
     if (!pairingEnabled) {
       return _CareMateRemotePairingOffGate(
         apiClient: apiClient,

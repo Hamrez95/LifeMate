@@ -7,11 +7,13 @@ class ProfileYouScreen extends StatefulWidget {
     required this.apiClient,
     required this.isPersian,
     required this.onLocaleChanged,
+    this.productSections = const <Widget>[],
   });
 
   final LifeMateApiClient apiClient;
   final bool isPersian;
   final ValueChanged<Locale> onLocaleChanged;
+  final List<Widget> productSections;
 
   @override
   State<ProfileYouScreen> createState() => _ProfileYouScreenState();
@@ -224,6 +226,10 @@ class _ProfileYouScreenState extends State<ProfileYouScreen> {
               ),
             ],
           ),
+          for (final section in widget.productSections) ...[
+            const SizedBox(height: 18),
+            section,
+          ],
         ],
       ),
     );

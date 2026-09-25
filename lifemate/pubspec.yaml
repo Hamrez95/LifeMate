@@ -14,20 +14,33 @@ dependencies:
     sdk: flutter
   lifemate_client:
     path: ../packages/lifemate_client
+  lifemate_ui:
+    path: ../packages/lifemate_ui
+  wellmate:
+    path: ../wellmate
+  caremate:
+    path: ../caremate
+  cocoonmate:
+    path: ../cocoonmate
 
 dev_dependencies:
   flutter_test:
     sdk: flutter
+  flutter_launcher_icons: 0.14.4
   http: 1.6.0
 
 flutter:
   uses-material-design: true
   assets:
+    - assets/branding/lifemate_launch_city.jpg
+    - assets/branding/lifemate_logo.png
     - assets/living_camp/v1/raster/base/camp_background_day.webp
+    - assets/living_camp/v1/raster/base/camp_terrain_dusk.webp
     - assets/living_camp/v1/raster/zones/lifemate_home/stage_1/default_day.webp
     - assets/living_camp/v1/raster/zones/wellmate/stage_1/default_day.webp
     - assets/living_camp/v1/raster/zones/caremate/stage_1/default_day.webp
     - assets/living_camp/v1/raster/zones/reproductive_context/stage_1/default_day.webp
+    - assets/living_camp/v1/raster/zones/reproductive_context/stage_1/moon_garden.webp
     - assets/living_camp/v1/raster/zones/fitmate/stage_1/under_construction_day.webp
     - assets/living_camp/v1/raster/actors/adult_female_idle.png
     - assets/living_camp/v1/raster/actors/adult_male_idle.png
@@ -41,3 +54,10 @@ flutter:
     - assets/living_camp/v1/raster/actors/male_age_20_idle.png
     - assets/living_camp/v1/raster/actors/male_age_50_idle.png
     - assets/living_camp/v1/raster/actors/male_age_70_idle.png
+
+flutter_launcher_icons:
+  android: true
+  image_path: assets/branding/lifemate_logo.png
+  adaptive_icon_background: '#102A4D'
+  adaptive_icon_foreground: assets/branding/lifemate_logo.png
+  min_sdk_android: 21

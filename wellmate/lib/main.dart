@@ -228,30 +228,117 @@ class WellMateApp extends StatelessWidget {
       logoAssetPath: 'assets/images/WellMateWithoutBack.png',
       unauthenticatedBuilder: (context, _, appName, logoAssetPath) =>
           LifeMateSharedAuthExperience(
-            appName: appName,
-            logoAssetPath: logoAssetPath,
-          ),
+        appName: appName,
+        logoAssetPath: logoAssetPath,
+      ),
       authenticatedBuilder: (context, apiClient) =>
           Provider<LifeMateApiClient>.value(
-            value: apiClient,
-            child: LifeMateRuntimeConfigGate(
-              product: 'wellmate',
-              currentVersion: wellMateAppVersion,
-              child: LifeMateAccountOnboardingGate(
-                child: WellMateFirstValueGate(
-                  child: _AuthenticatedWellMateShell(apiClient: apiClient),
-                ),
-              ),
+        value: apiClient,
+        child: LifeMateRuntimeConfigGate(
+          product: 'wellmate',
+          currentVersion: wellMateAppVersion,
+          child: LifeMateAccountOnboardingGate(
+            child: WellMateFirstValueGate(
+              child: _AuthenticatedWellMateShell(apiClient: apiClient),
             ),
           ),
+        ),
+      ),
     );
   }
 }
 
-class _AuthenticatedWellMateShell extends StatefulWidget {
-  const _AuthenticatedWellMateShell({required this.apiClient});
+/// Embeddable WellMate composition. It reuses the shell's authenticated API
+/// client and deliberately bypasses the standalone auth/onboarding roots.
+class WellMateEmbeddedModule extends StatefulWidget {
+  const WellMateEmbeddedModule({
+    required this.apiClient,
+    required this.locale,
+    required this.onOpenGlobalProfile,
+    this.initialTab = 5,
+    super.key,
+  });
 
   final LifeMateApiClient apiClient;
+  final Locale locale;
+  final VoidCallback onOpenGlobalProfile;
+  final int initialTab;
+
+  @override
+  State<WellMateEmbeddedModule> createState() => _WellMateEmbeddedModuleState();
+}
+
+class _WellMateEmbeddedModuleState extends State<WellMateEmbeddedModule> {
+  late final NotificationProvider _notificationProvider =
+      ContextualNotificationProvider();
+  late final Future<void> _notificationReady = _notificationProvider
+      .initialize()
+      .catchError((Object error, StackTrace stackTrace) {
+    FlutterError.reportError(
+      FlutterErrorDetails(
+        exception: error,
+        stack: stackTrace,
+        library: 'wellmate.embedded.notifications',
+        silent: true,
+      ),
+    );
+  });
+
+  @override
+  void dispose() {
+    _notificationProvider.detachApiClient(widget.apiClient);
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) => FutureBuilder<void>(
+        future: _notificationReady,
+        builder: (context, snapshot) {
+          if (snapshot.connectionState != ConnectionState.done) {
+            return const Scaffold(
+                body: Center(child: CircularProgressIndicator()));
+          }
+          return MultiProvider(
+            providers: [
+              ChangeNotifierProvider<NotificationProvider>.value(
+                value: _notificationProvider,
+              ),
+              ChangeNotifierProvider(
+                  create: (_) => LocaleProvider(initialLocale: widget.locale)),
+              ChangeNotifierProvider(create: (_) => SettingsProvider()),
+              ChangeNotifierProvider(create: (_) => MedicationProvider()),
+            ],
+            child: WellMateApp(
+              config: AppConfig.fromEnvironment(),
+              authInitialized: true,
+              home: Provider<LifeMateApiClient>.value(
+                value: widget.apiClient,
+                child: LifeMateRuntimeConfigGate(
+                  product: 'wellmate',
+                  currentVersion: wellMateAppVersion,
+                  child: _AuthenticatedWellMateShell(
+                    apiClient: widget.apiClient,
+                    onOpenGlobalProfile: widget.onOpenGlobalProfile,
+                    initialTab: widget.initialTab,
+                  ),
+                ),
+              ),
+            ),
+          );
+        },
+      );
+}
+
+class _AuthenticatedWellMateShell extends StatefulWidget {
+  const _AuthenticatedWellMateShell({
+    required this.apiClient,
+    this.onOpenGlobalProfile,
+    this.initialTab = 5,
+  });
+
+  final LifeMateApiClient apiClient;
+  final VoidCallback? onOpenGlobalProfile;
+  final int initialTab;
 
   @override
   State<_AuthenticatedWellMateShell> createState() =>
@@ -259,8 +346,7 @@ class _AuthenticatedWellMateShell extends StatefulWidget {
 }
 
 class _AuthenticatedWellMateShellState
-    extends State<_AuthenticatedWellMateShell>
-    with WidgetsBindingObserver {
+    extends State<_AuthenticatedWellMateShell> with WidgetsBindingObserver {
   final GlobalKey<NavigatorState> _navigatorKey = GlobalKey<NavigatorState>();
   final WellMateNavigationRefreshObserver _refreshObserver =
       WellMateNavigationRefreshObserver();
@@ -369,8 +455,12 @@ class _AuthenticatedWellMateShellState
         child: Navigator(
           key: _navigatorKey,
           observers: [_refreshObserver],
-          onGenerateRoute: (_) =>
-              MaterialPageRoute<void>(builder: (_) => const HomeScreen()),
+          onGenerateRoute: (_) => MaterialPageRoute<void>(
+            builder: (_) => HomeScreen(
+              onOpenGlobalProfile: widget.onOpenGlobalProfile,
+              initialTab: widget.initialTab,
+            ),
+          ),
         ),
       ),
     );

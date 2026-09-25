@@ -14,6 +14,7 @@ import 'core/localization/locale_provider.dart';
 import 'providers/care_notification_provider.dart';
 import 'providers/companion_phase_notification_provider.dart';
 import 'screens/caremate_root_shell.dart';
+import 'widgets/custom_app_header.dart' show CareMateModuleHost;
 
 void main() {
   final config = AppConfig.fromEnvironment();
@@ -198,19 +199,103 @@ class CareMateApp extends StatelessWidget {
       logoAssetPath: 'assets/images/CareMateWithoutBack.png',
       unauthenticatedBuilder: (context, _, appName, logoAssetPath) =>
           LifeMateSharedAuthExperience(
-            appName: appName,
-            logoAssetPath: logoAssetPath,
-          ),
-      authenticatedBuilder: (context, apiClient) =>
-          LifeMateRuntimeConfigGate(
-            product: 'caremate',
-            currentVersion: careMateAppVersion,
-            child: LifeMateAccountOnboardingGate(
-              child: _AuthenticatedCareMateShell(apiClient: apiClient),
-            ),
-          ),
+        appName: appName,
+        logoAssetPath: logoAssetPath,
+      ),
+      authenticatedBuilder: (context, apiClient) => LifeMateRuntimeConfigGate(
+        product: 'caremate',
+        currentVersion: careMateAppVersion,
+        child: LifeMateAccountOnboardingGate(
+          child: _AuthenticatedCareMateShell(apiClient: apiClient),
+        ),
+      ),
     );
   }
+}
+
+/// Embedded CareMate composition. The shell owns session/authentication; this
+/// widget mounts only CareMate's authenticated navigation and local providers.
+class CareMateEmbeddedModule extends StatefulWidget {
+  const CareMateEmbeddedModule({
+    required this.apiClient,
+    required this.locale,
+    required this.onOpenGlobalProfile,
+    super.key,
+  });
+
+  final LifeMateApiClient apiClient;
+  final Locale locale;
+  final VoidCallback onOpenGlobalProfile;
+
+  @override
+  State<CareMateEmbeddedModule> createState() => _CareMateEmbeddedModuleState();
+}
+
+class _CareMateEmbeddedModuleState extends State<CareMateEmbeddedModule> {
+  late final CareNotificationProvider _notificationProvider =
+      CareNotificationProvider();
+  late final CompanionPhaseNotificationProvider _phaseNotificationProvider =
+      CompanionPhaseNotificationProvider();
+  late final Future<void> _notificationReady = _notificationProvider
+      .initialize()
+      .catchError((Object error, StackTrace stackTrace) {
+    FlutterError.reportError(
+      FlutterErrorDetails(
+        exception: error,
+        stack: stackTrace,
+        library: 'caremate.embedded.notifications',
+        silent: true,
+      ),
+    );
+  });
+
+  @override
+  void dispose() {
+    _notificationProvider.detachApiClient(widget.apiClient);
+    _notificationProvider.dispose();
+    _phaseNotificationProvider.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) => FutureBuilder<void>(
+        future: _notificationReady,
+        builder: (context, snapshot) {
+          if (snapshot.connectionState != ConnectionState.done) {
+            return const Scaffold(
+                body: Center(child: CircularProgressIndicator()));
+          }
+          return MultiProvider(
+            providers: [
+              ChangeNotifierProvider(
+                  create: (_) => LocaleProvider(initialLocale: widget.locale)),
+              ChangeNotifierProvider<CareNotificationProvider>.value(
+                value: _notificationProvider,
+              ),
+              ChangeNotifierProvider<CompanionPhaseNotificationProvider>.value(
+                value: _phaseNotificationProvider,
+              ),
+            ],
+            child: CareMateApp(
+              config: AppConfig.fromEnvironment(),
+              authInitialized: true,
+              home: CareMateModuleHost(
+                onOpenGlobalProfile: widget.onOpenGlobalProfile,
+                child: Provider<LifeMateApiClient>.value(
+                  value: widget.apiClient,
+                  child: LifeMateRuntimeConfigGate(
+                    product: 'caremate',
+                    currentVersion: careMateAppVersion,
+                    child: _AuthenticatedCareMateShell(
+                      apiClient: widget.apiClient,
+                    ),
+                  ),
+                ),
+              ),
+            ),
+          );
+        },
+      );
 }
 
 class _AuthenticatedCareMateShell extends StatefulWidget {

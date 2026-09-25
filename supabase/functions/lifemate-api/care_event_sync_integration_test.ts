@@ -25,6 +25,14 @@ async function createIdentity(
     insert into lifemate.app_users(id,auth_subject,status,created_at_utc,updated_at_utc)
     values (${appUserId}::uuid,${crypto.randomUUID()},'Active',now(),now())
   `;
+  // The compatibility trigger bootstraps an Account whose id matches the
+  // AppUser. Detach that bridge before assigning the AppUser to this test's
+  // deliberately distinct Account, as other Person-identity fixtures do.
+  await fixtureSql`
+    update identity.accounts
+    set legacy_app_user_id=null,updated_at_utc=now()
+    where legacy_app_user_id=${appUserId}::uuid
+  `;
   await fixtureSql`
     insert into identity.accounts(id,legacy_app_user_id,status)
     values (${accountId}::uuid,${appUserId}::uuid,'Active')
@@ -49,18 +57,42 @@ async function cleanupIdentity(
     where patient_person_id=${personId}::uuid
   `.catch(() => undefined);
   await fixtureSql`
+    delete from commerce.entitlements
+    where grantee_account_id in (${appUserId}::uuid,${accountId}::uuid)
+       or beneficiary_person_id in (${appUserId}::uuid,${personId}::uuid)
+  `.catch(() => undefined);
+  await fixtureSql`
+    delete from ecosystem.app_enrollments
+    where account_id in (${appUserId}::uuid,${accountId}::uuid)
+  `.catch(() => undefined);
+  await fixtureSql`
+    delete from identity.external_identities
+    where account_id in (${appUserId}::uuid,${accountId}::uuid)
+  `.catch(() => undefined);
+  await fixtureSql`
     delete from core.account_person_links
-    where account_id=${accountId}::uuid or person_id=${personId}::uuid
+    where account_id in (${appUserId}::uuid,${accountId}::uuid)
+       or person_id in (${appUserId}::uuid,${personId}::uuid)
+  `.catch(() => undefined);
+  await fixtureSql`
+    delete from core.person_profiles
+    where person_id in (${appUserId}::uuid,${personId}::uuid)
   `.catch(() => undefined);
   await fixtureSql`
     update identity.accounts set legacy_app_user_id=null
-    where id=${accountId}::uuid
+    where id in (${appUserId}::uuid,${accountId}::uuid)
   `.catch(() => undefined);
-  await fixtureSql`delete from identity.accounts where id=${accountId}::uuid`
+  await fixtureSql`
+    delete from identity.accounts
+    where id in (${appUserId}::uuid,${accountId}::uuid)
+  `
     .catch(() => undefined);
   await fixtureSql`delete from lifemate.app_users where id=${appUserId}::uuid`
     .catch(() => undefined);
-  await fixtureSql`delete from core.persons where id=${personId}::uuid`
+  await fixtureSql`
+    delete from core.persons
+    where id in (${appUserId}::uuid,${personId}::uuid)
+  `
     .catch(() => undefined);
 }
 
