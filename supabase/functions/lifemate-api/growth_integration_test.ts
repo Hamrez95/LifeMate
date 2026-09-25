@@ -20,7 +20,9 @@ Deno.test({
   sanitizeOps: false,
   sanitizeResources: false,
   fn: async () => {
-    const sql = postgres(databaseUrl, { max: 1, prepare: false });
+    const adminDatabaseUrl = Deno.env.get("TEST_ADMIN_DATABASE_URL") ??
+      databaseUrl;
+    const sql = postgres(adminDatabaseUrl, { max: 1, prepare: false });
     const db = createLifeMateDatabase(databaseUrl, contactSecret);
     const growth = createGrowthStore(databaseUrl, contactSecret);
     const suffix = crypto.randomUUID();

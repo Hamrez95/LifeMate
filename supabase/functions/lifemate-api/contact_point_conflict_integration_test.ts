@@ -16,7 +16,9 @@ Deno.test({
   sanitizeOps: false,
   sanitizeResources: false,
   fn: async () => {
-    const admin = postgres(databaseUrl, { max: 1, prepare: false });
+    const adminDatabaseUrl = Deno.env.get("TEST_ADMIN_DATABASE_URL") ??
+      databaseUrl;
+    const admin = postgres(adminDatabaseUrl, { max: 1, prepare: false });
     const hashingSecret =
       "integration-only-contact-conflict-hash-secret-32-bytes";
     const encryptionSecret =
