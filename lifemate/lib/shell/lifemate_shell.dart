@@ -104,7 +104,12 @@ class _LifeMateShellState extends State<LifeMateShell> {
     try {
       await Future<void>.delayed(const Duration(milliseconds: 350));
       if (!mounted) return;
-      await openLifeMateModule(context, module: module, isPersian: _isPersian);
+      await openLifeMateModule(
+        context,
+        module: module,
+        isPersian: _isPersian,
+        apiClient: widget.apiClient,
+      );
     } finally {
       if (mounted) setState(() => _overlayOpen = false);
     }
@@ -124,6 +129,7 @@ class _LifeMateShellState extends State<LifeMateShell> {
           context,
           module: module,
           isPersian: _isPersian,
+          apiClient: widget.apiClient,
         );
         return;
       case TodayActionKind.shellRoute:
@@ -394,10 +400,11 @@ class _HomeShellTitle extends StatelessWidget {
           color: const Color(0xFFFFE2A0),
           borderRadius: BorderRadius.circular(18),
         ),
-        child: Icon(
-          Icons.eco_rounded,
-          size: 24,
-          color: const Color(0xFF283E43),
+        padding: const EdgeInsets.all(4),
+        child: Image.asset(
+          'assets/branding/lifemate_logo.png',
+          fit: BoxFit.contain,
+          filterQuality: FilterQuality.medium,
         ),
       ),
       const SizedBox(width: 9),

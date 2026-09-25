@@ -99,55 +99,58 @@ class CampHome extends StatelessWidget {
           child: Stack(
             children: [
               Positioned.fill(
-                child: CampSceneRenderer(
-                  zones: zones,
-                  presentations: presentations,
-                  actors: [
-                    CampSceneActor(
-                      actorId: 'main_avatar_vector',
-                      anchor: const CampPoint(505, 1135),
-                      width: 145,
-                      height: 210,
-                      builder: (_) => _CampRoamingAvatar(
-                        motionEnabled: environment.motionEnabled,
+                child: _CampDaylight(
+                  factor: environment.daylightFactor,
+                  child: CampSceneRenderer(
+                    zones: zones,
+                    presentations: presentations,
+                    actors: [
+                      CampSceneActor(
+                        actorId: 'main_avatar_vector',
+                        anchor: const CampPoint(505, 1135),
+                        width: 145,
+                        height: 210,
+                        builder: (_) => _CampRoamingAvatar(
+                          motionEnabled: environment.motionEnabled,
+                        ),
                       ),
-                    ),
-                    CampSceneActor(
-                      actorId: 'moon_garden_decoration',
-                      anchor: const CampPoint(830, 1150),
-                      width: 330,
-                      height: 300,
-                      builder: (_) => Image.asset(
-                        CampAssetCatalog.moonGarden,
-                        fit: BoxFit.contain,
-                        filterQuality: FilterQuality.medium,
+                      CampSceneActor(
+                        actorId: 'moon_garden_decoration',
+                        anchor: const CampPoint(830, 1150),
+                        width: 330,
+                        height: 300,
+                        builder: (_) => Image.asset(
+                          CampAssetCatalog.moonGarden,
+                          fit: BoxFit.contain,
+                          filterQuality: FilterQuality.medium,
+                        ),
                       ),
-                    ),
-                  ],
-                  layers: [
-                    CampSceneLayer(
-                      id: 'background',
-                      zIndex: 0,
-                      builder: (_) => _CampBackdrop(
-                        motionEnabled: environment.motionEnabled,
-                        isNight: environment.phase == CampDayPhase.night,
+                    ],
+                    layers: [
+                      CampSceneLayer(
+                        id: 'background',
+                        zIndex: 0,
+                        builder: (_) => _CampBackdrop(
+                          motionEnabled: environment.motionEnabled,
+                          daylightFactor: environment.daylightFactor,
+                        ),
                       ),
-                    ),
-                  ],
-                  onZoneTap: (zoneId) {
-                    switch (zoneId) {
-                      case 'lifemate_home':
-                        onOpenToday();
-                      case 'wellmate':
-                        onOpenWellMate();
-                      case 'caremate':
-                        onOpenCareMate?.call();
-                      case 'reproductive_context':
-                        onOpenReproductiveContext?.call();
-                      case 'fitmate':
-                        onOpenFitMate?.call();
-                    }
-                  },
+                    ],
+                    onZoneTap: (zoneId) {
+                      switch (zoneId) {
+                        case 'lifemate_home':
+                          onOpenToday();
+                        case 'wellmate':
+                          onOpenWellMate();
+                        case 'caremate':
+                          onOpenCareMate?.call();
+                        case 'reproductive_context':
+                          onOpenReproductiveContext?.call();
+                        case 'fitmate':
+                          onOpenFitMate?.call();
+                      }
+                    },
+                  ),
                 ),
               ),
               Positioned(
@@ -320,46 +323,86 @@ class _CampZoneSign extends StatelessWidget {
 
 /// Distant terrain drifts a few pixels behind the independently rendered zones.
 class _CampBackdrop extends StatefulWidget {
-  const _CampBackdrop({required this.motionEnabled, required this.isNight});
+  const _CampBackdrop({
+    required this.motionEnabled,
+    required this.daylightFactor,
+  });
 
   final bool motionEnabled;
-  final bool isNight;
+  final double daylightFactor;
 
   @override
   State<_CampBackdrop> createState() => _CampBackdropState();
 }
 
 class _CampBackdropState extends State<_CampBackdrop>
-    with SingleTickerProviderStateMixin {
+    with TickerProviderStateMixin {
   late final AnimationController _drift = AnimationController(
     vsync: this,
     duration: const Duration(seconds: 14),
   )..repeat();
+  late final AnimationController _daylight = AnimationController(
+    vsync: this,
+    duration: const Duration(seconds: 30),
+  );
+  late Animation<double> _daylightTransition = AlwaysStoppedAnimation(
+    widget.daylightFactor,
+  );
+
+  @override
+  void didUpdateWidget(_CampBackdrop oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if ((oldWidget.daylightFactor - widget.daylightFactor).abs() > .0001) {
+      final currentFactor = _daylightTransition.value;
+      _daylightTransition = Tween<double>(
+        begin: currentFactor,
+        end: widget.daylightFactor,
+      ).animate(CurvedAnimation(parent: _daylight, curve: Curves.easeInOut));
+      _daylight.forward(from: 0);
+    }
+  }
 
   @override
   void dispose() {
     _drift.dispose();
+    _daylight.dispose();
     super.dispose();
   }
 
   @override
   Widget build(BuildContext context) => AnimatedBuilder(
-    animation: _drift,
+    animation: Listenable.merge([_drift, _daylight]),
     builder: (context, _) {
       final phase = widget.motionEnabled ? _drift.value * math.pi * 2 : 0.0;
+      final daylightFactor = _daylightTransition.value;
       return Transform.translate(
         offset: Offset(math.sin(phase) * 3, math.cos(phase) * 2),
         child: Transform.scale(
           scale: 1.018,
-          child: ColorFiltered(
-            colorFilter: widget.isNight
-                ? const ColorFilter.mode(Color(0x44142432), BlendMode.multiply)
-                : const ColorFilter.mode(Colors.transparent, BlendMode.srcOver),
-            child: Image.asset(
-              CampAssetCatalog.terrainDusk,
-              fit: BoxFit.cover,
-              filterQuality: FilterQuality.medium,
-            ),
+          child: Stack(
+            fit: StackFit.expand,
+            children: [
+              Image.asset(
+                CampAssetCatalog.backgroundDay,
+                fit: BoxFit.cover,
+                filterQuality: FilterQuality.medium,
+              ),
+              Opacity(
+                opacity: 1 - daylightFactor,
+                child: Image.asset(
+                  CampAssetCatalog.terrainDusk,
+                  fit: BoxFit.cover,
+                  filterQuality: FilterQuality.medium,
+                ),
+              ),
+              ColoredBox(
+                color: Color.lerp(
+                  const Color(0x000D1B39),
+                  const Color(0x55101A3C),
+                  1 - daylightFactor,
+                )!,
+              ),
+            ],
           ),
         ),
       );
@@ -497,27 +540,44 @@ class _CampZoneVisualState extends State<_CampZoneVisual>
       ),
       AnimatedBuilder(
         animation: _glow,
-        builder: (context, _) => Align(
-          alignment: const Alignment(.1, -.1),
-          child: Container(
-            width: 18,
-            height: 18,
-            decoration: BoxDecoration(
-              shape: BoxShape.circle,
-              boxShadow: [
-                BoxShadow(
-                  color: const Color(
-                    0xFFFFD477,
-                  ).withValues(alpha: .08 + _glow.value * .16),
-                  blurRadius: 18 + _glow.value * 9,
-                  spreadRadius: 5,
-                ),
-              ],
+        builder: (context, _) {
+          final daylight = _CampDaylight.maybeOf(context)?.factor ?? 0;
+          final night = 1 - daylight;
+          return Align(
+            alignment: const Alignment(.1, -.1),
+            child: Container(
+              width: 18,
+              height: 18,
+              decoration: BoxDecoration(
+                shape: BoxShape.circle,
+                boxShadow: [
+                  BoxShadow(
+                    color: const Color(
+                      0xFFFFD477,
+                    ).withValues(alpha: night * (.08 + _glow.value * .16)),
+                    blurRadius: night * (18 + _glow.value * 9),
+                    spreadRadius: night * 5,
+                  ),
+                ],
+              ),
             ),
-          ),
-        ),
+          );
+        },
       ),
       _CampZoneSign(label: widget.label),
     ],
   );
+}
+
+class _CampDaylight extends InheritedWidget {
+  const _CampDaylight({required this.factor, required super.child});
+
+  final double factor;
+
+  static _CampDaylight? maybeOf(BuildContext context) =>
+      context.dependOnInheritedWidgetOfExactType<_CampDaylight>();
+
+  @override
+  bool updateShouldNotify(_CampDaylight oldWidget) =>
+      (factor - oldWidget.factor).abs() > .002;
 }

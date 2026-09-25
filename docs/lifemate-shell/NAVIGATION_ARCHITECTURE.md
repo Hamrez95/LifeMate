@@ -108,6 +108,26 @@ Optional product-internal suffixes may be represented through the module host co
 
 but the shell must not hard-code every product's internal page graph.
 
+The current Flutter module entry builder receives the authenticated
+`LifeMateApiClient` adopted by the parent shell. Embeddable product screens use
+that boundary for the same authenticated Account and server-resolved Person
+context. A module must not start its own global sign-in flow. Registry entries
+remain unavailable until the product UI has an embedding adapter and its
+server-side enrollment/authorization rules are represented; the shell does not
+pretend standalone WellMate or CareMate apps have already been merged.
+
+The parent shell owns sign-in and account creation presentation. It calls the
+shared `LifeMateAuth` API, so provider/session behavior stays in the common
+client package. SMS OTP remains gated by the release feature flag and configured
+delivery hook. Android deep links for the LifeMate callback are generated with
+the shell host.
+
+The current Living Camp implementation blends its day and dusk backgrounds
+using a locally computed daylight factor, with a coarse-location solar window
+when a saved location exists and a local-time fallback otherwise. Existing zone
+art and labels remain independently layered and tappable. Reduced Motion stops
+ambient scene and character tickers.
+
 ### `moduleId`
 
 `moduleId` is a stable registry identity from the future Shell module registry (#1081). It is **not**:

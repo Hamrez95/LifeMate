@@ -66,6 +66,10 @@ jobs:
         working-directory: lifemate
         run: flutter pub get
 
+      - name: Generate LifeMate launcher icon
+        working-directory: lifemate
+        run: dart run flutter_launcher_icons
+
       - name: Verify formatting
         working-directory: lifemate
         shell: bash

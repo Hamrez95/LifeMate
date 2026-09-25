@@ -1,10 +1,24 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:http/http.dart' as http;
+import 'package:http/testing.dart';
+import 'package:lifemate_client/lifemate_client.dart';
 import 'package:lifemate/app/lifemate_app.dart';
 import 'package:lifemate/modules/module_registry.dart';
 import 'package:lifemate/shell/lifemate_shell.dart';
+import 'package:lifemate/circle/camp_companion_selection.dart';
 
 void main() {
+  final apiClient = LifeMateApiClient(
+    baseUri: Uri.parse('https://api.example.test'),
+    accessToken: () => 'test-token',
+    httpClient: MockClient(
+      (request) async => http.Response(
+        request.url.path.endsWith('/care/relationships') ? '[]' : '{}',
+        200,
+      ),
+    ),
+  );
   testWidgets('compact header keeps profile and notifications reachable', (
     tester,
   ) async {
@@ -109,13 +123,24 @@ void main() {
           labelFa: 'ول‌میت',
           icon: Icons.health_and_safety_outlined,
           availability: ModuleAvailability.available,
-          pageBuilder: (_) => const Scaffold(body: Text('WellMate mounted')),
+          pageBuilder: (_, client) => Scaffold(
+            body: Text(
+              identical(client, apiClient)
+                  ? 'WellMate mounted'
+                  : 'Wrong client',
+            ),
+          ),
         ),
       );
 
       await tester.pumpWidget(
         LifeMateApp(
-          home: LifeMateShell(moduleRegistry: registry),
+          home: LifeMateShell(
+            apiClient: apiClient,
+            moduleRegistry: registry,
+            campCompanionSource:
+                const UnavailableCampCompanionSelectionSource(),
+          ),
           localeOverride: const Locale('en'),
         ),
       );

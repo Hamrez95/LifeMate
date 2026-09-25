@@ -66,6 +66,25 @@ void main() {
     );
   });
 
+  test('daylight factor eases through sunrise and sunset', () {
+    const preferences = CampEnvironmentPreferences(
+      timezoneOffset: Duration.zero,
+    );
+    double factor(int hour, int minute) => resolver.resolveDaylightFactor(
+      nowUtc: DateTime.utc(2026, 1, 1, hour, minute),
+      preferences: preferences,
+    );
+
+    expect(factor(5, 30), 0);
+    expect(factor(5, 45), closeTo(.15625, .0001));
+    expect(factor(6, 0), .5);
+    expect(factor(6, 15), closeTo(.84375, .0001));
+    expect(factor(6, 30), 1);
+    expect(factor(19, 30), 1);
+    expect(factor(20, 0), .5);
+    expect(factor(20, 30), 0);
+  });
+
   test('coarse location produces astronomical daylight without permission', () {
     const preferences = CampEnvironmentPreferences(
       coarseLocation: CampCoarseLocation(latitude: 35.6892, longitude: 51.3890),

@@ -1,10 +1,14 @@
 import 'package:flutter/material.dart';
+import 'package:lifemate_client/lifemate_client.dart';
 
 enum LifeMateModuleId { wellMate, careMate, cocoonMate, womenHealth, fitMate }
 
 enum ModuleAvailability { available, locked, unavailable }
 
-typedef ModulePageBuilder = Widget Function(BuildContext context);
+/// Modules receive the same authenticated API boundary adopted by the shell.
+/// Product modules must not create another auth gate or Supabase client.
+typedef ModulePageBuilder =
+    Widget Function(BuildContext context, LifeMateApiClient apiClient);
 
 @immutable
 class LifeMateModuleDefinition {

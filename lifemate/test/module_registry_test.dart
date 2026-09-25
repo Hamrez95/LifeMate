@@ -1,9 +1,14 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:lifemate_client/lifemate_client.dart';
 import 'package:lifemate/modules/module_registry.dart';
 import 'package:lifemate/modules/module_route_host.dart';
 
 void main() {
+  final apiClient = LifeMateApiClient(
+    baseUri: Uri.parse('https://api.example.test'),
+    accessToken: () => 'test-token',
+  );
   test('registry resolves stable module IDs and routes independently', () {
     final registry = LifeMateModuleRegistry.foundation();
 
@@ -64,11 +69,21 @@ void main() {
       labelFa: 'ول‌میت',
       icon: Icons.health_and_safety_outlined,
       availability: ModuleAvailability.available,
-      pageBuilder: (_) => const Scaffold(body: Text('WellMate mounted')),
+      pageBuilder: (_, client) => Scaffold(
+        body: Text(
+          identical(client, apiClient) ? 'WellMate mounted' : 'Wrong client',
+        ),
+      ),
     );
 
     await tester.pumpWidget(
-      MaterialApp(home: ModuleRouteHost(module: module, isPersian: false)),
+      MaterialApp(
+        home: ModuleRouteHost(
+          module: module,
+          isPersian: false,
+          apiClient: apiClient,
+        ),
+      ),
     );
 
     expect(find.text('WellMate mounted'), findsOneWidget);
@@ -88,7 +103,11 @@ void main() {
 
     await tester.pumpWidget(
       const MaterialApp(
-        home: ModuleRouteHost(module: module, isPersian: false),
+        home: ModuleRouteHost(
+          module: module,
+          isPersian: false,
+          apiClient: null,
+        ),
       ),
     );
 
@@ -106,11 +125,17 @@ void main() {
       labelFa: 'کرمیت',
       icon: Icons.volunteer_activism_outlined,
       availability: ModuleAvailability.available,
-      pageBuilder: (_) => throw StateError('module failed'),
+      pageBuilder: (_, __) => throw StateError('module failed'),
     );
 
     await tester.pumpWidget(
-      MaterialApp(home: ModuleRouteHost(module: module, isPersian: false)),
+      MaterialApp(
+        home: ModuleRouteHost(
+          module: module,
+          isPersian: false,
+          apiClient: apiClient,
+        ),
+      ),
     );
 
     expect(find.textContaining('shell is still available'), findsOneWidget);
@@ -133,7 +158,11 @@ void main() {
         locale: Locale('fa'),
         home: Directionality(
           textDirection: TextDirection.rtl,
-          child: ModuleRouteHost(module: module, isPersian: true),
+          child: ModuleRouteHost(
+            module: module,
+            isPersian: true,
+            apiClient: null,
+          ),
         ),
       ),
     );

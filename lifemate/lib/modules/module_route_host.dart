@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:lifemate_client/lifemate_client.dart';
 
 import 'module_registry.dart';
 
@@ -7,16 +8,19 @@ class ModuleRouteHost extends StatelessWidget {
     super.key,
     required this.module,
     required this.isPersian,
+    required this.apiClient,
   });
 
   final LifeMateModuleDefinition module;
   final bool isPersian;
+  final LifeMateApiClient? apiClient;
 
   String t(String en, String fa) => isPersian ? fa : en;
 
   @override
   Widget build(BuildContext context) {
-    if (module.availability != ModuleAvailability.available ||
+    if (apiClient == null ||
+        module.availability != ModuleAvailability.available ||
         module.pageBuilder == null) {
       return _ModuleStatePage(
         icon: module.icon,
@@ -34,7 +38,7 @@ class ModuleRouteHost extends StatelessWidget {
     }
 
     try {
-      return module.pageBuilder!(context);
+      return module.pageBuilder!(context, apiClient!);
     } catch (_) {
       return _ModuleStatePage(
         icon: Icons.error_outline_rounded,
@@ -99,11 +103,16 @@ Future<void> openLifeMateModule(
   BuildContext context, {
   required LifeMateModuleDefinition module,
   required bool isPersian,
+  required LifeMateApiClient? apiClient,
 }) {
   return Navigator.of(context).push<void>(
     MaterialPageRoute(
       settings: RouteSettings(name: module.routeName),
-      builder: (_) => ModuleRouteHost(module: module, isPersian: isPersian),
+      builder: (_) => ModuleRouteHost(
+        module: module,
+        isPersian: isPersian,
+        apiClient: apiClient,
+      ),
     ),
   );
 }

@@ -292,6 +292,9 @@ function Prepare-App([object]$Item, [string]$OperationTarget = $Target, [hashtab
     try { Invoke-External 'bash' @($Item.prepareScript,'prepare') $Script:Root } finally { $env:LIFEMATE_RELEASE_ENVIRONMENT = $oldEnvironment; foreach ($name in $oldRuntime.Keys) { [Environment]::SetEnvironmentVariable($name, $oldRuntime[$name], 'Process') } }
   }
   Invoke-External 'flutter' @('pub','get') (Join-Path $Script:Root $Item.path)
+  if (Get-OptionalBoolean $Item 'generateLauncherIcons') {
+    Invoke-External 'dart' @('run','flutter_launcher_icons') (Join-Path $Script:Root $Item.path)
+  }
 }
 function Copy-Artifact([object]$Item,[string]$BuildType,[string]$ArtifactFormat,[string]$Source,[int]$BuildNumber) {
   if (-not (Test-Path $Source)) { throw "Expected output was not found: $Source" }; $stamp=Get-Date -Format 'yyyyMMdd-HHmmss'; $safeVersion=($Item.Version -replace '[^0-9A-Za-z._-]','_'); $destination=Join-Path $Script:Root "artifacts\$($Item.Name)\$safeVersion"; New-Item -ItemType Directory -Path $destination -Force | Out-Null
