@@ -119,6 +119,14 @@ Deno.test({
       assertEquals(tokenRows.length, 1);
       assertEquals(tokenRows[0]?.account_id, remappedAccountId);
 
+      // Simulate completed raw-link retirement. Future token-only requests must
+      // still identify this account and must not recreate an AppUser by subject.
+      await admin`
+        update lifemate.app_users
+        set auth_subject=null,updated_at_utc=now()
+        where id=${appUserId}::uuid
+      `;
+
       await admin`
         update core.person_profiles
         set display_name='canonical retained',
@@ -156,9 +164,26 @@ Deno.test({
       const appUserCount = await admin`
         select count(*)::int as count
         from lifemate.app_users
-        where auth_subject=${authSubject}
+        where id=${appUserId}::uuid
       `;
       assertEquals(Number(appUserCount[0]?.count), 1);
+
+      await admin`
+        update identity.accounts
+        set status='DeletionPending',updated_at_utc=now()
+        where id=${remappedAccountId}::uuid
+      `;
+      const pending = await assertRejects(
+        () =>
+          db.bootstrapUser(auth, {
+            displayName: "must not restore deletion-pending account",
+            locale: "fa",
+            timeZone: "Asia/Tehran",
+          }),
+        ApiError,
+      );
+      assertEquals(pending.status, 409);
+      assertEquals(pending.code, "account_deletion_pending");
 
       // A broken canonical mapping must not fall through to the raw bootstrap
       // path, because that would become a duplicate-account path after scrub.
