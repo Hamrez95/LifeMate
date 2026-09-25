@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:lifemate_client/lifemate_client.dart';
 
 import '../../core/constants/app_colors.dart';
+import '../../core/constants/module_assets.dart';
 import '../../models/user_model.dart';
 
 class UserSelector extends StatelessWidget {
@@ -190,7 +191,7 @@ class _RecipientAvatar extends StatelessWidget {
         key: ValueKey<String>('care-calendar-avatar-${user.id}'),
         radius: 14,
         backgroundColor: Colors.white,
-        backgroundImage: AssetImage(legacyAsset),
+        backgroundImage: AssetImage(legacyAsset, package: careMateAssetPackage),
       );
     }
 

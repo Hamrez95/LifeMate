@@ -4,6 +4,7 @@ import 'package:flutter/material.dart';
 import 'package:lifemate_client/lifemate_client.dart';
 
 import '../core/constants/app_colors.dart';
+import '../core/constants/module_assets.dart';
 import '../core/utils/string_extensions.dart';
 import '../models/care_home_snapshot.dart';
 
@@ -574,9 +575,8 @@ class _CycleRing extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final safeLength = length == null || length! <= 0 ? 28 : length!;
-    final progress = (day == null ? 0.0 : day! / safeLength)
-        .clamp(0.0, 1.0)
-        .toDouble();
+    final progress =
+        (day == null ? 0.0 : day! / safeLength).clamp(0.0, 1.0).toDouble();
     return SizedBox.square(
       dimension: 80,
       child: Stack(
@@ -682,6 +682,7 @@ class CareHomeChildPreviewCard extends StatelessWidget {
                 opacity: 0.28,
                 child: Image.asset(
                   'assets/images/child_avatar.png',
+                  package: careMateAssetPackage,
                   width: 58,
                   height: 58,
                   fit: BoxFit.contain,
@@ -1247,14 +1248,14 @@ _Visual _statusVisual(String status) {
 }
 
 BoxDecoration _cardDecoration({double radius = 28}) => BoxDecoration(
-  color: Colors.white.withValues(alpha: 0.94),
-  borderRadius: BorderRadius.circular(radius),
-  border: Border.all(color: Colors.white.withValues(alpha: 0.85)),
-  boxShadow: [
-    BoxShadow(
-      color: AppColors.primaryBlue.withValues(alpha: 0.075),
-      blurRadius: 24,
-      offset: const Offset(0, 9),
-    ),
-  ],
-);
+      color: Colors.white.withValues(alpha: 0.94),
+      borderRadius: BorderRadius.circular(radius),
+      border: Border.all(color: Colors.white.withValues(alpha: 0.85)),
+      boxShadow: [
+        BoxShadow(
+          color: AppColors.primaryBlue.withValues(alpha: 0.075),
+          blurRadius: 24,
+          offset: const Offset(0, 9),
+        ),
+      ],
+    );

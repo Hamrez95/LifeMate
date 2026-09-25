@@ -95,6 +95,7 @@ class CocoonAuthenticatedHost extends StatefulWidget {
     this.gate3RecordsPageLoader,
     this.gate3MutationAdapter,
     this.signOut,
+    this.onOpenGlobalProfile,
     this.offlineBootstrapCache,
     this.offlineSnapshotLoader,
     this.offlineOwnerForget,
@@ -109,6 +110,7 @@ class CocoonAuthenticatedHost extends StatefulWidget {
   final CocoonGate3RecordsPageLoader? gate3RecordsPageLoader;
   final CocoonGate3MutationAdapter? gate3MutationAdapter;
   final CocoonSignOut? signOut;
+  final VoidCallback? onOpenGlobalProfile;
   final CocoonOfflineBootstrapCache? offlineBootstrapCache;
   final CocoonOfflineSnapshotLoader? offlineSnapshotLoader;
   final CocoonOfflineOwnerForget? offlineOwnerForget;
@@ -1573,6 +1575,7 @@ class _CocoonAuthenticatedHostState extends State<CocoonAuthenticatedHost>
   @override
   Future<void> openGlobalProfile() async {
     recordSafeEvent('cocoon_global_profile_requested');
+    widget.onOpenGlobalProfile?.call();
   }
 
   @override

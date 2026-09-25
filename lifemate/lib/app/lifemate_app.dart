@@ -3,8 +3,11 @@ import 'dart:ui';
 import 'package:flutter/material.dart';
 import 'package:flutter_localizations/flutter_localizations.dart';
 import 'package:lifemate_client/lifemate_client.dart';
+import 'package:lifemate_ui/lifemate_ui.dart';
 
 import '../shell/lifemate_shell.dart';
+import 'lifemate_launch_overlay.dart';
+import 'lifemate_shell_auth.dart';
 
 const lifeMateAppVersion = '0.1.0+1';
 
@@ -117,16 +120,22 @@ class _LifeMateAppState extends State<LifeMateApp> {
       );
     }
 
-    return LifeMateExperienceGate(
-      config: config,
-      appName: 'LifeMate',
-      releaseVersion: lifeMateAppVersion,
-      // #1067 intentionally ships without final brand artwork. Shared auth and
-      // blocking states render their built-in fallback icon when this asset is
-      // absent. Final visual assets remain owned by the approved design lane.
-      logoAssetPath: 'assets/lifemate-logo.png',
-      authenticatedBuilder: (context, apiClient) =>
-          LifeMateShell(apiClient: apiClient, onLocaleChanged: _setLocale),
+    return LifeMateLaunchOverlay(
+      child: LifeMateExperienceGate(
+        config: config,
+        appName: 'LifeMate',
+        releaseVersion: lifeMateAppVersion,
+        logoAssetPath: 'assets/branding/lifemate_logo.png',
+        unauthenticatedBuilder: (context, _, __, ___) =>
+            LifeMateShellAuth(isPersian: _locale.languageCode == 'fa'),
+        authenticatedBuilder: (context, apiClient) =>
+            LifeMateAccountOnboardingGate(
+              child: LifeMateShell(
+                apiClient: apiClient,
+                onLocaleChanged: _setLocale,
+              ),
+            ),
+      ),
     );
   }
 }

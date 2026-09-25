@@ -191,35 +191,51 @@ class CampSceneRenderer extends StatelessWidget {
       ..sort((a, b) => a.anchor.y.compareTo(b.anchor.y));
     return LayoutBuilder(
       builder: (context, constraints) {
+        // Keep the same portrait composition on tablets and landscape panes.
+        final viewportWidth = math.min(
+          constraints.maxWidth,
+          constraints.maxHeight * .60,
+        );
+        final viewportHeight = math.min(
+          constraints.maxHeight,
+          viewportWidth / .41,
+        );
         final scale = math.max(
-          constraints.maxWidth / worldSize.width,
-          constraints.maxHeight / worldSize.height,
+          viewportWidth / worldSize.width,
+          viewportHeight / worldSize.height,
         );
         final renderedWidth = worldSize.width * scale;
         final renderedHeight = worldSize.height * scale;
-        final offsetX = (constraints.maxWidth - renderedWidth) / 2;
-        final offsetY = (constraints.maxHeight - renderedHeight) / 2;
+        final offsetX = (viewportWidth - renderedWidth) / 2;
+        final offsetY = (viewportHeight - renderedHeight) / 2;
 
         Offset worldToScreen(CampPoint point) {
           return Offset(offsetX + point.x * scale, offsetY + point.y * scale);
         }
 
-        return ClipRect(
-          child: Stack(
-            fit: StackFit.expand,
-            children: [
-              for (final layer in orderedLayers) layer.builder(context),
-              for (final zone in zones)
-                _buildZone(
-                  context,
-                  zone,
-                  _presentationFor(zone.zoneId),
-                  scale,
-                  worldToScreen,
-                ),
-              for (final actor in orderedActors)
-                _buildActor(context, actor, scale, worldToScreen),
-            ],
+        return Center(
+          child: SizedBox(
+            key: const ValueKey('camp-scene-viewport'),
+            width: viewportWidth,
+            height: viewportHeight,
+            child: ClipRect(
+              child: Stack(
+                fit: StackFit.expand,
+                children: [
+                  for (final layer in orderedLayers) layer.builder(context),
+                  for (final zone in zones)
+                    _buildZone(
+                      context,
+                      zone,
+                      _presentationFor(zone.zoneId),
+                      scale,
+                      worldToScreen,
+                    ),
+                  for (final actor in orderedActors)
+                    _buildActor(context, actor, scale, worldToScreen),
+                ],
+              ),
+            ),
           ),
         );
       },

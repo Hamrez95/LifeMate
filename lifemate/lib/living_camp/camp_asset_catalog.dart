@@ -27,6 +27,10 @@ class CampAssetCatalog {
 
   static const backgroundDay =
       'assets/living_camp/v1/raster/base/camp_background_day.webp';
+  static const terrainDusk =
+      'assets/living_camp/v1/raster/base/camp_terrain_dusk.webp';
+  static const moonGarden =
+      'assets/living_camp/v1/raster/zones/reproductive_context/stage_1/moon_garden.webp';
 
   static const zones = <CampRasterAsset>[
     CampRasterAsset(

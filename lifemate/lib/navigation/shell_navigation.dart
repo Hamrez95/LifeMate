@@ -21,6 +21,13 @@ const shellDestinationOrder = <ShellDestination>[
   ShellDestination.you,
 ];
 
+const shellPrimaryDestinationOrder = <ShellDestination>[
+  ShellDestination.home,
+  ShellDestination.journey,
+  ShellDestination.circle,
+  ShellDestination.you,
+];
+
 class ShellNavigationIntent {
   const ShellNavigationIntent({
     required this.path,

@@ -1,7 +1,7 @@
 {
   "contractVersion": 1,
   "sceneId": "lifemate_living_camp",
-  "sceneVersion": "1.0.0-stage-1",
+  "sceneVersion": "1.1.0-stage-1",
   "logicalSize": { "width": 1000, "height": 2000 },
   "certifiedAspectRatio": { "min": 0.41, "max": 0.60 },
   "safeRect": { "left": 110, "top": 140, "width": 780, "height": 1720 },
@@ -12,6 +12,20 @@
       "path": "raster/base/camp_background_day.webp",
       "appliesTo": ["day", "night_base"],
       "bounds": { "left": 0, "top": 0, "width": 1000, "height": 2000 }
+    },
+    {
+      "assetId": "base.terrain.dusk",
+      "z": 20,
+      "path": "raster/base/camp_terrain_dusk.webp",
+      "appliesTo": ["dusk_scene"],
+      "bounds": { "left": 0, "top": 0, "width": 1000, "height": 2000 }
+    },
+    {
+      "assetId": "foreground.moon_garden.dusk",
+      "z": 70,
+      "path": "raster/zones/reproductive_context/stage_1/moon_garden.webp",
+      "appliesTo": ["dusk_scene"],
+      "bounds": { "left": 665, "top": 850, "width": 330, "height": 300 }
     }
   ],
   "zones": [

@@ -33,6 +33,7 @@ gradle="$app_dir/android/app/build.gradle.kts"
 
 python3 - "$manifest" "$gradle" <<'PY'
 from pathlib import Path
+import re
 import sys
 
 manifest = Path(sys.argv[1])
@@ -50,6 +51,18 @@ if 'android.permission.INTERNET' not in text:
 if 'android:label="lifemate"' not in text:
     raise SystemExit('generated LifeMate label contract changed')
 text = text.replace('android:label="lifemate"', 'android:label="LifeMate"', 1)
+activity = re.search(r'(<activity\b[^>]*android:name="[^\"]*MainActivity"[^>]*>)(.*?)(</activity>)', text, re.S)
+if activity is None:
+    raise SystemExit('generated LifeMate MainActivity contract changed')
+callback = '''
+            <intent-filter>
+                <action android:name="android.intent.action.VIEW" />
+                <category android:name="android.intent.category.DEFAULT" />
+                <category android:name="android.intent.category.BROWSABLE" />
+                <data android:scheme="com.mylifemate.lifemate" android:host="login-callback" />
+            </intent-filter>'''
+if 'android:scheme="com.mylifemate.lifemate"' not in text:
+    text = text[:activity.end(2)] + callback + text[activity.end(2):]
 manifest.write_text(text)
 
 gradle_text = gradle.read_text()
@@ -80,5 +93,7 @@ grep -Fq 'coreLibraryDesugaring("com.android.tools:desugar_jdk_libs:2.1.5")' "$g
   fail "LifeMate Android desugaring dependency is missing."
 grep -Fq 'android:label="LifeMate"' "$manifest" || \
   fail "LifeMate Android display name is missing."
+grep -Fq 'android:scheme="com.mylifemate.lifemate"' "$manifest" || \
+  fail "LifeMate authentication callback scheme is missing."
 grep -Fq 'android.permission.INTERNET' "$manifest" || \
   fail "LifeMate Android network permission is missing."

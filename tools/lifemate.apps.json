@@ -49,6 +49,7 @@
       "workflow": "lifemate-shell.yml",
       "workflowInputs": {},
       "requiresGeneratedAndroid": true,
+      "generateLauncherIcons": true,
       "prepareScript": "tools/release/prepare-lifemate-android.sh"
     }
   }

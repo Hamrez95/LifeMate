@@ -2,6 +2,8 @@ import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:lifemate/living_camp/camp_environment.dart';
 import 'package:lifemate/living_camp/camp_home.dart';
+import 'package:lifemate/living_camp/camp_avatar_fallback.dart';
+import 'package:lifemate/living_camp/camp_vector_avatar.dart';
 
 void main() {
   const resolver = CampDaylightResolver();
@@ -62,6 +64,25 @@ void main() {
       ),
       CampDayPhase.day,
     );
+  });
+
+  test('daylight factor eases through sunrise and sunset', () {
+    const preferences = CampEnvironmentPreferences(
+      timezoneOffset: Duration.zero,
+    );
+    double factor(int hour, int minute) => resolver.resolveDaylightFactor(
+      nowUtc: DateTime.utc(2026, 1, 1, hour, minute),
+      preferences: preferences,
+    );
+
+    expect(factor(5, 30), 0);
+    expect(factor(5, 45), closeTo(.15625, .0001));
+    expect(factor(6, 0), .5);
+    expect(factor(6, 15), closeTo(.84375, .0001));
+    expect(factor(6, 30), 1);
+    expect(factor(19, 30), 1);
+    expect(factor(20, 0), .5);
+    expect(factor(20, 30), 0);
   });
 
   test('coarse location produces astronomical daylight without permission', () {
@@ -172,5 +193,30 @@ void main() {
     expect(homeHotspot, findsOneWidget);
     await tester.tap(homeHotspot);
     expect(openedToday, isTrue);
+  });
+
+  testWidgets('Camp actor walks the path and performs a one-shot drink', (
+    tester,
+  ) async {
+    await tester.pumpWidget(
+      MaterialApp(
+        home: Scaffold(
+          body: CampHome(
+            isPersian: false,
+            onOpenToday: () {},
+            onOpenWellMate: () {},
+            nowUtc: () => DateTime.utc(2026, 1, 1, 19),
+          ),
+        ),
+      ),
+    );
+    await tester.pump(const Duration(milliseconds: 100));
+    CampVectorAvatar actor() => tester.widget(find.byType(CampVectorAvatar));
+    expect(actor().action, CampAvatarAction.walk);
+
+    await tester.pump(const Duration(seconds: 5));
+    expect(actor().action, CampAvatarAction.drink);
+    await tester.pump(const Duration(seconds: 2));
+    expect(actor().action, CampAvatarAction.walk);
   });
 }

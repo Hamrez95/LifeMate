@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 
 import '../../core/theme/app_style.dart';
 import '../../core/utils/string_extensions.dart';
+import '../../core/constants/module_assets.dart';
 import '../../localization/app_localizations.dart';
 import 'package:lifemate_client/lifemate_client.dart';
 
@@ -154,6 +155,7 @@ class ActiveTreatmentCard extends StatelessWidget {
                         if (assetIconPath?.trim().isNotEmpty == true)
                           Image.asset(
                             assetIconPath!,
+                            package: wellMateAssetPackage,
                             width: 36,
                             height: 36,
                             errorBuilder: (_, __, ___) =>

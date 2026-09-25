@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:math' as math;
 
 import 'package:flutter/material.dart';
@@ -65,12 +66,16 @@ class CampDaylightWindow {
 class CampEnvironmentState {
   const CampEnvironmentState({
     required this.phase,
+    required this.daylightFactor,
     required this.daylightWindow,
     required this.isForeground,
     required this.motionEnabled,
   });
 
   final CampDayPhase phase;
+
+  /// 0 is fully dark; 1 is full daylight, with a 60-minute soft transition.
+  final double daylightFactor;
   final CampDaylightWindow daylightWindow;
   final bool isForeground;
   final bool motionEnabled;
@@ -154,6 +159,42 @@ class CampDaylightResolver {
         : CampDayPhase.night;
   }
 
+  double resolveDaylightFactor({
+    required DateTime nowUtc,
+    required CampEnvironmentPreferences preferences,
+    CampDaylightWindow? daylightWindow,
+  }) {
+    switch (preferences.debugDaylightOverride) {
+      case CampDaylightOverride.day:
+        return 1;
+      case CampDaylightOverride.night:
+        return 0;
+      case CampDaylightOverride.automatic:
+        break;
+    }
+    final local = nowUtc.toUtc().add(_timezoneOffset(nowUtc, preferences));
+    final minute = local.hour * 60 + local.minute + local.second / 60;
+    final window =
+        daylightWindow ??
+        resolveWindow(nowUtc: nowUtc, preferences: preferences);
+    double distanceFrom(double target) =>
+        ((minute - target + 720 + 1440) % 1440) - 720;
+    double smoothStep(double value) {
+      final t = value.clamp(0.0, 1.0);
+      return t * t * (3 - 2 * t);
+    }
+
+    final sunriseDelta = distanceFrom(window.sunriseMinute.toDouble());
+    if (sunriseDelta.abs() <= 30) {
+      return smoothStep((sunriseDelta + 30) / 60);
+    }
+    final sunsetDelta = distanceFrom(window.sunsetMinute.toDouble());
+    if (sunsetDelta.abs() <= 30) {
+      return 1 - smoothStep((sunsetDelta + 30) / 60);
+    }
+    return window.containsMinute(minute.floor()) ? 1 : 0;
+  }
+
   Duration _timezoneOffset(
     DateTime nowUtc,
     CampEnvironmentPreferences preferences,
@@ -199,8 +240,10 @@ class CampEnvironmentHost extends StatefulWidget {
 class _CampEnvironmentHostState extends State<CampEnvironmentHost>
     with WidgetsBindingObserver {
   late CampDayPhase _phase;
+  late double _daylightFactor;
   late CampDaylightWindow _daylightWindow;
   late bool _isForeground;
+  Timer? _clock;
 
   DateTime get _nowUtc => (widget.nowUtc?.call() ?? DateTime.now()).toUtc();
 
@@ -213,6 +256,16 @@ class _CampEnvironmentHostState extends State<CampEnvironmentHost>
       _ => false,
     };
     _recomputeEnvironment();
+    _clock = Timer.periodic(const Duration(seconds: 30), (_) {
+      if (!_isForeground) return;
+      final previousPhase = _phase;
+      final previousFactor = _daylightFactor;
+      _recomputeEnvironment();
+      if (previousPhase != _phase ||
+          (previousFactor - _daylightFactor).abs() >= .002) {
+        setState(() {});
+      }
+    });
   }
 
   @override
@@ -242,6 +295,7 @@ class _CampEnvironmentHostState extends State<CampEnvironmentHost>
 
   @override
   void dispose() {
+    _clock?.cancel();
     WidgetsBinding.instance.removeObserver(this);
     super.dispose();
   }
@@ -256,15 +310,22 @@ class _CampEnvironmentHostState extends State<CampEnvironmentHost>
       nowUtc: nowUtc,
       preferences: widget.preferences,
     );
+    final factor = widget.resolver.resolveDaylightFactor(
+      nowUtc: nowUtc,
+      preferences: widget.preferences,
+      daylightWindow: window,
+    );
     if (notify && mounted) {
       setState(() {
         _daylightWindow = window;
         _phase = phase;
+        _daylightFactor = factor;
       });
       return;
     }
     _daylightWindow = window;
     _phase = phase;
+    _daylightFactor = factor;
   }
 
   @override
@@ -275,6 +336,7 @@ class _CampEnvironmentHostState extends State<CampEnvironmentHost>
     final motionEnabled = _isForeground && !reduceMotion;
     final state = CampEnvironmentState(
       phase: _phase,
+      daylightFactor: _daylightFactor,
       daylightWindow: _daylightWindow,
       isForeground: _isForeground,
       motionEnabled: motionEnabled,

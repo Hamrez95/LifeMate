@@ -4,6 +4,7 @@ import 'package:lifemate_ui/lifemate_ui.dart';
 import 'package:provider/provider.dart';
 
 import '../../core/constants/app_version.dart';
+import '../../core/constants/module_assets.dart';
 import '../../core/theme/app_style.dart';
 import '../../core/utils/string_extensions.dart';
 import '../../core/widgets/medication_home_widget_service.dart';
@@ -40,8 +41,7 @@ class ProfileScreen extends StatelessWidget {
         cardBackground: AppColors.cardBackground,
       ),
       labels: LifeMateProfileLabels(
-        personalInfo:
-            loc['profile_personal_info'] ??
+        personalInfo: loc['profile_personal_info'] ??
             LifeMateRuntimeLocale.select(
               fa: LifeMateRuntimeLocale.select(
                 fa: 'اطلاعات شخصی',
@@ -49,8 +49,7 @@ class ProfileScreen extends StatelessWidget {
               ),
               en: "Personal information",
             ),
-        healthProfile:
-            loc['profile_health_profile'] ??
+        healthProfile: loc['profile_health_profile'] ??
             LifeMateRuntimeLocale.select(
               fa: LifeMateRuntimeLocale.select(
                 fa: 'پرونده سلامت',
@@ -58,14 +57,12 @@ class ProfileScreen extends StatelessWidget {
               ),
               en: "health file",
             ),
-        careManagement:
-            loc['profile_caregivers'] ??
+        careManagement: loc['profile_caregivers'] ??
             LifeMateRuntimeLocale.select(
               fa: LifeMateRuntimeLocale.select(fa: 'مراقبان', en: "Caregivers"),
               en: "Caregivers",
             ),
-        appSettings:
-            loc['profile_app_settings'] ??
+        appSettings: loc['profile_app_settings'] ??
             LifeMateRuntimeLocale.select(
               fa: LifeMateRuntimeLocale.select(
                 fa: 'تنظیمات برنامه',
@@ -73,8 +70,7 @@ class ProfileScreen extends StatelessWidget {
               ),
               en: "Program settings",
             ),
-        referral:
-            loc['profile_referral_code'] ??
+        referral: loc['profile_referral_code'] ??
             LifeMateRuntimeLocale.select(
               fa: LifeMateRuntimeLocale.select(
                 fa: 'کد معرف',
@@ -84,11 +80,9 @@ class ProfileScreen extends StatelessWidget {
             ),
         support: loc['profile_support'] ?? 'پشتیبانی',
         logout: loc['profile_logout'] ?? 'خروج از حساب',
-        subscriptionTitle:
-            loc['profile_no_subscription'] ??
+        subscriptionTitle: loc['profile_no_subscription'] ??
             (isPersian ? 'اشتراک' : 'Subscription'),
-        manageSubscriptions:
-            loc['profile_buy_plan'] ??
+        manageSubscriptions: loc['profile_buy_plan'] ??
             (isPersian
                 ? LifeMateRuntimeLocale.select(
                     fa: 'مدیریت اشتراک‌ها',
@@ -145,7 +139,8 @@ class ProfileScreen extends StatelessWidget {
           fontFamily: mainFont,
         ),
       ),
-      onManageSubscriptions: () => open(const LifeMateSubscriptionCenterScreen()),
+      onManageSubscriptions: () =>
+          open(const LifeMateSubscriptionCenterScreen()),
       additionalActions: [
         LifeMateProfileAdditionalAction(
           key: const Key('profile-health-record-entry'),
@@ -297,6 +292,7 @@ class _MedicationWidgetProfileButton extends StatelessWidget {
                   ),
                   child: Image.asset(
                     'assets/images/WellMateWithoutBack.png',
+                    package: wellMateAssetPackage,
                     fit: BoxFit.contain,
                     errorBuilder: (_, __, ___) =>
                         Icon(Icons.widgets_rounded, color: Color(0xFF4AAE72)),

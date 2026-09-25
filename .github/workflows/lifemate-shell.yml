@@ -66,6 +66,10 @@ jobs:
         working-directory: lifemate
         run: flutter pub get
 
+      - name: Generate LifeMate launcher icon
+        working-directory: lifemate
+        run: dart run flutter_launcher_icons
+
       - name: Verify formatting
         working-directory: lifemate
         shell: bash
@@ -90,7 +94,7 @@ jobs:
 
       - name: Build Android APK
         working-directory: lifemate
-        run: flutter build apk --release --dart-define=ENABLE_GOOGLE_AUTH=false
+        run: flutter build apk --release --dart-define=ENABLE_PHONE_OTP=true --dart-define=ENABLE_GOOGLE_AUTH=false
 
       - name: Verify isolated Android package
         shell: bash

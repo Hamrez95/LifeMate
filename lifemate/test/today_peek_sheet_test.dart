@@ -113,6 +113,8 @@ void main() {
 
     await tester.tap(find.text('Today').last);
     await tester.pumpAndSettle();
+    await tester.tap(find.text('View full day'));
+    await tester.pumpAndSettle();
 
     expect(find.text('Today is not connected yet'), findsOneWidget);
     expect(
@@ -147,6 +149,8 @@ void main() {
     );
 
     await tester.tap(find.text('Today').last);
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('View full day'));
     await tester.pumpAndSettle();
 
     expect(find.text('Showing the last safe refresh'), findsOneWidget);
