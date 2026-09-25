@@ -5,6 +5,7 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:http/http.dart' as http;
 import 'package:http/testing.dart';
 import 'package:lifemate/app/lifemate_app.dart';
+import 'package:lifemate/modules/module_registry.dart';
 import 'package:lifemate/shell/lifemate_shell.dart';
 import 'package:lifemate_client/lifemate_client.dart';
 
@@ -57,7 +58,29 @@ void main() {
 
     await tester.pumpWidget(
       LifeMateApp(
-        home: LifeMateShell(apiClient: api),
+        home: LifeMateShell(
+          apiClient: api,
+          moduleRegistry: LifeMateModuleRegistry([
+            LifeMateModuleDefinition(
+              id: LifeMateModuleId.wellMate,
+              routeName: '/modules/wellmate',
+              labelEn: 'WellMate',
+              labelFa: 'ول‌میت',
+              icon: Icons.health_and_safety_outlined,
+              availability: ModuleAvailability.available,
+              pageBuilder: (_, __) => const SizedBox.shrink(),
+              profileSectionsBuilder: (context, client, isPersian) => [
+                Card(
+                  child: Text(
+                    identical(client, api) && !isPersian
+                        ? 'WellMate settings'
+                        : 'Wrong profile context',
+                  ),
+                ),
+              ],
+            ),
+          ]),
+        ),
         localeOverride: const Locale('en'),
       ),
     );
@@ -103,6 +126,12 @@ void main() {
     );
     expect(find.text('Membership'), findsOneWidget);
     expect(find.text('Ambient audio'), findsOneWidget);
+    await tester.scrollUntilVisible(
+      find.text('WellMate settings'),
+      260,
+      scrollable: find.byType(Scrollable).first,
+    );
+    expect(find.text('WellMate settings'), findsOneWidget);
   });
 
   testWidgets('Persian You remains RTL and exposes retry on profile failure', (

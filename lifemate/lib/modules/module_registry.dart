@@ -10,6 +10,16 @@ enum ModuleAvailability { available, locked, unavailable }
 typedef ModulePageBuilder =
     Widget Function(BuildContext context, LifeMateApiClient apiClient);
 
+/// Product-owned settings that appear inside the shell's single You/Profile
+/// destination. Builders receive the shell's authenticated client and must not
+/// add another account/profile header or authentication gate.
+typedef ModuleProfileSectionsBuilder =
+    List<Widget> Function(
+      BuildContext context,
+      LifeMateApiClient apiClient,
+      bool isPersian,
+    );
+
 @immutable
 class LifeMateModuleDefinition {
   const LifeMateModuleDefinition({
@@ -20,6 +30,7 @@ class LifeMateModuleDefinition {
     required this.icon,
     required this.availability,
     this.pageBuilder,
+    this.profileSectionsBuilder,
   });
 
   final LifeMateModuleId id;
@@ -29,6 +40,7 @@ class LifeMateModuleDefinition {
   final IconData icon;
   final ModuleAvailability availability;
   final ModulePageBuilder? pageBuilder;
+  final ModuleProfileSectionsBuilder? profileSectionsBuilder;
 
   bool get canOpen =>
       availability == ModuleAvailability.available && pageBuilder != null;

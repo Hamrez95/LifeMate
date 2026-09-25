@@ -368,10 +368,25 @@ class _LifeMateShellState extends State<LifeMateShell> {
         ),
       );
     }
+    final productSections = <Widget>[];
+    for (final module in _moduleRegistry.modules) {
+      if (module.availability != ModuleAvailability.available ||
+          module.profileSectionsBuilder == null) {
+        continue;
+      }
+      try {
+        productSections.addAll(
+          module.profileSectionsBuilder!(context, apiClient, _isPersian),
+        );
+      } catch (_) {
+        // A product profile extension must not take down the global profile.
+      }
+    }
     return ProfileYouScreen(
       apiClient: apiClient,
       isPersian: _isPersian,
       onLocaleChanged: widget.onLocaleChanged ?? (_) {},
+      productSections: productSections,
     );
   }
 
