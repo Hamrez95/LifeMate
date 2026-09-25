@@ -17,7 +17,10 @@ import {
 import { json } from "./http.ts";
 import { ApiError, requireIdempotencyKey } from "./validation.ts";
 
-function checkedStatus(result: Record<string, unknown>, workflow: string): number {
+function checkedStatus(
+  result: Record<string, unknown>,
+  workflow: string,
+): number {
   const httpStatus = Number(result.httpStatus);
   if (!Number.isInteger(httpStatus) || httpStatus < 100 || httpStatus > 599) {
     throw new ApiError(
@@ -47,11 +50,15 @@ export function createCommerceTrialRouteHandler(databaseUrl: string) {
     if (planFeaturePlanId) {
       if (request.method === "GET") {
         requirePermission(admin, "commerce.read");
-        return json({
-          planId: planFeaturePlanId,
-          items: await planFeatureStore.list(planFeaturePlanId),
-          freshness: { status: "fresh", asOfUtc: new Date().toISOString() },
-        }, 200, origin);
+        return json(
+          {
+            planId: planFeaturePlanId,
+            items: await planFeatureStore.list(planFeaturePlanId),
+            freshness: { status: "fresh", asOfUtc: new Date().toISOString() },
+          },
+          200,
+          origin,
+        );
       }
       if (request.method !== "PUT") return null;
       requirePermission(admin, "commerce.plan_feature.write");
@@ -63,23 +70,32 @@ export function createCommerceTrialRouteHandler(databaseUrl: string) {
         payload,
         correlationId,
         idempotencyKey,
-        requestHash: await hashConfigureCommercePlanFeatureRequest(planFeaturePlanId, payload),
+        requestHash: await hashConfigureCommercePlanFeatureRequest(
+          planFeaturePlanId,
+          payload,
+        ),
       });
       const httpStatus = checkedStatus(result, "commerce_plan_feature");
       if (httpStatus >= 400) {
         throw new ApiError(
           httpStatus,
           String(result.code),
-          typeof result.message === "string" ? result.message : "Plan feature update was not completed.",
+          typeof result.message === "string"
+            ? result.message
+            : "Plan feature update was not completed.",
         );
       }
-      return json({
-        planId: String(result.planId),
-        featureId: String(result.featureId),
-        assigned: Boolean(result.assigned),
-        version: Number(result.version),
-        replayed: Boolean(result.replayed),
-      }, httpStatus, origin);
+      return json(
+        {
+          planId: String(result.planId),
+          featureId: String(result.featureId),
+          assigned: Boolean(result.assigned),
+          version: Number(result.version),
+          replayed: Boolean(result.replayed),
+        },
+        httpStatus,
+        origin,
+      );
     }
 
     const planId = matchCommerceTrialPolicyPath(path);
@@ -87,10 +103,14 @@ export function createCommerceTrialRouteHandler(databaseUrl: string) {
     if (request.method === "GET") {
       requirePermission(admin, "commerce.read");
       const policy = await trialStore.get(planId);
-      return json({
-        policy,
-        freshness: { status: "fresh", asOfUtc: new Date().toISOString() },
-      }, 200, origin);
+      return json(
+        {
+          policy,
+          freshness: { status: "fresh", asOfUtc: new Date().toISOString() },
+        },
+        200,
+        origin,
+      );
     }
     if (request.method !== "PUT") return null;
     requirePermission(admin, "commerce.trial.write");
@@ -109,16 +129,22 @@ export function createCommerceTrialRouteHandler(databaseUrl: string) {
       throw new ApiError(
         httpStatus,
         String(result.code),
-        typeof result.message === "string" ? result.message : "Trial policy update was not completed.",
+        typeof result.message === "string"
+          ? result.message
+          : "Trial policy update was not completed.",
       );
     }
-    return json({
-      planId: String(result.planId),
-      durationDays: Number(result.durationDays),
-      eligibilityRule: String(result.eligibilityRule),
-      status: String(result.status),
-      version: Number(result.version),
-      replayed: Boolean(result.replayed),
-    }, httpStatus, origin);
+    return json(
+      {
+        planId: String(result.planId),
+        durationDays: Number(result.durationDays),
+        eligibilityRule: String(result.eligibilityRule),
+        status: String(result.status),
+        version: Number(result.version),
+        replayed: Boolean(result.replayed),
+      },
+      httpStatus,
+      origin,
+    );
   };
 }
