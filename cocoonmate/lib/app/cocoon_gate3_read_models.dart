@@ -1,10 +1,11 @@
 import 'package:cocoonmate_module/cocoonmate_module.dart';
 import 'package:lifemate_client/lifemate_client.dart';
 
-typedef CocoonGate3ReadLoader = Future<CocoonGate3ReadModels> Function({
-  required DateTime now,
-  required bool fa,
-});
+typedef CocoonGate3ReadLoader =
+    Future<CocoonGate3ReadModels> Function({
+      required DateTime now,
+      required bool fa,
+    });
 
 /// Canonical source identity retained beside a presentation-only Records row.
 ///
@@ -73,14 +74,14 @@ final class CocoonGate3ReadModelLoader {
   CocoonGate3ReadModelLoader({
     required Uri baseUri,
     required AccessTokenProvider accessToken,
-  })  : _calendar = CocoonPregnancyCalendarApiClient(
-          baseUri: baseUri,
-          accessToken: accessToken,
-        ),
-        _records = CocoonPregnancyRecordsApiClient(
-          baseUri: baseUri,
-          accessToken: accessToken,
-        );
+  }) : _calendar = CocoonPregnancyCalendarApiClient(
+         baseUri: baseUri,
+         accessToken: accessToken,
+       ),
+       _records = CocoonPregnancyRecordsApiClient(
+         baseUri: baseUri,
+         accessToken: accessToken,
+       );
 
   final CocoonPregnancyCalendarApiClient _calendar;
   final CocoonPregnancyRecordsApiClient _records;
@@ -130,8 +131,9 @@ final class CocoonGate3ReadModelLoader {
       records = page.items
           .map((item) => _recordItem(item, fa: fa))
           .toList(growable: false);
-      recordsState =
-          records.isEmpty ? CocoonRecordsState.empty : CocoonRecordsState.ready;
+      recordsState = records.isEmpty
+          ? CocoonRecordsState.empty
+          : CocoonRecordsState.ready;
     } on Object {
       recordsState = CocoonRecordsState.error;
       records = const [];
@@ -174,7 +176,8 @@ CocoonCalendarItem _calendarItem(
   required bool fa,
 }) {
   final event = source.careEvent;
-  final title = _string(event['title']) ??
+  final title =
+      _string(event['title']) ??
       _calendarClassificationLabel(source.classification, fa: fa);
   final date =
       _string(event['scheduledLocalDate']) ?? _string(event['localDate']) ?? '';
@@ -226,16 +229,15 @@ CocoonRecordViewData _recordItem(
 }
 
 CocoonRecordKind _recordKind(String category) => switch (category) {
-      'appointments' => CocoonRecordKind.appointment,
-      'measurements' => CocoonRecordKind.measurement,
-      'medications' => CocoonRecordKind.medication,
-      'pregnancy' ||
-      'check_ins' ||
-      'symptoms' ||
-      'moods' =>
-        CocoonRecordKind.checkIn,
-      _ => CocoonRecordKind.document,
-    };
+  'appointments' => CocoonRecordKind.appointment,
+  'measurements' => CocoonRecordKind.measurement,
+  'medications' => CocoonRecordKind.medication,
+  'pregnancy' ||
+  'check_ins' ||
+  'symptoms' ||
+  'moods' => CocoonRecordKind.checkIn,
+  _ => CocoonRecordKind.document,
+};
 
 String _recordTitle(CocoonPregnancyRecordItem source, {required bool fa}) {
   final summary = source.summary;
@@ -243,21 +245,22 @@ String _recordTitle(CocoonPregnancyRecordItem source, {required bool fa}) {
     'pregnancy' => _copy('Pregnancy started', 'شروع بارداری', fa),
     'check_ins' => _copy('Daily check-in', 'حال روزانه', fa),
     'symptoms' => _humanCode(
-        _string(summary['symptomCode']) ?? source.type,
-        fa: fa,
-      ),
+      _string(summary['symptomCode']) ?? source.type,
+      fa: fa,
+    ),
     'moods' => _copy('Mood', 'حال روحی', fa),
     'measurements' => _measurementLabel(
-        _string(summary['observationType']) ?? source.type,
-        fa: fa,
-      ),
+      _string(summary['observationType']) ?? source.type,
+      fa: fa,
+    ),
     'appointments' => _humanCode(
-        _string(summary['pregnancyClassification']) ?? source.type,
-        fa: fa,
-      ),
-    'medications' => source.type == 'dose_occurrence'
-        ? _copy('Medication dose', 'نوبت مصرف دارو', fa)
-        : _copy('Treatment plan', 'برنامه درمانی', fa),
+      _string(summary['pregnancyClassification']) ?? source.type,
+      fa: fa,
+    ),
+    'medications' =>
+      source.type == 'dose_occurrence'
+          ? _copy('Medication dose', 'نوبت مصرف دارو', fa)
+          : _copy('Treatment plan', 'برنامه درمانی', fa),
     _ => _humanCode(source.type, fa: fa),
   };
 }
@@ -301,48 +304,47 @@ void _addCode(List<String> values, Object? raw, {required bool fa}) {
 }
 
 String _measurementLabel(String raw, {required bool fa}) => switch (raw) {
-      'weight' => _copy('Weight', 'وزن', fa),
-      'blood_pressure' => _copy('Blood pressure', 'فشار خون', fa),
-      'blood_glucose' => _copy('Blood glucose', 'قند خون', fa),
-      _ => _humanCode(raw, fa: fa),
-    };
+  'weight' => _copy('Weight', 'وزن', fa),
+  'blood_pressure' => _copy('Blood pressure', 'فشار خون', fa),
+  'blood_glucose' => _copy('Blood glucose', 'قند خون', fa),
+  _ => _humanCode(raw, fa: fa),
+};
 
 String _calendarClassificationLabel(
   CocoonPregnancyCalendarClassification value, {
   required bool fa,
-}) =>
-    switch (value) {
-      CocoonPregnancyCalendarClassification.prenatal => _copy(
-          'Prenatal appointment',
-          'قرار مراقبت بارداری',
-          fa,
-        ),
-      CocoonPregnancyCalendarClassification.ultrasound => _copy(
-          'Ultrasound',
-          'سونوگرافی',
-          fa,
-        ),
-      CocoonPregnancyCalendarClassification.checkup => _copy(
-          'Check-up',
-          'ویزیت',
-          fa,
-        ),
-      CocoonPregnancyCalendarClassification.labTest => _copy(
-          'Lab test',
-          'آزمایش',
-          fa,
-        ),
-      CocoonPregnancyCalendarClassification.injection => _copy(
-          'Injection',
-          'تزریق',
-          fa,
-        ),
-      CocoonPregnancyCalendarClassification.other => _copy(
-          'Care event',
-          'رویداد مراقبتی',
-          fa,
-        ),
-    };
+}) => switch (value) {
+  CocoonPregnancyCalendarClassification.prenatal => _copy(
+    'Prenatal appointment',
+    'قرار مراقبت بارداری',
+    fa,
+  ),
+  CocoonPregnancyCalendarClassification.ultrasound => _copy(
+    'Ultrasound',
+    'سونوگرافی',
+    fa,
+  ),
+  CocoonPregnancyCalendarClassification.checkup => _copy(
+    'Check-up',
+    'ویزیت',
+    fa,
+  ),
+  CocoonPregnancyCalendarClassification.labTest => _copy(
+    'Lab test',
+    'آزمایش',
+    fa,
+  ),
+  CocoonPregnancyCalendarClassification.injection => _copy(
+    'Injection',
+    'تزریق',
+    fa,
+  ),
+  CocoonPregnancyCalendarClassification.other => _copy(
+    'Care event',
+    'رویداد مراقبتی',
+    fa,
+  ),
+};
 
 String _humanCode(String value, {required bool fa}) {
   final localized = switch (value.trim()) {

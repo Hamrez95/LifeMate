@@ -308,7 +308,8 @@ class _CocoonAppointmentFormScreenState
                         color: Colors.white,
                       ),
                     )
-                  : Icon(_queued ? Icons.done_all_rounded : Icons.check_rounded),
+                  : Icon(
+                      _queued ? Icons.done_all_rounded : Icons.check_rounded),
               label: Text(
                 _busy
                     ? t('Saving…', 'در حال ثبت…')

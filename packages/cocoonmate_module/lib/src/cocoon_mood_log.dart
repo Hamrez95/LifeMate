@@ -2,7 +2,14 @@ part of '../cocoonmate_module.dart';
 
 enum CocoonMood { veryLow, low, neutral, good, veryGood }
 
-enum CocoonMoodSubmitState { idle, submitting, queued, confirmed, error, offline }
+enum CocoonMoodSubmitState {
+  idle,
+  submitting,
+  queued,
+  confirmed,
+  error,
+  offline
+}
 
 class CocoonMoodDraft {
   const CocoonMoodDraft({required this.mood});
@@ -32,7 +39,8 @@ class _CocoonMoodLogScreenState extends State<CocoonMoodLogScreen> {
 
   @override
   Widget build(BuildContext context) => Scaffold(
-        appBar: AppBar(title: Text(t('How are you feeling?', 'حال روحی‌ات چطور است؟'))),
+        appBar: AppBar(
+            title: Text(t('How are you feeling?', 'حال روحی‌ات چطور است؟'))),
         body: SafeArea(
           bottom: false,
           child: CocoonPagePadding(
@@ -66,9 +74,12 @@ class _CocoonMoodLogScreenState extends State<CocoonMoodLogScreen> {
                         button: true,
                         child: ChoiceChip(
                           selected: selected,
-                          onSelected: _busy ? null : (_) => setState(() => _selected = mood),
+                          onSelected: _busy
+                              ? null
+                              : (_) => setState(() => _selected = mood),
                           label: Padding(
-                            padding: const EdgeInsetsDirectional.symmetric(vertical: 8),
+                            padding: const EdgeInsetsDirectional.symmetric(
+                                vertical: 8),
                             child: Text(_label(mood)),
                           ),
                         ),
@@ -93,9 +104,13 @@ class _CocoonMoodLogScreenState extends State<CocoonMoodLogScreen> {
                   ? null
                   : () => widget.onSubmit(CocoonMoodDraft(mood: _selected!)),
               icon: _busy
-                  ? const SizedBox.square(dimension: 18, child: CircularProgressIndicator(strokeWidth: 2))
+                  ? const SizedBox.square(
+                      dimension: 18,
+                      child: CircularProgressIndicator(strokeWidth: 2))
                   : const Icon(Icons.check_rounded),
-              label: Text(_busy ? t('Saving…', 'در حال ثبت…') : t('Save mood', 'ثبت حال روحی')),
+              label: Text(_busy
+                  ? t('Saving…', 'در حال ثبت…')
+                  : t('Save mood', 'ثبت حال روحی')),
             ),
           ),
         ),
@@ -118,11 +133,17 @@ class _MoodStatus extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final text = switch (state) {
-      CocoonMoodSubmitState.submitting => fa ? 'در حال ثبت امن' : 'Saving securely',
-      CocoonMoodSubmitState.queued => fa ? 'در صف همگام‌سازی؛ هنوز تأیید نشده' : 'Queued; not yet confirmed',
-      CocoonMoodSubmitState.confirmed => fa ? 'ثبت و تأیید شد' : 'Saved and confirmed',
-      CocoonMoodSubmitState.error => fa ? 'ثبت انجام نشد؛ دوباره تلاش کن' : 'Not saved; try again',
-      CocoonMoodSubmitState.offline => fa ? 'آفلاین؛ ثبت جدید در دسترس نیست' : 'Offline; new logging unavailable',
+      CocoonMoodSubmitState.submitting =>
+        fa ? 'در حال ثبت امن' : 'Saving securely',
+      CocoonMoodSubmitState.queued =>
+        fa ? 'در صف همگام‌سازی؛ هنوز تأیید نشده' : 'Queued; not yet confirmed',
+      CocoonMoodSubmitState.confirmed =>
+        fa ? 'ثبت و تأیید شد' : 'Saved and confirmed',
+      CocoonMoodSubmitState.error =>
+        fa ? 'ثبت انجام نشد؛ دوباره تلاش کن' : 'Not saved; try again',
+      CocoonMoodSubmitState.offline => fa
+          ? 'آفلاین؛ ثبت جدید در دسترس نیست'
+          : 'Offline; new logging unavailable',
       CocoonMoodSubmitState.idle => '',
     };
     return Semantics(liveRegion: true, child: Text(text));

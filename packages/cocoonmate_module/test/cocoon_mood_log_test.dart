@@ -3,7 +3,8 @@ import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 void main() {
-  testWidgets('mood capture is non-diagnostic, accessible, and submits selection', (
+  testWidgets(
+      'mood capture is non-diagnostic, accessible, and submits selection', (
     tester,
   ) async {
     CocoonMoodDraft? submitted;
