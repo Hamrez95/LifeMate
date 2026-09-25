@@ -14,13 +14,15 @@ if (!databaseUrl) {
 }
 
 const contactSecret = "integration-only-women-calendar-secret-32-bytes-minimum";
+const adminDatabaseUrl = Deno.env.get("TEST_ADMIN_DATABASE_URL") ??
+  databaseUrl;
 
 Deno.test({
   name: "women calendar owner consent caregiver and revoke journey is isolated",
   sanitizeOps: false,
   sanitizeResources: false,
   fn: async () => {
-    const admin = postgres(databaseUrl, { max: 1, prepare: false });
+    const admin = postgres(adminDatabaseUrl, { max: 1, prepare: false });
     const db = createLifeMateDatabase(databaseUrl, contactSecret);
     const women = createWomenCalendarStore(databaseUrl);
     const suffix = crypto.randomUUID();

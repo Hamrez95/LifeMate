@@ -15,7 +15,9 @@ if (!databaseUrl) {
   );
 }
 
-const fixtureSql = postgres(databaseUrl, {
+const adminDatabaseUrl = Deno.env.get("TEST_ADMIN_DATABASE_URL") ??
+  databaseUrl;
+const fixtureSql = postgres(adminDatabaseUrl, {
   max: 1,
   prepare: false,
   idle_timeout: 5,
