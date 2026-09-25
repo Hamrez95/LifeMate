@@ -7,6 +7,7 @@ class CocoonPregnancyCalendar extends StatelessWidget {
     this.state = CocoonCalendarLoadState.empty,
     this.items = const [],
     this.asOfLocalDate,
+    this.onAddAppointment,
     this.onOpenItem,
     this.onOpenWeek,
     this.onRetry,
@@ -18,6 +19,7 @@ class CocoonPregnancyCalendar extends StatelessWidget {
   final CocoonCalendarLoadState state;
   final List<CocoonCalendarItem> items;
   final DateTime? asOfLocalDate;
+  final Future<void> Function()? onAddAppointment;
   final ValueChanged<CocoonCalendarItem>? onOpenItem;
   final ValueChanged<int>? onOpenWeek;
   final VoidCallback? onRetry;
@@ -79,6 +81,7 @@ class CocoonPregnancyCalendar extends StatelessWidget {
                   fa: fa,
                   state: state,
                   items: items,
+                  onAddAppointment: onAddAppointment,
                   onOpenItem: onOpenItem,
                   onRetry: onRetry,
                 ),
@@ -529,6 +532,7 @@ class _CarePlanState extends StatelessWidget {
     required this.fa,
     required this.state,
     required this.items,
+    this.onAddAppointment,
     this.onOpenItem,
     this.onRetry,
   });
@@ -536,6 +540,7 @@ class _CarePlanState extends StatelessWidget {
   final bool fa;
   final CocoonCalendarLoadState state;
   final List<CocoonCalendarItem> items;
+  final Future<void> Function()? onAddAppointment;
   final ValueChanged<CocoonCalendarItem>? onOpenItem;
   final VoidCallback? onRetry;
 
@@ -560,11 +565,25 @@ class _CarePlanState extends StatelessWidget {
       );
     }
     if (state == CocoonCalendarLoadState.empty || items.isEmpty) {
-      return _CalendarEmptyState(fa: fa);
+      return _CalendarEmptyState(
+        fa: fa,
+        onAddAppointment: onAddAppointment,
+      );
     }
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
+        if (onAddAppointment != null) ...[
+          Align(
+            alignment: AlignmentDirectional.centerStart,
+            child: FilledButton.tonalIcon(
+              onPressed: onAddAppointment,
+              icon: const Icon(Icons.add_rounded),
+              label: Text(fa ? 'افزودن قرار' : 'Add appointment'),
+            ),
+          ),
+          const SizedBox(height: 12),
+        ],
         if (state == CocoonCalendarLoadState.offlineCached) ...[
           CocoonStatusBadge(
             icon: Icons.cloud_off_outlined,
@@ -696,9 +715,10 @@ class _CarePlanItem extends StatelessWidget {
 }
 
 class _CalendarEmptyState extends StatelessWidget {
-  const _CalendarEmptyState({required this.fa});
+  const _CalendarEmptyState({required this.fa, this.onAddAppointment});
 
   final bool fa;
+  final Future<void> Function()? onAddAppointment;
 
   @override
   Widget build(BuildContext context) => CocoonEmptyState(
@@ -707,6 +727,14 @@ class _CalendarEmptyState extends StatelessWidget {
         body: fa
             ? 'وقتی قرار یا یادآوری معتبر ثبت شود، اینجا به‌ترتیب زمان دیده می‌شود.'
             : 'Saved appointments and reminders will appear here in time order.',
+        actionLabel: onAddAppointment == null
+            ? null
+            : (fa ? 'افزودن قرار' : 'Add appointment'),
+        onAction: onAddAppointment == null
+            ? null
+            : () {
+                onAddAppointment!();
+              },
       );
 }
 

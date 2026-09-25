@@ -6,6 +6,14 @@ insert into lifemate.app_users(id,auth_subject,status,created_at_utc,updated_at_
 ('71000000-0000-0000-0000-000000000002','context-subject-b','Active',now(),now()),
 ('71000000-0000-0000-0000-000000000003','context-subject-c','Active',now(),now());
 
+-- This contract isolates relationship-specific consent and needs two caregiver
+-- edges for one owner. Raise only the transactional test quota so commerce
+-- enforcement does not mask the consent assertion; the rollback restores it.
+update commerce.catalog_policies
+set value_json='2'::jsonb
+where policy_key='free.owner_caregivers.max'
+  and product_id=(select id from commerce.products where code='wellmate-caremate');
+
 insert into lifemate.care_relationships(
   id,patient_user_id,caregiver_user_id,status,
   patient_consent_version,patient_consented_at_utc,

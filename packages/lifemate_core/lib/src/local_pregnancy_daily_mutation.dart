@@ -95,6 +95,7 @@ final class LifeMateOfflinePregnancyDailyMutation {
     required DateTime observedAtUtc,
     required DateTime localDate,
     required String timeZone,
+    required String catalogVersion,
     required String symptomCode,
     required String intensity,
     String? note,
@@ -105,6 +106,7 @@ final class LifeMateOfflinePregnancyDailyMutation {
       observedAtUtc: observedAtUtc,
       localDate: localDate,
       timeZone: timeZone,
+      catalogVersion: catalogVersion,
       symptomCode: symptomCode,
       intensity: intensity,
       note: note,
@@ -119,6 +121,7 @@ final class LifeMateOfflinePregnancyDailyMutation {
     required DateTime observedAtUtc,
     required DateTime localDate,
     required String timeZone,
+    required String catalogVersion,
     required String symptomCode,
     required String intensity,
     String? note,
@@ -126,6 +129,7 @@ final class LifeMateOfflinePregnancyDailyMutation {
   }) {
     final requestId = _requestId(mutationId);
     final zone = _required(timeZone, 'timeZone');
+    final version = _required(catalogVersion, 'catalogVersion');
     final code = symptomCode.trim().toLowerCase();
     if (!_symptomCode.hasMatch(code)) {
       throw ArgumentError.value(symptomCode, 'symptomCode');
@@ -141,6 +145,7 @@ final class LifeMateOfflinePregnancyDailyMutation {
       timeZone: zone,
       createdAtUtc: createdAtUtc,
       extraPayload: <String, dynamic>{
+        'catalogVersion': version,
         'symptomCode': code,
         'intensity': normalizedIntensity,
         if (normalizedNote != null) 'note': normalizedNote,

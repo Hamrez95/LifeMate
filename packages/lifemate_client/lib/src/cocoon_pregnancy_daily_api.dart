@@ -44,6 +44,34 @@ enum CocoonPregnancyMood {
   final String wireValue;
 }
 
+class CocoonPregnancySymptomCatalogEntry {
+  const CocoonPregnancySymptomCatalogEntry({
+    required this.code,
+    required this.label,
+    required this.sortOrder,
+  });
+
+  factory CocoonPregnancySymptomCatalogEntry.fromJson(
+    Map<String, dynamic> json,
+  ) {
+    final code = json['code']?.toString().trim() ?? '';
+    final label = json['label']?.toString().trim() ?? '';
+    final sortOrder = json['sortOrder'];
+    if (code.isEmpty || label.isEmpty || sortOrder is! num) {
+      throw const FormatException('Invalid Cocoon symptom catalog entry.');
+    }
+    return CocoonPregnancySymptomCatalogEntry(
+      code: code,
+      label: label,
+      sortOrder: sortOrder.toInt(),
+    );
+  }
+
+  final String code;
+  final String label;
+  final int sortOrder;
+}
+
 /// Versioned catalog supplied by the authoritative Cocoon host/server layer.
 ///
 /// The client does not invent symptom codes. [createSymptom] rejects any code
@@ -52,9 +80,13 @@ class CocoonApprovedSymptomCatalog {
   CocoonApprovedSymptomCatalog({
     required String version,
     required Iterable<String> codes,
+    Iterable<CocoonPregnancySymptomCatalogEntry> entries = const [],
   }) : version = version.trim(),
        codes = Set<String>.unmodifiable(
          codes.map((code) => code.trim()).where((code) => code.isNotEmpty),
+       ),
+       entries = List<CocoonPregnancySymptomCatalogEntry>.unmodifiable(
+         entries,
        ) {
     if (this.version.isEmpty) {
       throw ArgumentError.value(version, 'version', 'must not be empty.');
@@ -63,6 +95,7 @@ class CocoonApprovedSymptomCatalog {
 
   final String version;
   final Set<String> codes;
+  final List<CocoonPregnancySymptomCatalogEntry> entries;
 
   bool allows(String code) => codes.contains(code.trim());
 }
@@ -199,6 +232,38 @@ class CocoonPregnancyDailyApiClient {
     ),
   );
 
+  Future<CocoonApprovedSymptomCatalog> symptomCatalog({
+    required String locale,
+  }) async {
+    final normalizedLocale = locale.trim().toLowerCase();
+    if (normalizedLocale != 'en' && normalizedLocale != 'fa') {
+      throw ArgumentError.value(locale, 'locale', 'must be en or fa.');
+    }
+    final response = await _object(
+      'GET',
+      '/api/v1/cocoon/pregnancy/symptom-catalog',
+      query: {'locale': normalizedLocale},
+    );
+    final version = response['version']?.toString().trim() ?? '';
+    final rawEntries = response['entries'];
+    if (version.isEmpty || rawEntries is! List) {
+      throw const FormatException('Invalid Cocoon symptom catalog payload.');
+    }
+    final entries = rawEntries
+        .whereType<Map>()
+        .map(
+          (entry) => CocoonPregnancySymptomCatalogEntry.fromJson(
+            Map<String, dynamic>.from(entry),
+          ),
+        )
+        .toList(growable: false);
+    return CocoonApprovedSymptomCatalog(
+      version: version,
+      codes: entries.map((entry) => entry.code),
+      entries: entries,
+    );
+  }
+
   Future<CocoonPregnancyCaptureRecord> createCheckIn({
     required String clientRequestId,
     required DateTime observedAtUtc,
@@ -244,7 +309,11 @@ class CocoonPregnancyDailyApiClient {
     }
     final normalizedNote = note?.trim();
     if ((normalizedNote?.length ?? 0) > 400) {
-      throw ArgumentError.value(note, 'note', 'must be at most 400 characters.');
+      throw ArgumentError.value(
+        note,
+        'note',
+        'must be at most 400 characters.',
+      );
     }
     final requestId = _required(clientRequestId, 'clientRequestId');
     final envelope = await _object(
@@ -257,6 +326,7 @@ class CocoonPregnancyDailyApiClient {
         'localDate': _required(localDate, 'localDate'),
         'timeZone': _required(timeZone, 'timeZone'),
         'symptomCode': code,
+        'catalogVersion': approvedCatalog.version,
         'intensity': intensity.wireValue,
         if (normalizedNote?.isNotEmpty ?? false) 'note': normalizedNote,
       },
@@ -328,9 +398,10 @@ class CocoonPregnancyDailyApiClient {
     try {
       response = switch (method) {
         'GET' => await _http.get(uri, headers: headers).timeout(_timeout),
-        'POST' => await _http
-            .post(uri, headers: headers, body: jsonEncode(body))
-            .timeout(_timeout),
+        'POST' =>
+          await _http
+              .post(uri, headers: headers, body: jsonEncode(body))
+              .timeout(_timeout),
         _ => throw ArgumentError.value(method, 'method', 'Unsupported method'),
       };
     } on TimeoutException {
@@ -363,7 +434,9 @@ class CocoonPregnancyDailyApiClient {
       );
     }
     if (decoded is! Map<String, dynamic>) {
-      throw const FormatException('LifeMate API returned a non-object payload.');
+      throw const FormatException(
+        'LifeMate API returned a non-object payload.',
+      );
     }
     return decoded;
   }

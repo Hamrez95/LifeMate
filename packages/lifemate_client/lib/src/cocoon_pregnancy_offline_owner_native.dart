@@ -2,7 +2,9 @@ import 'package:lifemate_core/lifemate_core.dart';
 
 import 'capabilities.dart';
 import 'cocoon_pregnancy.dart';
-import 'cocoon_pregnancy_daily_api.dart' show CocoonApprovedSymptomCatalog;
+import 'cocoon_pregnancy_daily_api.dart'
+    show CocoonApprovedSymptomCatalog, CocoonPregnancySymptomCatalogEntry;
+import 'cocoon_pregnancy_offline_content_native.dart';
 import 'cocoon_pregnancy_offline_snapshot_native.dart';
 import 'lifemate_api_client.dart' show AccessTokenProvider;
 import 'offline_identity_adoption_native.dart';
@@ -157,6 +159,7 @@ final class CocoonPregnancyOfflineOwnerCoordinator {
       observedAtUtc: observedAtUtc,
       localDate: localDate,
       timeZone: timeZone,
+      catalogVersion: approvedCatalog.version,
       symptomCode: symptomCode,
       intensity: intensity,
       note: note,
@@ -182,6 +185,80 @@ final class CocoonPregnancyOfflineOwnerCoordinator {
       createdAtUtc: createdAtUtc,
     );
   });
+
+  /// Persists a server-authored, reviewed symptom catalog in the protected
+  /// Account + Person namespace. It is a display/validation snapshot only;
+  /// the server still verifies the catalog version and symptom code.
+  Future<void> cacheApprovedSymptomCatalog({
+    required String locale,
+    required CocoonApprovedSymptomCatalog catalog,
+  }) async {
+    final normalizedLocale = _catalogLocale(locale);
+    final adoption = await _requireAdoption();
+    await _withContentCache<void>(
+      adoption,
+      (cache) => cache.writeApprovedContent(
+        recordKey: 'symptom-catalog:$normalizedLocale',
+        contentVersion: catalog.version,
+        payload: <String, dynamic>{
+          'locale': normalizedLocale,
+          'entries': catalog.entries
+              .map(
+                (entry) => <String, dynamic>{
+                  'code': entry.code,
+                  'label': entry.label,
+                  'sortOrder': entry.sortOrder,
+                },
+              )
+              .toList(growable: false),
+        },
+      ),
+    );
+  }
+
+  /// Returns only a catalog previously written through
+  /// [cacheApprovedSymptomCatalog] for this adopted owner namespace.
+  Future<CocoonApprovedSymptomCatalog?> readCachedApprovedSymptomCatalog({
+    required String locale,
+  }) async {
+    final normalizedLocale = _catalogLocale(locale);
+    final adoption = await _identityStore.lookup(
+      environmentId: _environmentId,
+      legacyAccountId: legacyAccountId,
+    );
+    if (adoption == null) return null;
+    final record =
+        await _withContentCache<CocoonPregnancyOfflineContentRecord?>(
+          adoption,
+          (cache) => cache.readApprovedContent(
+            recordKey: 'symptom-catalog:$normalizedLocale',
+          ),
+        );
+    if (record == null || record.payload['locale'] != normalizedLocale) {
+      return null;
+    }
+    final rawEntries = record.payload['entries'];
+    if (rawEntries is! List) return null;
+    try {
+      final entries = rawEntries
+          .whereType<Map>()
+          .map(
+            (entry) => CocoonPregnancySymptomCatalogEntry.fromJson(
+              Map<String, dynamic>.from(entry),
+            ),
+          )
+          .toList(growable: false);
+      return CocoonApprovedSymptomCatalog(
+        version: record.contentVersion,
+        codes: entries.map((entry) => entry.code),
+        entries: entries,
+      );
+    } on FormatException {
+      return null;
+    } on ArgumentError {
+      return null;
+    }
+  }
 
   Future<void> enqueueMeasurement({
     required String clientRequestId,
@@ -316,7 +393,8 @@ final class CocoonPregnancyOfflineOwnerCoordinator {
     Future<T> Function(
       LifeMateLocalMutationOutbox outbox,
       LifeMateLocalNamespace namespace,
-    ) action,
+    )
+    action,
   ) async {
     final adoption = await _requireAdoption();
     final ownsStore = _localStore == null;
@@ -370,6 +448,44 @@ final class CocoonPregnancyOfflineOwnerCoordinator {
       runtime?.close();
       if (ownsStore) store.close();
     }
+  }
+
+  Future<T> _withContentCache<T>(
+    LifeMateOfflineIdentityAdoption adoption,
+    Future<T> Function(CocoonPregnancyOfflineContentCache cache) action,
+  ) async {
+    final ownsStore = _localStore == null;
+    final store = _localStore ?? await LifeMateLocalHealthStore.openDefault();
+    LifeMateSharedOfflineRuntime? runtime;
+    CocoonPregnancyOfflineContentCache? cache;
+    try {
+      runtime = await LifeMateSharedOfflineRuntime.open(
+        namespace: adoption.toLocalNamespace(),
+        timeZone: timeZone,
+        apiBaseUri: apiBaseUri,
+        accessToken: accessToken,
+        legacyAccountIds: <String>{legacyAccountId},
+        store: store,
+        legacyStorage: _legacyStorage,
+      );
+      cache = await CocoonPregnancyOfflineContentCache.open(
+        runtime: runtime,
+        store: store,
+      );
+      return await action(cache);
+    } finally {
+      cache?.close();
+      runtime?.close();
+      if (ownsStore) store.close();
+    }
+  }
+
+  static String _catalogLocale(String value) {
+    final normalized = value.trim().toLowerCase();
+    if (normalized != 'en' && normalized != 'fa') {
+      throw ArgumentError.value(value, 'locale', 'must be en or fa.');
+    }
+    return normalized;
   }
 
   static String _required(String value, String field) {

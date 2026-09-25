@@ -10,6 +10,7 @@ if (!databaseUrl) {
     "TEST_DATABASE_URL is required for token-only bootstrap integration tests.",
   );
 }
+const adminDatabaseUrl = Deno.env.get("TEST_ADMIN_DATABASE_URL") ?? databaseUrl;
 
 Deno.test({
   name:
@@ -17,7 +18,7 @@ Deno.test({
   sanitizeOps: false,
   sanitizeResources: false,
   fn: async () => {
-    const admin = postgres(databaseUrl, { max: 1, prepare: false });
+    const admin = postgres(adminDatabaseUrl, { max: 1, prepare: false });
     const authSubject = crypto.randomUUID();
     const auth: AuthUser = {
       id: authSubject,
@@ -119,6 +120,14 @@ Deno.test({
       assertEquals(tokenRows.length, 1);
       assertEquals(tokenRows[0]?.account_id, remappedAccountId);
 
+      // Simulate completed raw-link retirement. Future token-only requests must
+      // still identify this account and must not recreate an AppUser by subject.
+      await admin`
+        update lifemate.app_users
+        set auth_subject=null,updated_at_utc=now()
+        where id=${appUserId}::uuid
+      `;
+
       await admin`
         update core.person_profiles
         set display_name='canonical retained',
@@ -156,9 +165,26 @@ Deno.test({
       const appUserCount = await admin`
         select count(*)::int as count
         from lifemate.app_users
-        where auth_subject=${authSubject}
+        where id=${appUserId}::uuid
       `;
       assertEquals(Number(appUserCount[0]?.count), 1);
+
+      await admin`
+        update identity.accounts
+        set status='DeletionPending',updated_at_utc=now()
+        where id=${remappedAccountId}::uuid
+      `;
+      const pending = await assertRejects(
+        () =>
+          db.bootstrapUser(auth, {
+            displayName: "must not restore deletion-pending account",
+            locale: "fa",
+            timeZone: "Asia/Tehran",
+          }),
+        ApiError,
+      );
+      assertEquals(pending.status, 409);
+      assertEquals(pending.code, "account_deletion_pending");
 
       // A broken canonical mapping must not fall through to the raw bootstrap
       // path, because that would become a duplicate-account path after scrub.
@@ -177,7 +203,7 @@ Deno.test({
         ApiError,
       );
       assertEquals(broken.status, 409);
-      assertEquals(broken.code, "identity_account_mapping_missing");
+      assertEquals(broken.code, "account_disabled");
       const finalAudits = await admin`
         select count(*)::int as count
         from lifemate.audit_logs
@@ -186,6 +212,13 @@ Deno.test({
       assertEquals(Number(finalAudits[0]?.count), 1);
     } finally {
       if (appUserId) {
+        await admin`
+          delete from consent.consent_records
+          where subject_person_id=${remappedPersonId}::uuid
+             or actor_account_id in (
+               ${appUserId}::uuid,${remappedAccountId}::uuid
+             )
+        `.catch(() => undefined);
         await admin`
           delete from identity.external_identity_tokens
           where account_id in (

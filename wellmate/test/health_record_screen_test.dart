@@ -36,6 +36,22 @@ void main() {
     );
 
     await tester.tap(
+      find.byKey(const ValueKey('health-record-source-caremate')),
+    );
+    await tester.pumpAndSettle();
+
+    expect(
+      find.byKey(const ValueKey('health-record-document-document-lab')),
+      findsNothing,
+    );
+    expect(find.text('مدرکی در این دسته نیست'), findsOneWidget);
+
+    await tester.tap(
+      find.byKey(const ValueKey('health-record-source-all')),
+    );
+    await tester.pumpAndSettle();
+
+    await tester.tap(
       find.byKey(const ValueKey('health-record-filter-lab_result')),
     );
     await tester.pumpAndSettle();
@@ -118,10 +134,15 @@ class _HealthRecordApi extends LifeMateApiClient {
       sourceProduct: 'wellmate',
     ),
     ];
+    final categoryFiltered = category == null
+        ? items
+        : items.where((item) => item.category == category).toList();
     return LifeMateHealthDocumentPage(
-      items: category == null
-          ? items
-          : items.where((item) => item.category == category).toList(),
+      items: sourceProduct == null
+          ? categoryFiltered
+          : categoryFiltered
+              .where((item) => item.sourceProduct == sourceProduct)
+              .toList(),
       nextCursor: null,
     );
   }

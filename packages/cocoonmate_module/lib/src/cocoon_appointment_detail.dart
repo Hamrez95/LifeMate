@@ -245,7 +245,22 @@ class CocoonAppointmentDetailScreen extends StatelessWidget {
         ),
       ),
     );
-    if (confirmed == true) await onCancel();
+    if (confirmed != true) return;
+    try {
+      await onCancel();
+    } catch (_) {
+      if (!context.mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(
+            t(
+              'The appointment was not cancelled. Try again.',
+              'قرار لغو نشد؛ دوباره تلاش کن.',
+            ),
+          ),
+        ),
+      );
+    }
   }
 }
 

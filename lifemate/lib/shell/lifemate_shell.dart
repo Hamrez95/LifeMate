@@ -5,6 +5,7 @@ import '../circle/api_camp_companion_selection_source.dart';
 import '../circle/camp_companion_selection.dart';
 import '../circle/camp_companion_selection_view.dart';
 import '../living_camp/camp_home.dart';
+import '../living_camp/camp_scene_renderer.dart';
 import '../modules/module_registry.dart';
 import '../modules/module_route_host.dart';
 import '../navigation/shell_navigation.dart';
@@ -24,6 +25,7 @@ class LifeMateShell extends StatefulWidget {
     this.todaySource,
     this.notificationSource,
     this.campCompanionSource,
+    this.campZonePresentations,
   });
 
   final LifeMateApiClient? apiClient;
@@ -33,6 +35,9 @@ class LifeMateShell extends StatefulWidget {
   final TodaySnapshotSource? todaySource;
   final NotificationCenterSource? notificationSource;
   final CampCompanionSelectionSource? campCompanionSource;
+
+  /// Privacy-safe localized snapshot from a reviewed Camp presentation adapter.
+  final List<CampZonePresentation>? campZonePresentations;
 
   @override
   State<LifeMateShell> createState() => _LifeMateShellState();
@@ -203,6 +208,11 @@ class _LifeMateShellState extends State<LifeMateShell> {
         isPersian: _isPersian,
         onOpenToday: _showTodayPeek,
         onOpenWellMate: () => _openModule(LifeMateModuleId.wellMate),
+        onOpenCareMate: () => _openModule(LifeMateModuleId.careMate),
+        onOpenReproductiveContext: () =>
+            _openModule(LifeMateModuleId.womenHealth),
+        onOpenFitMate: () => _openModule(LifeMateModuleId.fitMate),
+        zonePresentations: widget.campZonePresentations,
       ),
       ShellDestination.today => TodayFullDay(
         source: _todaySource,

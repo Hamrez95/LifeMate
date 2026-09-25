@@ -3,6 +3,7 @@ import {
   expandLocalRecurrence,
   normalizeRecurrenceRule,
   type RecurrenceRule,
+  serializeRecurrenceRuleForStorage,
 } from "./recurrence_schedule.ts";
 import {
   ApiError,
@@ -88,9 +89,9 @@ export function createPersonCareEventStoreV2(databaseUrl: string) {
     }
 
     const id = crypto.randomUUID();
-    const recurrenceJson = input.recurrence == null
-      ? null
-      : JSON.stringify(input.recurrence);
+    const recurrenceJson = serializeRecurrenceRuleForStorage(
+      input.recurrence,
+    );
     const rows = await connection`
       insert into lifemate.care_events
         (id, patient_person_id, created_by_user_id, client_request_id,
@@ -110,21 +111,16 @@ export function createPersonCareEventStoreV2(databaseUrl: string) {
          ${input.instructions}, ${input.centerName}, ${input.addressLine},
          ${input.phoneNumber}, ${input.scheduledLocalDate}::date,
          ${input.scheduledLocalTime}::time, ${input.timeZone},
-         'none', 1, array[]::smallint[], null, ${recurrenceJson}::jsonb,
+         'none', 1, array[]::smallint[], null,
+         ${recurrenceJson == null ? null : connection.json(recurrenceJson)},
          ${input.patientReminderMinutesBefore},
          ${input.caregiverReminderMinutesBefore}, 'Scheduled', 1, now(), now())
       returning *
     `;
-    await insertAudit(
-      connection,
-      patientAppUserId,
-      "care_event.created",
-      id,
-      {
-        eventType: input.eventType,
-        recurrenceVersion: input.recurrence?.version ?? null,
-      },
-    );
+    await insertAudit(connection, patientAppUserId, "care_event.created", id, {
+      eventType: input.eventType,
+      recurrenceVersion: input.recurrence?.version ?? null,
+    });
     return mapCareEvent(rows[0], patientAppUserId);
   }
 

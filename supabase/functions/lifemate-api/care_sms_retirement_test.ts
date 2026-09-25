@@ -1,35 +1,20 @@
-import { assertEquals, assertRejects } from "jsr:@std/assert@1.0.14";
-import { createLifeMateDatabase } from "./database.ts";
-import { ApiError } from "./validation.ts";
+import { assert, assertFalse } from "jsr:@std/assert@1.0.14";
 
-Deno.test("public phone care invitation fails closed before provider or database work", async () => {
-  const db = createLifeMateDatabase(
-    "postgres://unused:unused@127.0.0.1:1/unused",
-    "unit-only-contact-secret-with-32-plus-characters",
+Deno.test("public phone care invitations stay on the canonical provider-free store", async () => {
+  const databaseSource = await Deno.readTextFile(
+    new URL("./database.ts", import.meta.url),
+  );
+  const phoneSource = await Deno.readTextFile(
+    new URL("./phone_care_invitation.ts", import.meta.url),
   );
 
-  const error = await assertRejects(
-    () =>
-      db.createInvitation(
-        {
-          auth: {
-            id: "retired-phone-invite-subject",
-            email: "retired@example.test",
-            phone: "+989121234567",
-            userMetadata: {},
-          },
-          appUserId: "11111111-1111-4111-8111-111111111111",
-        },
-        {
-          contactType: "phone",
-          contact: "+989351234567",
-          consentVersion: "care-patient-consent-v1",
-          confirmConsent: true,
-        },
-      ),
-    ApiError,
+  assert(databaseSource.includes('if (contactType === "phone")'));
+  assert(
+    databaseSource.includes(
+      "phoneInvitations.createPhoneInvitation(identity, body)",
+    ),
   );
-
-  assertEquals(error.status, 410);
-  assertEquals(error.code, "phone_care_invitation_retired");
+  assert(phoneSource.includes("if (deliver)"));
+  assertFalse(/kavenegar/i.test(phoneSource));
+  assertFalse(/send\s*sms|sms\s*send/i.test(phoneSource));
 });

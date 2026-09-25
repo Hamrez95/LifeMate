@@ -112,6 +112,29 @@ void main() {
     expect(retried, isTrue);
     expect(tester.takeException(), isNull);
   });
+
+  testWidgets('empty Calendar exposes the host-owned appointment action', (
+    tester,
+  ) async {
+    await _setViewport(tester, const Size(390, 1500));
+    var opened = false;
+    await tester.pumpWidget(
+      _screen(
+        fa: false,
+        child: CocoonPregnancyCalendar(
+          host: _CalendarHost(),
+          fa: false,
+          state: CocoonCalendarLoadState.empty,
+          onAddAppointment: () async => opened = true,
+        ),
+      ),
+    );
+
+    final action = find.text('Add appointment');
+    await tester.tap(action);
+    expect(opened, isTrue);
+    expect(tester.takeException(), isNull);
+  });
 }
 
 const _items = [
