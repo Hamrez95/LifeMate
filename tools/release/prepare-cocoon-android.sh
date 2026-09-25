@@ -65,6 +65,7 @@ prepare_android() {
 
   "$python_bin" - "$manifest" "$gradle" <<'PY'
 from pathlib import Path
+import re
 import sys
 
 manifest_path = Path(sys.argv[1])
@@ -79,9 +80,11 @@ if 'android.permission.INTERNET' not in text:
         manifest_open + '\n    <uses-permission android:name="android.permission.INTERNET" />',
         1,
     )
-if 'android:label="cocoonmate"' not in text:
+label_pattern = re.compile(r'android:label="([^"]+)"')
+label_match = label_pattern.search(text)
+if label_match is None or label_match.group(1) not in {'cocoonmate', 'CocoonMate'}:
     raise SystemExit('generated Cocoon label contract changed')
-text = text.replace('android:label="cocoonmate"', 'android:label="CocoonMate"', 1)
+text = label_pattern.sub('android:label="CocoonMate"', text, count=1)
 if 'android:icon="@mipmap/ic_launcher"' not in text:
     raise SystemExit('generated launcher icon contract changed')
 text = text.replace(

@@ -15,9 +15,9 @@ cat > "$fixture/bin/flutter" <<'SH'
 set -euo pipefail
 [[ "${1:-}" = create ]]
 mkdir -p android/app/src/main/res/drawable android/app/src/main/res/values
-cat > android/app/src/main/AndroidManifest.xml <<'XML'
+cat > android/app/src/main/AndroidManifest.xml <<XML
 <manifest xmlns:android="http://schemas.android.com/apk/res/android">
-    <application android:label="cocoonmate" android:icon="@mipmap/ic_launcher" />
+    <application android:label="${COCOON_GENERATED_LABEL:-cocoonmate}" android:icon="@mipmap/ic_launcher" />
 </manifest>
 XML
 cat > android/app/build.gradle.kts <<'KTS'
@@ -38,13 +38,18 @@ XML
 SH
 chmod +x "$fixture/bin/flutter"
 
-PATH="$fixture/bin:$PATH" \
-LIFEMATE_RELEASE_ENVIRONMENT=ci \
-SUPABASE_URL=https://cocoon-ci.invalid \
-LIFEMATE_API_BASE_URL=https://cocoon-ci.invalid/functions/v1/lifemate-api \
-  bash "$fixture/tools/release/prepare-cocoon-android.sh" prepare
+for generated_label in cocoonmate CocoonMate; do
+  PATH="$fixture/bin:$PATH" \
+  COCOON_GENERATED_LABEL="$generated_label" \
+  LIFEMATE_RELEASE_ENVIRONMENT=ci \
+  SUPABASE_URL=https://cocoon-ci.invalid \
+  LIFEMATE_API_BASE_URL=https://cocoon-ci.invalid/functions/v1/lifemate-api \
+    bash "$fixture/tools/release/prepare-cocoon-android.sh" prepare
 
-manifest="$fixture/cocoonmate/android/app/src/main/AndroidManifest.xml"
+  manifest="$fixture/cocoonmate/android/app/src/main/AndroidManifest.xml"
+  grep -Fq 'android:label="CocoonMate"' "$manifest"
+done
+
 res="$fixture/cocoonmate/android/app/src/main/res"
 
 grep -Fq 'android:icon="@mipmap/cocoon_launcher"' "$manifest"
