@@ -301,7 +301,10 @@ void main() {
             displayLabel: '۱۶:۳۰',
             semanticLabel: 'ساعت شانزده و سی دقیقه',
           ),
-          onSubmit: (draft) async => submitted = draft,
+          onSubmit: (draft) async {
+            submitted = draft;
+            return CocoonAppointmentSubmitDisposition.confirmed;
+          },
         ),
       ),
     );
@@ -318,6 +321,47 @@ void main() {
     expect(submitted?.reminderMinutes, 30);
     expect(submitted?.localDate, DateTime(2026, 9, 9));
     expect(submitted?.localTime, const TimeOfDay(hour: 16, minute: 30));
+    expect(find.text('قرار ثبت و تأیید شد'), findsOneWidget);
+  });
+
+  testWidgets('appointment form distinguishes queued from confirmed', (
+    tester,
+  ) async {
+    await tester.pumpWidget(
+      MaterialApp(
+        theme: CocoonTheme.light(),
+        home: CocoonAppointmentFormScreen(
+          fa: false,
+          submitState: CocoonAppointmentSubmitState.idle,
+          initialDate: CocoonAppointmentDateSelection(
+            localDate: DateTime(2026, 9, 21),
+            displayLabel: 'Sep 21, 2026',
+            semanticLabel: 'Monday, September 21, 2026',
+          ),
+          initialTime: const CocoonAppointmentTimeSelection(
+            localTime: TimeOfDay(hour: 10, minute: 30),
+            displayLabel: '10:30 AM',
+            semanticLabel: '10:30 AM',
+          ),
+          onPickDate: () async => null,
+          onPickTime: () async => null,
+          onSubmit: (_) async => CocoonAppointmentSubmitDisposition.queued,
+        ),
+      ),
+    );
+
+    await tester.enterText(find.byType(TextField).first, 'Prenatal visit');
+    await tester.tap(find.text('Save appointment'));
+    await tester.pump();
+
+    expect(find.text('Queued; not yet confirmed'), findsOneWidget);
+    expect(find.text('Appointment confirmed'), findsNothing);
+    final closeButton = tester.widget<FilledButton>(find.byType(FilledButton));
+    expect(closeButton.onPressed, isNotNull);
+    expect(
+      tester.widget<TextField>(find.byType(TextField).first).enabled,
+      isFalse,
+    );
   });
 
   testWidgets('cached appointment detail blocks mutation actions', (

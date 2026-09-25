@@ -171,13 +171,6 @@ class _CocoonAuthenticatedHostState extends State<CocoonAuthenticatedHost>
               accessToken: () => LifeMateAuth.currentAccessToken,
             )
           : null;
-  late final CocoonPregnancyCalendarApiClient? _calendarMutationClient =
-      widget.bootstrapLoader == null
-          ? CocoonPregnancyCalendarApiClient(
-              baseUri: widget.config.apiBaseUri,
-              accessToken: () => LifeMateAuth.currentAccessToken,
-            )
-          : null;
   late final LifeMateEditApi? _calendarEditClient =
       widget.bootstrapLoader == null
           ? LifeMateEditApi(
@@ -226,7 +219,6 @@ class _CocoonAuthenticatedHostState extends State<CocoonAuthenticatedHost>
     _runtimeClient?.close();
     _pregnancyClient?.close();
     _gate3ReadModelLoader?.close();
-    _calendarMutationClient?.close();
     _treatmentsClient?.close();
     _measurementsHistoryClient?.close();
     _dailyClient?.close();
@@ -260,7 +252,9 @@ class _CocoonAuthenticatedHostState extends State<CocoonAuthenticatedHost>
           calendarAsOfLocalDate: _calendarAsOfLocalDate,
           timezone: _calendarTimeZone,
           onAddCalendarAppointment:
-              _calendarMutationClient == null ? null : _openNewAppointment,
+              _gate3MutationAdapter?.supportsCalendar == true
+                  ? _openNewAppointment
+                  : null,
           onOpenCalendarItem:
               _calendarEditClient == null ? null : _openCalendarItem,
           onRetryCalendar: () => _refreshGate3ReadModels(),
@@ -403,7 +397,7 @@ class _CocoonAuthenticatedHostState extends State<CocoonAuthenticatedHost>
   static const _calendarTimeZone = 'Asia/Tehran';
 
   Future<void> _openNewAppointment() async {
-    if (!mounted || _calendarMutationClient == null) return;
+    if (!mounted || _gate3MutationAdapter?.supportsCalendar != true) return;
     final now = DateTime.now();
     await Navigator.of(context).push<void>(
       MaterialPageRoute<void>(
@@ -466,12 +460,14 @@ class _CocoonAuthenticatedHostState extends State<CocoonAuthenticatedHost>
     );
   }
 
-  Future<void> _submitAppointment(CocoonAppointmentDraft draft) async {
-    final client = _calendarMutationClient;
-    if (client == null) {
-      throw StateError('Canonical calendar client is unavailable.');
+  Future<CocoonAppointmentSubmitDisposition> _submitAppointment(
+    CocoonAppointmentDraft draft,
+  ) async {
+    final adapter = _gate3MutationAdapter;
+    if (adapter == null) {
+      throw StateError('Canonical calendar mutation adapter is unavailable.');
     }
-    await client.createEvent(
+    final result = await adapter.submitCalendarEvent(
       classification: switch (draft.kind) {
         CocoonAppointmentKind.checkup =>
           CocoonPregnancyCalendarClassification.checkup,
@@ -482,19 +478,19 @@ class _CocoonAuthenticatedHostState extends State<CocoonAuthenticatedHost>
         CocoonAppointmentKind.other =>
           CocoonPregnancyCalendarClassification.other,
       },
-      careEvent: <String, dynamic>{
-        'clientRequestId': LifeMateApiClient.createClientRequestId(),
-        'eventType': 'appointment',
-        'title': draft.title,
-        'scheduledLocalDate': _careEventDate(draft.localDate),
-        'scheduledLocalTime': _careEventTime(draft.localTime),
-        'timeZone': _calendarTimeZone,
-        'providerName': draft.provider,
-        'centerName': draft.location,
-        'patientReminderMinutesBefore': draft.reminderMinutes,
-      }..removeWhere((_, value) => value == null),
+      eventType: 'appointment',
+      title: draft.title,
+      providerName: draft.provider,
+      centerName: draft.location,
+      scheduledLocalDate: draft.localDate,
+      scheduledLocalTime: _careEventTime(draft.localTime),
+      patientReminderMinutesBefore: draft.reminderMinutes,
     );
-    await _refreshGate3ReadModels();
+    if (result.disposition == CocoonGate3MutationDisposition.confirmed) {
+      await _refreshGate3ReadModels();
+      return CocoonAppointmentSubmitDisposition.confirmed;
+    }
+    return CocoonAppointmentSubmitDisposition.queued;
   }
 
   Future<void> _openCalendarItem(CocoonCalendarItem item) async {
@@ -624,7 +620,7 @@ class _CocoonAuthenticatedHostState extends State<CocoonAuthenticatedHost>
     );
   }
 
-  Future<void> _updateAppointment(
+  Future<CocoonAppointmentSubmitDisposition> _updateAppointment(
     CocoonCalendarItem item,
     Map<String, dynamic> current,
     CocoonAppointmentDraft draft,
@@ -659,6 +655,7 @@ class _CocoonAuthenticatedHostState extends State<CocoonAuthenticatedHost>
           : 'scheduled',
     );
     await _refreshGate3ReadModels();
+    return CocoonAppointmentSubmitDisposition.confirmed;
   }
 
   String _reminderLabel(int minutes) => switch (minutes) {
