@@ -135,25 +135,25 @@ void main() {
     expect(find.byType(CustomScrollView), findsOneWidget);
   });
 
-  testWidgets('calendar presents gestational timeline without invented events',
-      (
-    tester,
-  ) async {
-    final host = FakeHost(
-      CocoonEntryState.activePregnancy,
-      const Locale('fa'),
-      pregnancySnapshot: _pregnancyAtWeek(23, 4),
-    );
+  testWidgets(
+    'calendar presents gestational timeline without invented events',
+    (tester) async {
+      final host = FakeHost(
+        CocoonEntryState.activePregnancy,
+        const Locale('fa'),
+        pregnancySnapshot: _pregnancyAtWeek(23, 4),
+      );
 
-    await tester.pumpWidget(appFor(host));
-    await tester.tap(find.text('تقویم'));
-    await tester.pumpAndSettle();
+      await tester.pumpWidget(appFor(host));
+      await tester.tap(find.text('تقویم'));
+      await tester.pumpAndSettle();
 
-    expect(find.text('مسیر بارداری'), findsOneWidget);
-    expect(find.text('هفته‌ی ۲۳ و روز ۴'), findsOneWidget);
-    expect(find.text('برنامه‌ای ثبت نشده'), findsOneWidget);
-    expect(tester.takeException(), isNull);
-  });
+      expect(find.text('مسیر بارداری'), findsOneWidget);
+      expect(find.text('هفته‌ی ۲۳ و روز ۴'), findsOneWidget);
+      expect(find.text('برنامه‌ای ثبت نشده'), findsOneWidget);
+      expect(tester.takeException(), isNull);
+    },
+  );
 
   testWidgets('quick check-in supports selection and external submission', (
     tester,
@@ -497,6 +497,58 @@ void main() {
     expect(find.text('حال روزانه'), findsWidgets);
     expect(find.text('ذخیره‌شده روی دستگاه'), findsOneWidget);
     expect(find.textContaining('به‌روزرسانی انجام نشد'), findsOneWidget);
+    expect(tester.takeException(), isNull);
+  });
+
+  testWidgets('records load-more is accessible and reports a retryable error', (
+    tester,
+  ) async {
+    var loadMoreCalls = 0;
+    final host = FakeHost(
+      CocoonEntryState.activePregnancy,
+      const Locale('fa'),
+      pregnancySnapshot: _pregnancyAtWeek(4, 2),
+    );
+    await tester.pumpWidget(
+      MaterialApp(
+        theme: CocoonTheme.light(),
+        home: CocoonMateModule(
+          config: CocoonModuleConfig(
+            host: host,
+            initialTab: 3,
+            recordsState: CocoonRecordsState.ready,
+            records: const [
+              CocoonRecordViewData(
+                id: 'mood-1',
+                title: 'حال روزانه',
+                dateLabel: 'امروز',
+                sectionLabel: 'امروز',
+                kind: CocoonRecordKind.checkIn,
+                syncState: CocoonRecordSyncState.confirmed,
+              ),
+            ],
+            recordsHasMore: true,
+            recordsLoadMoreError: true,
+            onLoadMoreRecords: () => loadMoreCalls++,
+          ),
+        ),
+      ),
+    );
+
+    expect(find.textContaining('سوابق فعلی حفظ شده‌اند'), findsOneWidget);
+    expect(find.text('تلاش دوباره برای ادامه'), findsOneWidget);
+    final button = tester.widget<FilledButton>(
+      find.widgetWithText(FilledButton, 'تلاش دوباره برای ادامه'),
+    );
+    expect(button.onPressed, isNotNull);
+    final renderBox = tester.renderObject<RenderBox>(
+      find.widgetWithText(FilledButton, 'تلاش دوباره برای ادامه'),
+    );
+    expect(renderBox.size.height, greaterThanOrEqualTo(44));
+    await tester.ensureVisible(find.text('تلاش دوباره برای ادامه'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('تلاش دوباره برای ادامه'));
+    expect(loadMoreCalls, 1);
     expect(tester.takeException(), isNull);
   });
 

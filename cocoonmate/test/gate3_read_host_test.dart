@@ -72,6 +72,72 @@ void main() {
     },
   );
 
+  testWidgets('Records loads the next opaque server page without losing rows', (
+    tester,
+  ) async {
+    var requestedCursor = '';
+    await tester.pumpWidget(
+      MaterialApp(
+        theme: CocoonTheme.light(),
+        home: CocoonAuthenticatedHost(
+          config: configured,
+          locale: const Locale('en'),
+          runtimeLoader: () async => _validRuntime(),
+          bootstrapLoader: () async => _snapshot(),
+          gate3ReadLoader: ({required now, required fa}) async =>
+              CocoonGate3ReadModels(
+            calendarState: CocoonCalendarLoadState.empty,
+            calendarItems: const [],
+            calendarAsOfLocalDate: DateTime(2026, 9, 16),
+            recordsState: CocoonRecordsState.ready,
+            records: const [
+              CocoonRecordViewData(
+                id: 'mood:mood-1',
+                title: 'Mood entry',
+                dateLabel: '2026-09-15',
+                sectionLabel: '2026-09-15',
+                kind: CocoonRecordKind.checkIn,
+                syncState: CocoonRecordSyncState.confirmed,
+              ),
+            ],
+            recordsNextCursor: 'opaque-cursor-1',
+          ),
+          gate3RecordsPageLoader: ({required fa, required cursor}) async {
+            requestedCursor = cursor;
+            return const CocoonGate3RecordsPage(
+              records: [
+                CocoonRecordViewData(
+                  id: 'measurement:measurement-2',
+                  title: 'Weight',
+                  dateLabel: '2026-09-14',
+                  sectionLabel: '2026-09-14',
+                  kind: CocoonRecordKind.measurement,
+                  syncState: CocoonRecordSyncState.confirmed,
+                ),
+              ],
+              recordSources: {},
+              nextCursor: null,
+            );
+          },
+        ),
+      ),
+    );
+
+    await tester.pump();
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('Records'));
+    await tester.pumpAndSettle();
+    expect(find.text('Mood entry'), findsWidgets);
+    await tester.tap(find.text('Load older records'));
+    await tester.pumpAndSettle();
+
+    expect(requestedCursor, 'opaque-cursor-1');
+    expect(find.text('Mood entry'), findsWidgets);
+    expect(find.text('Weight'), findsWidgets);
+    expect(find.text('Load older records'), findsNothing);
+    expect(tester.takeException(), isNull);
+  });
+
   testWidgets('Gate-3 read loader never runs without an active pregnancy', (
     tester,
   ) async {

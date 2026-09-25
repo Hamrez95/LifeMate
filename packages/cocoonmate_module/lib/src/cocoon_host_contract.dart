@@ -54,7 +54,7 @@ enum CocoonCalendarAppointmentKind {
   ultrasound,
   lab,
   injection,
-  other
+  other,
 }
 
 class CocoonCalendarItem {
@@ -95,8 +95,12 @@ class CocoonModuleConfig {
     this.onRetryCalendar,
     this.recordsState = CocoonRecordsState.empty,
     this.records = const [],
+    this.recordsHasMore = false,
+    this.recordsLoadingMore = false,
+    this.recordsLoadMoreError = false,
     this.onOpenRecord,
     this.onRetryRecords,
+    this.onLoadMoreRecords,
     this.onAddRecord,
     this.quickAddEnabled = const {},
     this.onOpenQuickAdd,
@@ -168,8 +172,12 @@ class CocoonModuleConfig {
   final VoidCallback? onRetryCalendar;
   final CocoonRecordsState recordsState;
   final List<CocoonRecordViewData> records;
+  final bool recordsHasMore;
+  final bool recordsLoadingMore;
+  final bool recordsLoadMoreError;
   final ValueChanged<CocoonRecordViewData>? onOpenRecord;
   final VoidCallback? onRetryRecords;
+  final VoidCallback? onLoadMoreRecords;
   final VoidCallback? onAddRecord;
   final Set<CocoonQuickAddKind> quickAddEnabled;
   final ValueChanged<CocoonQuickAddKind>? onOpenQuickAdd;

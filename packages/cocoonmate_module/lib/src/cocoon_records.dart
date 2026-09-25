@@ -7,7 +7,7 @@ enum CocoonRecordKind {
   appointment,
   measurement,
   medication,
-  document
+  document,
 }
 
 enum CocoonRecordSyncState { confirmed, pending, cached }
@@ -40,6 +40,10 @@ class CocoonRecordsScreen extends StatefulWidget {
     required this.onOpen,
     required this.onRetry,
     required this.onAdd,
+    this.hasMore = false,
+    this.isLoadingMore = false,
+    this.loadMoreError = false,
+    this.onLoadMore,
     super.key,
   });
 
@@ -49,6 +53,10 @@ class CocoonRecordsScreen extends StatefulWidget {
   final ValueChanged<CocoonRecordViewData>? onOpen;
   final VoidCallback onRetry;
   final VoidCallback onAdd;
+  final bool hasMore;
+  final bool isLoadingMore;
+  final bool loadMoreError;
+  final VoidCallback? onLoadMore;
 
   @override
   State<CocoonRecordsScreen> createState() => _CocoonRecordsScreenState();
@@ -93,10 +101,7 @@ class _CocoonRecordsScreenState extends State<CocoonRecordsScreen> {
                 _RecordsHero(fa: widget.fa, count: widget.items.length),
                 if (widget.state == CocoonRecordsState.error) ...[
                   const SizedBox(height: 14),
-                  _RecordsRefreshNotice(
-                    fa: widget.fa,
-                    onRetry: widget.onRetry,
-                  ),
+                  _RecordsRefreshNotice(fa: widget.fa, onRetry: widget.onRetry),
                 ],
                 const SizedBox(height: 24),
                 SingleChildScrollView(
@@ -129,6 +134,15 @@ class _CocoonRecordsScreenState extends State<CocoonRecordsScreen> {
                     items: visible,
                     onOpen: widget.onOpen,
                   ),
+                if (widget.hasMore && widget.onLoadMore != null) ...[
+                  const SizedBox(height: 24),
+                  _RecordsLoadMore(
+                    fa: widget.fa,
+                    isLoading: widget.isLoadingMore,
+                    hasError: widget.loadMoreError,
+                    onPressed: widget.onLoadMore!,
+                  ),
+                ],
               ],
             ),
           ),
@@ -144,6 +158,58 @@ class _CocoonRecordsScreenState extends State<CocoonRecordsScreen> {
         CocoonRecordKind.medication => t('Medication', 'داروها'),
         CocoonRecordKind.document => t('Documents', 'مدارک'),
       };
+}
+
+class _RecordsLoadMore extends StatelessWidget {
+  const _RecordsLoadMore({
+    required this.fa,
+    required this.isLoading,
+    required this.hasError,
+    required this.onPressed,
+  });
+
+  final bool fa;
+  final bool isLoading;
+  final bool hasError;
+  final VoidCallback onPressed;
+
+  @override
+  Widget build(BuildContext context) {
+    final label = isLoading
+        ? (fa ? 'در حال بارگذاری…' : 'Loading…')
+        : hasError
+            ? (fa ? 'تلاش دوباره برای ادامه' : 'Retry loading more')
+            : (fa ? 'نمایش سوابق قدیمی‌تر' : 'Load older records');
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        if (hasError && !isLoading) ...[
+          Text(
+            fa
+                ? 'سوابق فعلی حفظ شده‌اند؛ دریافت ادامهٔ فهرست ناموفق بود.'
+                : 'Your current records are safe; more could not be loaded.',
+            textAlign: TextAlign.center,
+            style: Theme.of(context)
+                .textTheme
+                .bodySmall
+                ?.copyWith(color: Theme.of(context).colorScheme.error),
+          ),
+          const SizedBox(height: 8),
+        ],
+        FilledButton.tonalIcon(
+          onPressed: isLoading ? null : onPressed,
+          icon: isLoading
+              ? const SizedBox.square(
+                  dimension: 18,
+                  child: CircularProgressIndicator(strokeWidth: 2),
+                )
+              : Icon(hasError ? Icons.refresh_rounded : Icons.expand_more),
+          label: Text(label),
+          style: FilledButton.styleFrom(minimumSize: const Size.fromHeight(48)),
+        ),
+      ],
+    );
+  }
 }
 
 class _RecordsHero extends StatelessWidget {
@@ -252,27 +318,27 @@ class _RecordTimelineItem extends StatelessWidget {
       CocoonRecordKind.checkIn => (
           Icons.favorite_outline_rounded,
           CocoonTheme.coral,
-          CocoonTheme.warm
+          CocoonTheme.warm,
         ),
       CocoonRecordKind.appointment => (
           Icons.event_outlined,
           CocoonTheme.skyStrong,
-          CocoonTheme.sky
+          CocoonTheme.sky,
         ),
       CocoonRecordKind.measurement => (
           Icons.monitor_weight_outlined,
           CocoonTheme.sageStrong,
-          CocoonTheme.sage
+          CocoonTheme.sage,
         ),
       CocoonRecordKind.medication => (
           Icons.medication_outlined,
           CocoonTheme.gold,
-          CocoonTheme.warm
+          CocoonTheme.warm,
         ),
       CocoonRecordKind.document => (
           Icons.description_outlined,
           CocoonTheme.ink,
-          CocoonTheme.lilac
+          CocoonTheme.lilac,
         ),
     };
     return IntrinsicHeight(
@@ -293,9 +359,7 @@ class _RecordTimelineItem extends StatelessWidget {
                   child: Icon(icon, color: color, size: 21),
                 ),
                 if (!last)
-                  Expanded(
-                    child: Container(width: 1, color: CocoonTheme.line),
-                  ),
+                  Expanded(child: Container(width: 1, color: CocoonTheme.line)),
               ],
             ),
           ),
@@ -320,27 +384,33 @@ class _RecordTimelineItem extends StatelessWidget {
                         child: Column(
                           crossAxisAlignment: CrossAxisAlignment.start,
                           children: [
-                            Text(item.title,
-                                style: Theme.of(context).textTheme.titleMedium),
+                            Text(
+                              item.title,
+                              style: Theme.of(context).textTheme.titleMedium,
+                            ),
                             if (item.summary != null) ...[
                               const SizedBox(height: 3),
-                              Text(item.summary!,
-                                  style:
-                                      Theme.of(context).textTheme.bodyMedium),
+                              Text(
+                                item.summary!,
+                                style: Theme.of(context).textTheme.bodyMedium,
+                              ),
                             ],
                             const SizedBox(height: 6),
                             Wrap(
                               spacing: 8,
                               runSpacing: 4,
                               children: [
-                                Text(item.dateLabel,
-                                    style: Theme.of(context)
-                                        .textTheme
-                                        .labelMedium),
+                                Text(
+                                  item.dateLabel,
+                                  style:
+                                      Theme.of(context).textTheme.labelMedium,
+                                ),
                                 if (item.syncState !=
                                     CocoonRecordSyncState.confirmed)
                                   _RecordSyncLabel(
-                                      fa: fa, state: item.syncState),
+                                    fa: fa,
+                                    state: item.syncState,
+                                  ),
                               ],
                             ),
                           ],
@@ -379,9 +449,10 @@ class _RecordSyncLabel extends StatelessWidget {
             fa ? 'ذخیره‌شده روی دستگاه' : 'Saved on device',
           CocoonRecordSyncState.confirmed => '',
         },
-        style: Theme.of(context).textTheme.labelMedium?.copyWith(
-              color: CocoonTheme.ink,
-            ),
+        style: Theme.of(context)
+            .textTheme
+            .labelMedium
+            ?.copyWith(color: CocoonTheme.ink),
       );
 }
 
@@ -407,9 +478,10 @@ class _RecordsRefreshNotice extends StatelessWidget {
                 fa
                     ? 'سوابق ذخیره‌شده نمایش داده می‌شود؛ به‌روزرسانی انجام نشد.'
                     : 'Saved records are shown; refresh failed.',
-                style: Theme.of(context).textTheme.labelMedium?.copyWith(
-                      color: CocoonTheme.ink,
-                    ),
+                style: Theme.of(context)
+                    .textTheme
+                    .labelMedium
+                    ?.copyWith(color: CocoonTheme.ink),
               );
               final retry = TextButton(
                 onPressed: onRetry,
@@ -422,8 +494,11 @@ class _RecordsRefreshNotice extends StatelessWidget {
                     Row(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
-                        const Icon(Icons.sync_problem_outlined,
-                            color: CocoonTheme.gold, size: 21),
+                        const Icon(
+                          Icons.sync_problem_outlined,
+                          color: CocoonTheme.gold,
+                          size: 21,
+                        ),
                         const SizedBox(width: 9),
                         Expanded(child: message),
                       ],
@@ -437,8 +512,11 @@ class _RecordsRefreshNotice extends StatelessWidget {
               }
               return Row(
                 children: [
-                  const Icon(Icons.sync_problem_outlined,
-                      color: CocoonTheme.gold, size: 21),
+                  const Icon(
+                    Icons.sync_problem_outlined,
+                    color: CocoonTheme.gold,
+                    size: 21,
+                  ),
                   const SizedBox(width: 9),
                   Expanded(child: message),
                   retry,
@@ -466,8 +544,11 @@ class _RecordsEmpty extends StatelessWidget {
                 const CircleAvatar(
                   radius: 38,
                   backgroundColor: CocoonTheme.sage,
-                  child: Icon(Icons.folder_open_outlined,
-                      color: CocoonTheme.sageStrong, size: 34),
+                  child: Icon(
+                    Icons.folder_open_outlined,
+                    color: CocoonTheme.sageStrong,
+                    size: 34,
+                  ),
                 ),
                 const SizedBox(height: 24),
                 Text(
@@ -508,8 +589,11 @@ class _FilteredEmpty extends StatelessWidget {
         padding: const EdgeInsetsDirectional.symmetric(vertical: 48),
         child: Column(
           children: [
-            const Icon(Icons.filter_alt_off_outlined,
-                size: 34, color: CocoonTheme.muted),
+            const Icon(
+              Icons.filter_alt_off_outlined,
+              size: 34,
+              color: CocoonTheme.muted,
+            ),
             const SizedBox(height: 12),
             Text(
               fa ? 'در این دسته موردی نیست' : 'Nothing in this category',
