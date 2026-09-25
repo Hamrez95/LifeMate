@@ -139,7 +139,7 @@ function captureRow(row: Row) {
     id: String(row.id),
     episodeId: String(row.episode_id),
     observedAtUtc: new Date(row.observed_at_utc).toISOString(),
-    localDate: String(row.local_date).slice(0, 10),
+    localDate: captureLocalDate(row.local_date),
     timeZone: String(row.time_zone),
     feeling: row.feeling ?? undefined,
     energy: row.energy ?? undefined,
@@ -153,6 +153,12 @@ function captureRow(row: Row) {
   };
 }
 
+function captureLocalDate(value: unknown): string {
+  return value instanceof Date
+    ? value.toISOString().slice(0, 10)
+    : String(value).slice(0, 10);
+}
+
 function sameCaptureReplayContext(
   row: Row,
   context: CaptureContext,
@@ -161,7 +167,7 @@ function sameCaptureReplayContext(
   return String(row.episode_id) === context.episodeId &&
     new Date(row.observed_at_utc).toISOString() ===
       observed.observedAt.toISOString() &&
-    String(row.local_date).slice(0, 10) === observed.localDate &&
+    captureLocalDate(row.local_date) === observed.localDate &&
     String(row.time_zone) === observed.timeZone;
 }
 
