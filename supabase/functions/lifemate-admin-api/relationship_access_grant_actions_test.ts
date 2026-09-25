@@ -27,7 +27,10 @@ Deno.test("access grant action path matches supported lifecycle operations", () 
     ),
     { grantId, action: "revoke" },
   );
-  assertEquals(matchAccessGrantActionPath("/api/v1/relationships/overview"), null);
+  assertEquals(
+    matchAccessGrantActionPath("/api/v1/relationships/overview"),
+    null,
+  );
 });
 
 Deno.test("access grant extend requires canonical expiry, version, reason and confirmation", async () => {

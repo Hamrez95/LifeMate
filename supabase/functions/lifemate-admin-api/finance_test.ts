@@ -50,7 +50,9 @@ Deno.test("finance P&L route denies admins without finance.read before querying 
       await handler({
         request: new Request("https://admin.test/api/v1/finance/profit-loss"),
         path: "/api/v1/finance/profit-loss",
+        accountId: crypto.randomUUID(),
         admin: { accountId: crypto.randomUUID(), roles: [], permissions: [] },
+        correlationId: crypto.randomUUID(),
         origin: null,
       }),
     Error,

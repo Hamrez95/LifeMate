@@ -16,7 +16,11 @@ Deno.test("audience segments accept only the approved non-health rule DSL", () =
     match: "all",
     rules: [
       { attribute: "product.code", operator: "eq", value: "wellmate_caremate" },
-      { attribute: "subscription.status", operator: "in", value: ["active", "trial"] },
+      {
+        attribute: "subscription.status",
+        operator: "in",
+        value: ["active", "trial"],
+      },
       { attribute: "engagement.last_active_days", operator: "lte", value: 30 },
     ],
   });
@@ -30,7 +34,11 @@ Deno.test("audience segments evaluate deterministic projected subjects", () => {
     version: 1,
     match: "all",
     rules: [
-      { attribute: "product.code", operator: "in", value: ["wellmate_caremate", "fitmate"] },
+      {
+        attribute: "product.code",
+        operator: "in",
+        value: ["wellmate_caremate", "fitmate"],
+      },
       { attribute: "subscription.status", operator: "eq", value: "active" },
       { attribute: "engagement.last_active_days", operator: "lte", value: 14 },
       { attribute: "entitlement.code", operator: "exists" },
@@ -58,14 +66,16 @@ Deno.test("audience segments evaluate deterministic projected subjects", () => {
 });
 
 Deno.test("audience segments reject health and treatment attributes", () => {
-  for (const attribute of [
-    "health.condition",
-    "medication.name",
-    "diagnosis.code",
-    "treatment.status",
-    "women_health.phase",
-    "cycle.day",
-  ]) {
+  for (
+    const attribute of [
+      "health.condition",
+      "medication.name",
+      "diagnosis.code",
+      "treatment.status",
+      "women_health.phase",
+      "cycle.day",
+    ]
+  ) {
     let error: unknown;
     try {
       parseSegmentRuleSet({
@@ -77,7 +87,10 @@ Deno.test("audience segments reject health and treatment attributes", () => {
       error = caught;
     }
     assert(error instanceof ApiError, `expected ApiError for ${attribute}`);
-    assert(error.code === "segment_sensitive_attribute_forbidden", `unexpected code for ${attribute}`);
+    assert(
+      error.code === "segment_sensitive_attribute_forbidden",
+      `unexpected code for ${attribute}`,
+    );
   }
 });
 
@@ -103,13 +116,23 @@ Deno.test("audience segment range operators require finite numeric values", () =
       parseSegmentRuleSet({
         version: 1,
         match: "all",
-        rules: [{ attribute: "engagement.last_active_days", operator: "lte", value }],
+        rules: [{
+          attribute: "engagement.last_active_days",
+          operator: "lte",
+          value,
+        }],
       });
     } catch (caught) {
       error = caught;
     }
-    assert(error instanceof ApiError, `expected invalid range value ${String(value)} to fail`);
-    assert(error.code === "segment_rule_invalid", "unexpected range validation code");
+    assert(
+      error instanceof ApiError,
+      `expected invalid range value ${String(value)} to fail`,
+    );
+    assert(
+      error.code === "segment_rule_invalid",
+      "unexpected range validation code",
+    );
   }
 });
 
@@ -127,7 +150,10 @@ Deno.test("audience segment canonicalization and hash are deterministic", async 
   const first = await hashSegmentRuleSet(parsed);
   const second = await hashSegmentRuleSet(parsed);
 
-  assert(canonical.includes('"version":1'), "canonical form should contain the version");
+  assert(
+    canonical.includes('"version":1'),
+    "canonical form should contain the version",
+  );
   assert(first === second, "hash must be stable");
   assert(/^[a-f0-9]{64}$/.test(first), "hash must be lowercase SHA-256 hex");
 });
@@ -138,7 +164,11 @@ Deno.test("exists rule cannot smuggle a value", () => {
     parseSegmentRuleSet({
       version: 1,
       match: "all",
-      rules: [{ attribute: "entitlement.code", operator: "exists", value: "unexpected" }],
+      rules: [{
+        attribute: "entitlement.code",
+        operator: "exists",
+        value: "unexpected",
+      }],
     });
   } catch (caught) {
     error = caught;
