@@ -8,6 +8,7 @@ void main() {
   testWidgets('Health Record lists private documents and filters by category', (
     tester,
   ) async {
+    LifeMateRuntimeLocale.setLanguageCode('fa');
     await tester.pumpWidget(
       Provider<LifeMateApiClient>.value(
         value: _HealthRecordApi(),
@@ -35,6 +36,22 @@ void main() {
     );
 
     await tester.tap(
+      find.byKey(const ValueKey('health-record-source-caremate')),
+    );
+    await tester.pumpAndSettle();
+
+    expect(
+      find.byKey(const ValueKey('health-record-document-document-lab')),
+      findsNothing,
+    );
+    expect(find.text('مدرکی در این دسته نیست'), findsOneWidget);
+
+    await tester.tap(
+      find.byKey(const ValueKey('health-record-source-all')),
+    );
+    await tester.pumpAndSettle();
+
+    await tester.tap(
       find.byKey(const ValueKey('health-record-filter-lab_result')),
     );
     await tester.pumpAndSettle();
@@ -45,6 +62,32 @@ void main() {
     );
     expect(
       find.byKey(const ValueKey('health-record-document-document-lab')),
+      findsOneWidget,
+    );
+    expect(tester.takeException(), isNull);
+  });
+
+  testWidgets('Health Record presents an English LTR empty state', (tester) async {
+    LifeMateRuntimeLocale.setLanguageCode('en');
+    addTearDown(() => LifeMateRuntimeLocale.setLanguageCode('fa'));
+    await tester.pumpWidget(
+      Provider<LifeMateApiClient>.value(
+        value: _EmptyHealthRecordApi(),
+        child: const MaterialApp(
+          locale: Locale('en'),
+          home: Directionality(
+            textDirection: TextDirection.ltr,
+            child: HealthRecordScreen(),
+          ),
+        ),
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    expect(find.text('Health record'), findsOneWidget);
+    expect(find.text('Your health record is empty'), findsOneWidget);
+    expect(
+      find.text('Your documents are private. A file opens only when you choose it.'),
       findsOneWidget,
     );
     expect(tester.takeException(), isNull);
@@ -91,11 +134,28 @@ class _HealthRecordApi extends LifeMateApiClient {
       sourceProduct: 'wellmate',
     ),
     ];
+    final categoryFiltered = category == null
+        ? items
+        : items.where((item) => item.category == category).toList();
     return LifeMateHealthDocumentPage(
-      items: category == null
-          ? items
-          : items.where((item) => item.category == category).toList(),
+      items: sourceProduct == null
+          ? categoryFiltered
+          : categoryFiltered
+              .where((item) => item.sourceProduct == sourceProduct)
+              .toList(),
       nextCursor: null,
     );
   }
+}
+
+class _EmptyHealthRecordApi extends _HealthRecordApi {
+  @override
+  Future<LifeMateHealthDocumentPage> getHealthDocumentPage({
+    LifeMateHealthDocumentCategory? category,
+    String? sourceProduct,
+    DateTime? fromDate,
+    DateTime? toDate,
+    String? cursor,
+    int limit = 25,
+  }) async => const LifeMateHealthDocumentPage(items: [], nextCursor: null);
 }

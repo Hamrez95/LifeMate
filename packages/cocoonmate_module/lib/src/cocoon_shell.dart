@@ -279,6 +279,7 @@ class _CocoonShellState extends State<CocoonShell> {
                 : widget.config.calendarState,
             items: widget.config.calendarItems,
             asOfLocalDate: widget.config.calendarAsOfLocalDate,
+            onAddAppointment: widget.config.onAddCalendarAppointment,
             onOpenItem: widget.config.onOpenCalendarItem,
             onOpenWeek: widget.config.onOpenCalendarWeek,
             onRetry: widget.config.onRetryCalendar ?? host.refresh,
@@ -289,6 +290,7 @@ class _CocoonShellState extends State<CocoonShell> {
               ...widget.config.quickAddEnabled,
               if (widget.config.onSubmitCheckIn != null)
                 CocoonQuickAddKind.checkIn,
+              if (widget.config.onSubmitMood != null) CocoonQuickAddKind.mood,
               if (widget.config.onSubmitSymptom != null)
                 CocoonQuickAddKind.symptom,
               if (widget.config.onSubmitMeasurement != null &&
@@ -350,6 +352,19 @@ class _CocoonShellState extends State<CocoonShell> {
       return;
     }
     final submitSymptom = widget.config.onSubmitSymptom;
+    final submitMood = widget.config.onSubmitMood;
+    if (kind == CocoonQuickAddKind.mood && submitMood != null) {
+      Navigator.of(context).push(
+        MaterialPageRoute<void>(
+          builder: (_) => CocoonMoodLogScreen(
+            fa: _fa,
+            submitState: widget.config.moodSubmitState,
+            onSubmit: submitMood,
+          ),
+        ),
+      );
+      return;
+    }
     if (kind == CocoonQuickAddKind.symptom && submitSymptom != null) {
       Navigator.of(context).push(
         MaterialPageRoute<void>(
@@ -375,6 +390,7 @@ class _CocoonShellState extends State<CocoonShell> {
             options: widget.config.measurementOptions,
             submitState: widget.config.measurementSubmitState,
             onSubmit: submitMeasurement,
+            onOpenHistory: widget.config.onOpenMeasurementHistory,
           ),
         ),
       );
@@ -394,6 +410,7 @@ class _CocoonShellState extends State<CocoonShell> {
             submitState: widget.config.medicationSubmitState,
             onPickTime: pickMedicationTime,
             onSubmit: submitMedication,
+            onOpenTreatments: widget.config.onOpenTreatments,
           ),
         ),
       );

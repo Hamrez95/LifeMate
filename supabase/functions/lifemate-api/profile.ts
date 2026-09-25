@@ -328,7 +328,7 @@ export function createProfileStore(
       : patch.phoneNumber;
     const rawEmail = contactReader.rawRetirementEnabled ? null : auth.email;
 
-    return await sql.begin(async (tx: any) => {
+    const updatedProfile = await sql.begin(async (tx: any) => {
       const personId = await requireSelfPerson(tx, userId);
       const compatibilityRows = await (usesVersionColumn
         ? tx`
@@ -482,9 +482,12 @@ export function createProfileStore(
           ...compatibilityRows[0],
           ...personRows[0],
         }),
-        privacyPreferences: await privacyPreferences.preferences(userId),
       };
     });
+    return {
+      ...updatedProfile,
+      privacyPreferences: await privacyPreferences.preferences(userId),
+    };
   }
 
   return {

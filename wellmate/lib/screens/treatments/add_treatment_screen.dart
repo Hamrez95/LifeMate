@@ -961,6 +961,17 @@ class _TabbedAddTreatmentScreenState extends State<TabbedAddTreatmentScreen> {
             fa: 'نشست شما منقضی شده است؛ دوباره وارد شوید.',
             en: 'Your session has expired; sign in again.',
           )
+        : error.code == 'identity_person_mapping_missing' ||
+              error.code == 'registration_identity_unavailable'
+        ? LifeMateRuntimeLocale.select(
+            fa: 'آماده‌سازی حساب کامل نشده است. چند ثانیه بعد دوباره تلاش کنید.',
+            en: 'Your account is still being prepared. Try again in a few seconds.',
+          )
+        : error.code == 'premium_required_quota_reached'
+        ? LifeMateRuntimeLocale.select(
+            fa: 'سقف ثبت دارو در حساب رایگان پر شده است.',
+            en: 'Your free account has reached its medication limit.',
+          )
         : error.code == 'idempotency_in_progress'
         ? LifeMateRuntimeLocale.select(
             fa: 'درخواست قبلی هنوز در حال ثبت است؛ چند ثانیه صبر کنید و دوباره بررسی کنید.',

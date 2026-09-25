@@ -42,7 +42,10 @@ export function createProductVersionAnalyticsStore(databaseUrl: string) {
     return rows.map(mapPolicy);
   }
 
-  async function listPolicyHistory(product: string | null, platform: string | null) {
+  async function listPolicyHistory(
+    product: string | null,
+    platform: string | null,
+  ) {
     const rows = await sql`
       select product, platform, version, snapshot_json, archived_at_utc
       from platform.product_update_policy_history
@@ -88,7 +91,13 @@ export function createProductVersionAnalyticsStore(databaseUrl: string) {
     return result as Record<string, unknown>;
   }
 
-  return { listAdoption, listAccountVersions, listPolicies, listPolicyHistory, upsertPolicy };
+  return {
+    listAdoption,
+    listAccountVersions,
+    listPolicies,
+    listPolicyHistory,
+    upsertPolicy,
+  };
 }
 
 export function mapAdoption(row: Row) {
@@ -136,7 +145,8 @@ function mapPolicy(row: Row) {
 }
 
 function mapPolicyHistory(row: Row) {
-  const snapshot = row.snapshot_json && typeof row.snapshot_json === "object" && !Array.isArray(row.snapshot_json)
+  const snapshot = row.snapshot_json && typeof row.snapshot_json === "object" &&
+      !Array.isArray(row.snapshot_json)
     ? row.snapshot_json as Row
     : {};
   return {

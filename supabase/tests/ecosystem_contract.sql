@@ -21,10 +21,13 @@ values('20000000-0000-0000-0000-000000000001','Contract Child','fa','Asia/Tehran
 insert into core.account_person_links(account_id,person_id,link_type,status)
 values('10000000-0000-0000-0000-000000000001','20000000-0000-0000-0000-000000000001','Guardian','Active');
 
+-- Keep quota attribution on the guardian Account while the medication remains
+-- owned by the dependent Person.
 insert into lifemate.medications(
  id,owner_user_id,owner_person_id,name,version,created_at_utc,updated_at_utc)
 values(
- '30000000-0000-0000-0000-000000000001',null,
+ '30000000-0000-0000-0000-000000000001',
+ '10000000-0000-0000-0000-000000000001',
  '20000000-0000-0000-0000-000000000001','Contract medication',1,now(),now());
 
 -- Current care relationship writes must create grant + scopes + versioned consent.

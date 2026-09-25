@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 
 import 'camp_asset_catalog.dart';
+import 'camp_avatar_fallback.dart';
 import 'camp_environment.dart';
 import 'camp_scene_renderer.dart';
 
@@ -10,6 +11,10 @@ class CampHome extends StatelessWidget {
     required this.isPersian,
     required this.onOpenToday,
     required this.onOpenWellMate,
+    this.onOpenCareMate,
+    this.onOpenReproductiveContext,
+    this.onOpenFitMate,
+    this.zonePresentations,
     this.environmentPreferences = const CampEnvironmentPreferences(),
     this.nowUtc,
   });
@@ -17,6 +22,12 @@ class CampHome extends StatelessWidget {
   final bool isPersian;
   final VoidCallback onOpenToday;
   final VoidCallback onOpenWellMate;
+  final VoidCallback? onOpenCareMate;
+  final VoidCallback? onOpenReproductiveContext;
+  final VoidCallback? onOpenFitMate;
+
+  /// Normalized snapshot from a reviewed adapter; Camp only renders it.
+  final List<CampZonePresentation>? zonePresentations;
   final CampEnvironmentPreferences environmentPreferences;
   final DateTime Function()? nowUtc;
 
@@ -52,22 +63,32 @@ class CampHome extends StatelessWidget {
       ),
     ];
 
-    const presentations = <CampZonePresentation>[
-      CampZonePresentation(zoneId: 'lifemate_home'),
-      CampZonePresentation(zoneId: 'wellmate'),
+    final defaultPresentations = <CampZonePresentation>[
+      CampZonePresentation(
+        zoneId: 'lifemate_home',
+        stateLabel: _t('Available', 'در دسترس'),
+      ),
+      CampZonePresentation(
+        zoneId: 'wellmate',
+        stateLabel: _t('Available', 'در دسترس'),
+      ),
       CampZonePresentation(
         zoneId: 'caremate',
         availability: CampZoneAvailability.locked,
+        stateLabel: _t('Locked', 'قفل است'),
       ),
       CampZonePresentation(
         zoneId: 'reproductive_context',
         availability: CampZoneAvailability.locked,
+        stateLabel: _t('Locked', 'قفل است'),
       ),
       CampZonePresentation(
         zoneId: 'fitmate',
         availability: CampZoneAvailability.unavailable,
+        stateLabel: _t('Coming soon', 'به‌زودی'),
       ),
     ];
+    final presentations = zonePresentations ?? defaultPresentations;
 
     return CampEnvironmentHost(
       preferences: environmentPreferences,
@@ -102,6 +123,18 @@ class CampHome extends StatelessWidget {
                 child: CampSceneRenderer(
                   zones: zones,
                   presentations: presentations,
+                  actors: [
+                    CampSceneActor(
+                      actorId: 'main_avatar_fallback',
+                      anchor: const CampPoint(505, 1060),
+                      width: 132,
+                      height: 198,
+                      builder: (_) => CampAvatarFallback(
+                        family: CampAvatarFamily.adultMasculine,
+                        motionEnabled: environment.motionEnabled,
+                      ),
+                    ),
+                  ],
                   layers: [
                     CampSceneLayer(
                       id: 'background',
@@ -146,6 +179,12 @@ class CampHome extends StatelessWidget {
                         onOpenToday();
                       case 'wellmate':
                         onOpenWellMate();
+                      case 'caremate':
+                        onOpenCareMate?.call();
+                      case 'reproductive_context':
+                        onOpenReproductiveContext?.call();
+                      case 'fitmate':
+                        onOpenFitMate?.call();
                     }
                   },
                 ),

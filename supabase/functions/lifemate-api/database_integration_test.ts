@@ -312,7 +312,7 @@ Deno.test({
       assert(careEventAudit);
       assertEquals(
         careEventAudit.metadata_json,
-        JSON.stringify({ eventType: "Appointment" }),
+        JSON.stringify({ eventType: "Appointment", recurrenceVersion: null }),
       );
       assert(
         auditRows

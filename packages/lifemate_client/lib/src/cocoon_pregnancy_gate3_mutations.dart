@@ -56,6 +56,27 @@ typedef CocoonGate3MeasurementOfflineEnqueue =
       required DateTime observedAtUtc,
       required DateTime observedLocalDate,
     });
+typedef CocoonGate3SymptomOnlineSubmit =
+    Future<void> Function({
+      required String clientRequestId,
+      required DateTime observedAtUtc,
+      required String localDate,
+      required String timeZone,
+      required CocoonApprovedSymptomCatalog approvedCatalog,
+      required String symptomCode,
+      required CocoonPregnancySymptomIntensity intensity,
+      String? note,
+    });
+typedef CocoonGate3SymptomOfflineEnqueue =
+    Future<void> Function({
+      required String clientRequestId,
+      required DateTime observedAtUtc,
+      required DateTime localDate,
+      required String symptomCode,
+      required String intensity,
+      required CocoonApprovedSymptomCatalog approvedCatalog,
+      String? note,
+    });
 typedef CocoonGate3MoodOnlineSubmit =
     Future<void> Function({
       required String clientRequestId,
@@ -84,6 +105,8 @@ final class CocoonGate3MutationAdapter {
     required CocoonGate3CheckInOfflineEnqueue enqueueCheckInOffline,
     required CocoonGate3MeasurementOnlineSubmit submitMeasurementOnline,
     required CocoonGate3MeasurementOfflineEnqueue enqueueMeasurementOffline,
+    CocoonGate3SymptomOnlineSubmit? submitSymptomOnline,
+    CocoonGate3SymptomOfflineEnqueue? enqueueSymptomOffline,
     CocoonGate3MoodOnlineSubmit? submitMoodOnline,
     CocoonGate3MoodOfflineEnqueue? enqueueMoodOffline,
     CocoonGate3RequestIdFactory? requestIdFactory,
@@ -93,6 +116,8 @@ final class CocoonGate3MutationAdapter {
        _enqueueCheckInOffline = enqueueCheckInOffline,
        _submitMeasurementOnline = submitMeasurementOnline,
        _enqueueMeasurementOffline = enqueueMeasurementOffline,
+       _submitSymptomOnline = submitSymptomOnline,
+       _enqueueSymptomOffline = enqueueSymptomOffline,
        _submitMoodOnline = submitMoodOnline,
        _enqueueMoodOffline = enqueueMoodOffline,
        _requestIdFactory =
@@ -105,6 +130,11 @@ final class CocoonGate3MutationAdapter {
     if ((submitMoodOnline == null) != (enqueueMoodOffline == null)) {
       throw ArgumentError(
         'Mood online and offline mutation handlers must be configured together.',
+      );
+    }
+    if ((submitSymptomOnline == null) != (enqueueSymptomOffline == null)) {
+      throw ArgumentError(
+        'Symptom online and offline mutation handlers must be configured together.',
       );
     }
   }
@@ -197,6 +227,46 @@ final class CocoonGate3MutationAdapter {
             observedAtUtc: observedAtUtc,
             observedLocalDate: observedLocalDate,
           ),
+      submitSymptomOnline:
+          ({
+            required clientRequestId,
+            required observedAtUtc,
+            required localDate,
+            required timeZone,
+            required approvedCatalog,
+            required symptomCode,
+            required intensity,
+            note,
+          }) async {
+            await daily.createSymptom(
+              approvedCatalog: approvedCatalog,
+              symptomCode: symptomCode,
+              intensity: intensity,
+              clientRequestId: clientRequestId,
+              observedAtUtc: observedAtUtc,
+              localDate: localDate,
+              timeZone: timeZone,
+              note: note,
+            );
+          },
+      enqueueSymptomOffline:
+          ({
+            required clientRequestId,
+            required observedAtUtc,
+            required localDate,
+            required symptomCode,
+            required intensity,
+            required approvedCatalog,
+            note,
+          }) => offlineOwner.enqueueSymptom(
+            clientRequestId: clientRequestId,
+            observedAtUtc: observedAtUtc,
+            localDate: localDate,
+            symptomCode: symptomCode,
+            intensity: intensity,
+            approvedCatalog: approvedCatalog,
+            note: note,
+          ),
       submitMoodOnline:
           ({
             required clientRequestId,
@@ -237,11 +307,19 @@ final class CocoonGate3MutationAdapter {
   final CocoonGate3CheckInOfflineEnqueue _enqueueCheckInOffline;
   final CocoonGate3MeasurementOnlineSubmit _submitMeasurementOnline;
   final CocoonGate3MeasurementOfflineEnqueue _enqueueMeasurementOffline;
+  final CocoonGate3SymptomOnlineSubmit? _submitSymptomOnline;
+  final CocoonGate3SymptomOfflineEnqueue? _enqueueSymptomOffline;
   final CocoonGate3MoodOnlineSubmit? _submitMoodOnline;
   final CocoonGate3MoodOfflineEnqueue? _enqueueMoodOffline;
   final CocoonGate3RequestIdFactory _requestIdFactory;
   final CocoonGate3Clock _clock;
   final CocoonGate3Close? _close;
+
+  bool get supportsMood =>
+      _submitMoodOnline != null && _enqueueMoodOffline != null;
+
+  bool get supportsSymptom =>
+      _submitSymptomOnline != null && _enqueueSymptomOffline != null;
 
   Future<CocoonGate3MutationResult> submitCheckIn({
     required CocoonPregnancyFeeling feeling,
@@ -367,6 +445,65 @@ final class CocoonGate3MutationAdapter {
         observedAtUtc: observedAtUtc,
         localDate: localDate,
         moodCode: mood.wireValue,
+      );
+      return CocoonGate3MutationResult(
+        clientRequestId: requestId,
+        disposition: CocoonGate3MutationDisposition.queued,
+      );
+    }
+  }
+
+  Future<CocoonGate3MutationResult> submitSymptom({
+    required CocoonApprovedSymptomCatalog approvedCatalog,
+    required String symptomCode,
+    required CocoonPregnancySymptomIntensity intensity,
+    String? note,
+  }) async {
+    final online = _submitSymptomOnline;
+    final offline = _enqueueSymptomOffline;
+    if (online == null || offline == null) {
+      throw StateError('Symptom mutation is not configured.');
+    }
+    if (!approvedCatalog.allows(symptomCode)) {
+      throw ArgumentError.value(
+        symptomCode,
+        'symptomCode',
+        'must come from the injected approved symptom catalog.',
+      );
+    }
+    final requestId = _newRequestId();
+    final observedLocal = _clock();
+    final observedAtUtc = observedLocal.toUtc();
+    final localDate = DateTime(
+      observedLocal.year,
+      observedLocal.month,
+      observedLocal.day,
+    );
+    try {
+      await online(
+        clientRequestId: requestId,
+        observedAtUtc: observedAtUtc,
+        localDate: _date(localDate),
+        timeZone: timeZone,
+        approvedCatalog: approvedCatalog,
+        symptomCode: symptomCode,
+        intensity: intensity,
+        note: note,
+      );
+      return CocoonGate3MutationResult(
+        clientRequestId: requestId,
+        disposition: CocoonGate3MutationDisposition.confirmed,
+      );
+    } on LifeMateApiException catch (error) {
+      if (error.statusCode != 0) rethrow;
+      await offline(
+        clientRequestId: requestId,
+        observedAtUtc: observedAtUtc,
+        localDate: localDate,
+        symptomCode: symptomCode,
+        intensity: intensity.wireValue,
+        approvedCatalog: approvedCatalog,
+        note: note,
       );
       return CocoonGate3MutationResult(
         clientRequestId: requestId,

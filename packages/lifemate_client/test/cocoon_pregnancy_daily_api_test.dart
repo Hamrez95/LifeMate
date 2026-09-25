@@ -68,6 +68,38 @@ void main() {
     api.close();
   });
 
+  test('symptom catalog is localized and carries its reviewed version', () async {
+    late http.Request captured;
+    final api = CocoonPregnancyDailyApiClient(
+      baseUri: Uri.parse('https://example.test'),
+      accessToken: () => 'token',
+      httpClient: MockClient((request) async {
+        captured = request;
+        return http.Response.bytes(
+          utf8.encode(jsonEncode({
+            'contractVersion': 1,
+            'version': 'pregnancy-symptoms-v1',
+            'locale': 'fa',
+            'entries': [
+              {'code': 'approved-nausea', 'label': 'تهوع', 'sortOrder': 10},
+            ],
+          })),
+          200,
+          headers: const {'content-type': 'application/json; charset=utf-8'},
+        );
+      }),
+    );
+
+    final result = await api.symptomCatalog(locale: 'fa');
+
+    expect(captured.url.path, '/api/v1/cocoon/pregnancy/symptom-catalog');
+    expect(captured.url.queryParameters['locale'], 'fa');
+    expect(result.version, 'pregnancy-symptoms-v1');
+    expect(result.entries.single.label, 'تهوع');
+    expect(result.allows('approved-nausea'), isTrue);
+    api.close();
+  });
+
   test('symptom submit preserves approved code, severity and stable request id', () async {
     late http.Request captured;
     final api = CocoonPregnancyDailyApiClient(
@@ -104,6 +136,7 @@ void main() {
     final body = jsonDecode(captured.body) as Map<String, dynamic>;
     expect(body['clientRequestId'], requestId);
     expect(body['symptomCode'], 'approved-nausea');
+    expect(body['catalogVersion'], '2026-09-12.1');
     expect(body['intensity'], 'moderate');
     expect(body['note'], 'private note');
     expect(result.symptomCode, 'approved-nausea');

@@ -112,11 +112,11 @@ The videos themselves and test-account credentials are not committed to the repo
 
 ## Confirmed remaining functional/product gaps
 
-- [ ] Automatic delivery of the caregiver invitation token is not implemented; the current UI only supports secure manual copy/share.
+- [ ] Server-side automatic delivery of the caregiver invitation token is not implemented; the UI now offers an explicit `mailto:` handoff with copy fallback, but this does not claim provider delivery.
 - [ ] The current live two-account invitation → acceptance → recipient read → revoke journey has not been re-executed for this candidate.
 - [ ] Notification permission recovery, reboot, app update, timezone change and OEM background behavior remain unverified on devices.
 - [ ] Full screenshot evidence for every route is still missing.
-- [ ] English/LTR parity of newly expanded treatment scheduling remains open because visible copy is currently Persian-first.
+- [x] English/LTR copy for the expanded treatment form is covered by a dedicated widget regression; screenshot/device parity evidence remains open.
 
 ## Automated checkpoint — exact head `e07c09039c2e33e4f64013047799c32abfe1c18f`
 

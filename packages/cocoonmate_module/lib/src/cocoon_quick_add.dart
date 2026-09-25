@@ -2,6 +2,7 @@ part of '../cocoonmate_module.dart';
 
 enum CocoonQuickAddKind {
   checkIn,
+  mood,
   symptom,
   measurement,
   medication,
@@ -85,6 +86,12 @@ class CocoonQuickAddScreen extends StatelessWidget {
                           enabled:
                               enabled.contains(CocoonQuickAddKind.appointment),
                           onTap: () => onOpen(CocoonQuickAddKind.appointment),
+                        ),
+                        _QuickAddTile(
+                          fa: fa,
+                          kind: CocoonQuickAddKind.mood,
+                          enabled: enabled.contains(CocoonQuickAddKind.mood),
+                          onTap: () => onOpen(CocoonQuickAddKind.mood),
                         ),
                       ];
                       if (!wide) {
@@ -288,6 +295,13 @@ class _QuickAddTile extends StatelessWidget {
           fa ? 'آنچه امروز حس کردی' : 'What you noticed today',
           CocoonTheme.lilac,
           CocoonTheme.ink,
+        ),
+      CocoonQuickAddKind.mood => (
+          Icons.sentiment_satisfied_alt_outlined,
+          fa ? 'حال روحی' : 'Mood',
+          fa ? 'یک ثبت کوتاه، بدون برچسب' : 'A short check-in, without labels',
+          CocoonTheme.sky,
+          CocoonTheme.skyStrong,
         ),
       CocoonQuickAddKind.measurement => (
           Icons.monitor_weight_outlined,

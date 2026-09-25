@@ -1,7 +1,4 @@
-import {
-  assertEquals,
-  assertThrows,
-} from "jsr:@std/assert@1.0.14";
+import { assertEquals, assertThrows } from "jsr:@std/assert@1.0.14";
 import {
   ageBucketLabel,
   assertCohortExportable,
@@ -25,30 +22,41 @@ Deno.test("research privacy thresholds fail closed", () => {
   });
   assertThrows(() => assertCohortExportable(19, policy));
   assertCohortExportable(20, policy);
-  assertThrows(() => validateResearchPrivacyPolicy({
-    ...policy,
-    smallCellThreshold: 21,
-  }));
+  assertThrows(() =>
+    validateResearchPrivacyPolicy({
+      ...policy,
+      smallCellThreshold: 21,
+    })
+  );
 });
 
 Deno.test("research pseudonymous row export remains explicitly unavailable", () => {
-  const error = assertThrows(() => validateResearchPrivacyPolicy({
-    ageBucketYears: 2,
-    minimumCohortSize: 20,
-    smallCellThreshold: 5,
-    rowMode: "Pseudonymous",
-  }));
-  assertEquals(error.message, "Pseudonymous row-level research export is not available yet.");
+  const error = assertThrows(() =>
+    validateResearchPrivacyPolicy({
+      ageBucketYears: 2,
+      minimumCohortSize: 20,
+      smallCellThreshold: 5,
+      rowMode: "Pseudonymous",
+    })
+  );
+  if (!(error instanceof Error)) throw error;
+  assertEquals(
+    error.message,
+    "Pseudonymous row-level research export is not available yet.",
+  );
 });
 
 Deno.test("research small cells are marked for suppression", () => {
-  assertEquals(suppressSmallCells([
-    { label: "20–22", count: 4 },
-    { label: "22–24", count: 5 },
-  ], 5), [
-    { label: "20–22", count: 4, suppressed: true },
-    { label: "22–24", count: 5, suppressed: false },
-  ]);
+  assertEquals(
+    suppressSmallCells([
+      { label: "20–22", count: 4 },
+      { label: "22–24", count: 5 },
+    ], 5),
+    [
+      { label: "20–22", count: 4, suppressed: true },
+      { label: "22–24", count: 5, suppressed: false },
+    ],
+  );
 });
 
 Deno.test("research fields reject direct and linkable identifiers", () => {
@@ -91,10 +99,16 @@ Deno.test("research migrations enforce DB privacy and reviewed quasi transforms"
   );
 
   assertEquals(foundation.includes("admin.account_is_active_founder"), true);
-  assertEquals(foundation.includes("revoke all on analytics.dataset_definitions"), true);
+  assertEquals(
+    foundation.includes("revoke all on analytics.dataset_definitions"),
+    true,
+  );
   assertEquals(foundation.includes("direct_identifiers_removed=true"), true);
   assertEquals(foundation.includes("research_source_not_allowed"), true);
-  assertEquals(foundation.includes("research_json_contains_direct_identifier"), true);
+  assertEquals(
+    foundation.includes("research_json_contains_direct_identifier"),
+    true,
+  );
   assertEquals(kind.includes("research_json_contains_direct_identifier"), true);
   assertEquals(quasi.includes("homeRegionMode"), true);
   assertEquals(quasi.includes("not in ('omit','country')"), true);

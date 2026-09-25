@@ -29,3 +29,15 @@ flutter:
     - assets/living_camp/v1/raster/zones/caremate/stage_1/default_day.webp
     - assets/living_camp/v1/raster/zones/reproductive_context/stage_1/default_day.webp
     - assets/living_camp/v1/raster/zones/fitmate/stage_1/under_construction_day.webp
+    - assets/living_camp/v1/raster/actors/adult_female_idle.png
+    - assets/living_camp/v1/raster/actors/adult_male_idle.png
+    - assets/living_camp/v1/raster/actors/female_age_2_idle.png
+    - assets/living_camp/v1/raster/actors/female_age_10_idle.png
+    - assets/living_camp/v1/raster/actors/female_age_20_idle.png
+    - assets/living_camp/v1/raster/actors/female_age_50_idle.png
+    - assets/living_camp/v1/raster/actors/female_age_70_idle.png
+    - assets/living_camp/v1/raster/actors/male_age_2_idle.png
+    - assets/living_camp/v1/raster/actors/male_age_10_idle.png
+    - assets/living_camp/v1/raster/actors/male_age_20_idle.png
+    - assets/living_camp/v1/raster/actors/male_age_50_idle.png
+    - assets/living_camp/v1/raster/actors/male_age_70_idle.png

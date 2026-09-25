@@ -63,7 +63,7 @@ function Write-ExternalLine([string]$Text) {
   Write-Host $safe
 }
 function Invoke-External([string]$File, [string[]]$Arguments, [string]$WorkingDirectory = $Script:Root) {
-  if ($File -eq 'flutter') { $File = Get-CommandPath 'flutter' }
+  if ($File -in @('flutter', 'adb', 'bash')) { $File = Get-CommandPath $File }
   if ([string]::IsNullOrWhiteSpace($File)) { throw 'Flutter executable was not found.' }
   $safeArguments = @($Arguments | ForEach-Object { if ($_ -match '^--dart-define=(SUPABASE_PUBLISHABLE_KEY|.*(?:SECRET|TOKEN|PASSWORD|KEY))=') { "--dart-define=$($Matches[1])=[redacted]" } else { $_ } })
   Write-Ui "Running: $File $($safeArguments -join ' ')" Step
@@ -80,7 +80,25 @@ function Invoke-External([string]$File, [string[]]$Arguments, [string]$WorkingDi
 function Get-CommandPath([string]$Name) {
   if ($Name -eq 'flutter' -and -not [string]::IsNullOrWhiteSpace($env:LIFEMATE_FLUTTER) -and (Test-Path $env:LIFEMATE_FLUTTER)) { return $env:LIFEMATE_FLUTTER }
   $c = Get-Command $Name -ErrorAction SilentlyContinue
-  if ($c) { $c.Source }
+  if ($c) { return $c.Source }
+  if ($Name -eq 'adb') {
+    $sdkRoots = @($env:ANDROID_SDK_ROOT, $env:ANDROID_HOME, $(if ($env:LOCALAPPDATA) { Join-Path $env:LOCALAPPDATA 'Android\sdk' })) |
+      Where-Object { -not [string]::IsNullOrWhiteSpace($_) } |
+      Select-Object -Unique
+    foreach ($sdkRoot in $sdkRoots) {
+      $adb = Join-Path $sdkRoot 'platform-tools\adb.exe'
+      if (Test-Path $adb) { return $adb }
+    }
+  }
+  if ($Name -eq 'bash') {
+    $gitRoots = @($env:GIT_INSTALL_ROOT, ${env:ProgramFiles}, ${env:ProgramW6432}) |
+      Where-Object { -not [string]::IsNullOrWhiteSpace($_) } |
+      Select-Object -Unique
+    foreach ($gitRoot in $gitRoots) {
+      $bash = Join-Path $gitRoot 'Git\bin\bash.exe'
+      if (Test-Path $bash) { return $bash }
+    }
+  }
 }
 function Test-Tool([string]$Name) { [bool](Get-CommandPath $Name) }
 function Use-ShortWindowsFlutterPaths {
@@ -223,8 +241,9 @@ function Get-GitState {
   [pscustomobject]@{ Available=$true; Branch=$branch; Dirty=($status.Count -gt 0); Changes=$status.Count; Upstream=$upstream; Ahead=$ahead; Behind=$behind }
 }
 function Get-Devices {
-  if (-not (Test-Tool adb)) { return @() }
-  @(& adb devices 2>$null | Select-Object -Skip 1 | Where-Object { $_ -match '\S+\s+(device|offline|unauthorized)' } | ForEach-Object { $p=$_.Trim() -split '\s+'; [pscustomobject]@{ Id=$p[0]; Status=$p[1] } })
+  $adb = Get-CommandPath 'adb'
+  if ([string]::IsNullOrWhiteSpace($adb)) { return @() }
+  @(& $adb devices 2>$null | Select-Object -Skip 1 | Where-Object { $_ -match '\S+\s+(device|offline|unauthorized)' } | ForEach-Object { $p=$_.Trim() -split '\s+'; [pscustomobject]@{ Id=$p[0]; Status=$p[1] } })
 }
 function Get-LastTag([object]$Item) {
   if (-not (Test-Tool git)) { return 'Git unavailable' }

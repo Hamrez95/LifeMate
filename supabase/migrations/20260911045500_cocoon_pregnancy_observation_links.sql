@@ -1,3 +1,5 @@
+begin;
+
 create table if not exists pregnancy.observation_links (
   episode_id uuid not null references pregnancy.episodes(id) on delete cascade,
   observation_id uuid not null references lifemate.health_observations(id) on delete cascade,
@@ -58,6 +60,8 @@ end $$;
 grant select,insert,update,delete on pregnancy.observation_links to lifemate_edge_runtime;
 grant select on pregnancy.observation_links to lifemate_backup_reader;
 
+drop policy if exists lifemate_edge_runtime_access
+on pregnancy.observation_links;
 create policy lifemate_edge_runtime_access
 on pregnancy.observation_links
 for all to lifemate_edge_runtime
@@ -65,3 +69,5 @@ using(true) with check(true);
 
 comment on table pregnancy.observation_links is
   'Narrow pregnancy episode context for canonical lifemate.health_observations. Measurement values and units are never duplicated here.';
+
+commit;

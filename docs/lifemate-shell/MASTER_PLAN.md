@@ -19,6 +19,8 @@ Current implementation facts:
 - Living Camp 2.5D renderer #1075 is merged and mounted as Shell Home;
 - Living Camp runtime/accessibility/navigation tasks #1077 and #1078 are merged;
 - #1073 Stage-1 layered Camp art package is merged on `main` via PR #1188;
+- PR #1192 merged a compact two-family raster avatar fallback and world-actor seam; it is explicitly not completion of #1074's real Rive deliverable;
+- PR #1226 merged the twelve-variant raster age-band fallback catalog (two families × 2/10/20/30/50/70); it remains explicitly separate from #1074's real Rive deliverable;
 - #1074 remains the only OPEN Work-preferred visual/Rive production task;
 - #1076 remains genuinely blocked by the reusable Rive avatar output from #1074;
 - #1079 remains the representative-art/Rive performance/battery/accessibility Go/No-Go gate and must not close before #1074/#1076 are genuinely integrated with the merged #1073 art;
