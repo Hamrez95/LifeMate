@@ -10,6 +10,7 @@ if (!databaseUrl) {
     "TEST_DATABASE_URL is required for token-only bootstrap integration tests.",
   );
 }
+const adminDatabaseUrl = Deno.env.get("TEST_ADMIN_DATABASE_URL") ?? databaseUrl;
 
 Deno.test({
   name:
@@ -17,7 +18,7 @@ Deno.test({
   sanitizeOps: false,
   sanitizeResources: false,
   fn: async () => {
-    const admin = postgres(databaseUrl, { max: 1, prepare: false });
+    const admin = postgres(adminDatabaseUrl, { max: 1, prepare: false });
     const authSubject = crypto.randomUUID();
     const auth: AuthUser = {
       id: authSubject,
