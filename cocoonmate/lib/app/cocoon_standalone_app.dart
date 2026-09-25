@@ -92,6 +92,7 @@ class CocoonAuthenticatedHost extends StatefulWidget {
     this.runtimeLoader,
     this.bootstrapLoader,
     this.gate3ReadLoader,
+    this.gate3RecordsPageLoader,
     this.gate3MutationAdapter,
     this.signOut,
     this.offlineBootstrapCache,
@@ -105,6 +106,7 @@ class CocoonAuthenticatedHost extends StatefulWidget {
   final CocoonRuntimeLoader? runtimeLoader;
   final CocoonBootstrapLoader? bootstrapLoader;
   final CocoonGate3ReadLoader? gate3ReadLoader;
+  final CocoonGate3RecordsPageLoader? gate3RecordsPageLoader;
   final CocoonGate3MutationAdapter? gate3MutationAdapter;
   final CocoonSignOut? signOut;
   final CocoonOfflineBootstrapCache? offlineBootstrapCache;
@@ -135,6 +137,11 @@ class _CocoonAuthenticatedHostState extends State<CocoonAuthenticatedHost>
   DateTime? _calendarAsOfLocalDate;
   CocoonRecordsState _recordsState = CocoonRecordsState.loading;
   List<CocoonRecordViewData> _records = const [];
+  Map<String, CocoonRecordSourceIdentity> _recordSources = const {};
+  String? _recordsNextCursor;
+  bool _loadingMoreRecords = false;
+  bool _recordsMoreError = false;
+  int _recordsReadGeneration = 0;
   CocoonCheckInSyncState _checkInSyncState = CocoonCheckInSyncState.idle;
   CocoonApprovedSymptomCatalog? _symptomCatalog;
   CocoonSymptomCatalogState _symptomCatalogState =
@@ -260,6 +267,15 @@ class _CocoonAuthenticatedHostState extends State<CocoonAuthenticatedHost>
       onRetryCalendar: () => _refreshGate3ReadModels(),
       recordsState: _recordsState,
       records: _records,
+      recordsHasMore: _recordsNextCursor != null,
+      recordsLoadingMore: _loadingMoreRecords,
+      recordsLoadMoreError: _recordsMoreError,
+      onLoadMoreRecords:
+          _recordsNextCursor == null ||
+              (_gate3ReadModelLoader == null &&
+                  widget.gate3RecordsPageLoader == null)
+          ? null
+          : _loadMoreRecords,
       onOpenRecord: _openRecord,
       onRetryRecords: () => _refreshGate3ReadModels(),
       checkInSyncState: _checkInSyncState,
@@ -364,6 +380,7 @@ class _CocoonAuthenticatedHostState extends State<CocoonAuthenticatedHost>
     if (injected == null && production == null) return;
 
     _refreshingGate3 = true;
+    _recordsReadGeneration++;
     if (mounted && _calendarItems.isEmpty && _records.isEmpty) {
       setState(() {
         _calendarState = CocoonCalendarLoadState.loading;
@@ -387,6 +404,10 @@ class _CocoonAuthenticatedHostState extends State<CocoonAuthenticatedHost>
         _calendarAsOfLocalDate = values.calendarAsOfLocalDate;
         _recordsState = values.recordsState;
         _records = values.records;
+        _recordSources = values.recordSources;
+        _recordsNextCursor = values.recordsNextCursor;
+        _loadingMoreRecords = false;
+        _recordsMoreError = false;
       });
       await _refreshMedicationOptions();
       await _refreshSymptomCatalog();
@@ -394,6 +415,63 @@ class _CocoonAuthenticatedHostState extends State<CocoonAuthenticatedHost>
       _markGate3ReadModelsStale();
     } finally {
       _refreshingGate3 = false;
+    }
+  }
+
+  Future<void> _loadMoreRecords() async {
+    final cursor = _recordsNextCursor;
+    if (cursor == null || _loadingMoreRecords) return;
+    final generation = _recordsReadGeneration;
+    final injected = widget.gate3RecordsPageLoader;
+    final production = _gate3ReadModelLoader;
+    if (injected == null && production == null) return;
+
+    setState(() {
+      _loadingMoreRecords = true;
+      _recordsMoreError = false;
+    });
+    try {
+      final page = injected != null
+          ? await injected(
+              fa: widget.locale.languageCode == 'fa',
+              cursor: cursor,
+            )
+          : await production!.loadMoreRecords(
+              fa: widget.locale.languageCode == 'fa',
+              cursor: cursor,
+            );
+      if (!mounted ||
+          _entryState != CocoonEntryState.activePregnancy ||
+          generation != _recordsReadGeneration) {
+        return;
+      }
+      setState(() {
+        final existingIds = _records.map((record) => record.id).toSet();
+        _records = [
+          ..._records,
+          ...page.records.where((record) => !existingIds.contains(record.id)),
+        ];
+        _recordSources = Map.unmodifiable({
+          ..._recordSources,
+          ...page.recordSources,
+        });
+        _recordsNextCursor =
+            page.nextCursor == null || page.nextCursor!.trim().isEmpty
+            ? null
+            : page.nextCursor!.trim();
+        _recordsState = _records.isEmpty
+            ? CocoonRecordsState.empty
+            : CocoonRecordsState.ready;
+        _recordsMoreError = false;
+      });
+    } catch (_) {
+      if (mounted && generation == _recordsReadGeneration) {
+        setState(() => _recordsMoreError = true);
+      }
+    } finally {
+      if (mounted && generation == _recordsReadGeneration) {
+        setState(() => _loadingMoreRecords = false);
+      }
     }
   }
 
@@ -1288,17 +1366,25 @@ class _CocoonAuthenticatedHostState extends State<CocoonAuthenticatedHost>
     setState(() {
       _calendarState = CocoonCalendarLoadState.error;
       _recordsState = CocoonRecordsState.error;
+      _loadingMoreRecords = false;
+      _recordsMoreError = false;
+      _recordsMoreError = false;
     });
   }
 
   void _clearGate3ReadModels() {
     if (!mounted) return;
+    _recordsReadGeneration++;
     setState(() {
       _calendarState = CocoonCalendarLoadState.loading;
       _calendarItems = const [];
       _calendarAsOfLocalDate = null;
       _recordsState = CocoonRecordsState.loading;
       _records = const [];
+      _recordSources = const {};
+      _recordsNextCursor = null;
+      _loadingMoreRecords = false;
+      _recordsMoreError = false;
       _checkInSyncState = CocoonCheckInSyncState.idle;
       _symptomCatalog = null;
       _symptomCatalogState = CocoonSymptomCatalogState.loading;

@@ -6,6 +6,11 @@ typedef CocoonGate3ReadLoader =
       required DateTime now,
       required bool fa,
     });
+typedef CocoonGate3RecordsPageLoader =
+    Future<CocoonGate3RecordsPage> Function({
+      required bool fa,
+      required String cursor,
+    });
 
 /// Canonical source identity retained beside a presentation-only Records row.
 ///
@@ -50,6 +55,7 @@ final class CocoonGate3ReadModels {
     required this.recordsState,
     required this.records,
     this.recordSources = const {},
+    this.recordsNextCursor,
   });
 
   final CocoonCalendarLoadState calendarState;
@@ -61,9 +67,24 @@ final class CocoonGate3ReadModels {
   /// Canonical source identity keyed by the corresponding Records presentation
   /// id. Health payload values are deliberately not copied into this map.
   final Map<String, CocoonRecordSourceIdentity> recordSources;
+  final String? recordsNextCursor;
 
   CocoonRecordSourceIdentity? sourceForRecord(String recordId) =>
       recordSources[recordId];
+}
+
+/// One additional server page, projected without retaining canonical health
+/// payloads beyond the authorized presentation fields.
+final class CocoonGate3RecordsPage {
+  const CocoonGate3RecordsPage({
+    required this.records,
+    required this.recordSources,
+    required this.nextCursor,
+  });
+
+  final List<CocoonRecordViewData> records;
+  final Map<String, CocoonRecordSourceIdentity> recordSources;
+  final String? nextCursor;
 }
 
 /// Loads the canonical Calendar and composed Records read models in parallel.
@@ -85,6 +106,8 @@ final class CocoonGate3ReadModelLoader {
 
   final CocoonPregnancyCalendarApiClient _calendar;
   final CocoonPregnancyRecordsApiClient _records;
+  DateTime? _recordsFromDate;
+  DateTime? _recordsToDate;
 
   Future<CocoonGate3ReadModels> load({
     required DateTime now,
@@ -96,6 +119,8 @@ final class CocoonGate3ReadModelLoader {
     final localToday = DateTime(now.year, now.month, now.day);
     final calendarTo = localToday.add(const Duration(days: 30));
     final recordsFrom = localToday.subtract(const Duration(days: 90));
+    _recordsFromDate = recordsFrom;
+    _recordsToDate = localToday;
 
     // Start both requests before awaiting either one.
     final calendarFuture = _calendar.list(
@@ -105,7 +130,7 @@ final class CocoonGate3ReadModelLoader {
     final recordsFuture = _records.list(
       fromDate: recordsFrom,
       toDate: localToday,
-      limit: 100,
+      limit: 30,
     );
 
     CocoonCalendarLoadState calendarState = CocoonCalendarLoadState.error;
@@ -125,9 +150,11 @@ final class CocoonGate3ReadModelLoader {
     CocoonRecordsState recordsState = CocoonRecordsState.error;
     List<CocoonRecordViewData> records = const [];
     Map<String, CocoonRecordSourceIdentity> recordSources = const {};
+    String? recordsNextCursor;
     try {
       final page = await recordsFuture;
       recordSources = _recordSourceMap(page.items);
+      recordsNextCursor = _normalizedCursor(page.nextCursor);
       records = page.items
           .map((item) => _recordItem(item, fa: fa))
           .toList(growable: false);
@@ -138,6 +165,7 @@ final class CocoonGate3ReadModelLoader {
       recordsState = CocoonRecordsState.error;
       records = const [];
       recordSources = const {};
+      recordsNextCursor = null;
     }
 
     return CocoonGate3ReadModels(
@@ -147,6 +175,33 @@ final class CocoonGate3ReadModelLoader {
       recordsState: recordsState,
       records: records,
       recordSources: recordSources,
+      recordsNextCursor: recordsNextCursor,
+    );
+  }
+
+  Future<CocoonGate3RecordsPage> loadMoreRecords({
+    required bool fa,
+    required String cursor,
+  }) async {
+    final fromDate = _recordsFromDate;
+    final toDate = _recordsToDate;
+    if (fromDate == null || toDate == null) {
+      throw StateError(
+        'Records must be loaded before requesting another page.',
+      );
+    }
+    final page = await _records.list(
+      fromDate: fromDate,
+      toDate: toDate,
+      limit: 30,
+      cursor: cursor,
+    );
+    return CocoonGate3RecordsPage(
+      records: page.items
+          .map((item) => _recordItem(item, fa: fa))
+          .toList(growable: false),
+      recordSources: _recordSourceMap(page.items),
+      nextCursor: _normalizedCursor(page.nextCursor),
     );
   }
 
@@ -154,6 +209,11 @@ final class CocoonGate3ReadModelLoader {
     _calendar.close();
     _records.close();
   }
+}
+
+String? _normalizedCursor(String? value) {
+  final normalized = value?.trim();
+  return normalized == null || normalized.isEmpty ? null : normalized;
 }
 
 Map<String, CocoonRecordSourceIdentity> _recordSourceMap(
