@@ -95,12 +95,14 @@ class CareMateApp extends StatelessWidget {
     this.home,
     this.config,
     this.authInitialized = false,
+    this.packageAssetName,
   });
 
   /// Allows tests to verify the application shell without network side effects.
   final Widget? home;
   final AppConfig? config;
   final bool authInitialized;
+  final String? packageAssetName;
 
   @override
   Widget build(BuildContext context) {
@@ -172,10 +174,19 @@ class CareMateApp extends StatelessWidget {
         GlobalWidgetsLocalizations.delegate,
         GlobalCupertinoLocalizations.delegate,
       ],
-      builder: (context, child) => Directionality(
-        textDirection: isPersian ? TextDirection.rtl : TextDirection.ltr,
-        child: child ?? const SizedBox.shrink(),
-      ),
+      builder: (context, child) {
+        final directedChild = Directionality(
+          textDirection: isPersian ? TextDirection.rtl : TextDirection.ltr,
+          child: child ?? const SizedBox.shrink(),
+        );
+        final packageName = packageAssetName;
+        return packageName == null
+            ? directedChild
+            : LifeMatePackageAssetBundle(
+                packageName: packageName,
+                child: directedChild,
+              );
+      },
       home: home ?? _productionHome(runtimeConfig, authInitialized),
     );
   }
@@ -250,6 +261,13 @@ class _CareMateEmbeddedModuleState extends State<CareMateEmbeddedModule> {
   });
 
   @override
+  void initState() {
+    super.initState();
+    // Product navigation must not wait for a platform notification plugin.
+    unawaited(_notificationReady);
+  }
+
+  @override
   void dispose() {
     _notificationProvider.detachApiClient(widget.apiClient);
     _notificationProvider.dispose();
@@ -258,43 +276,35 @@ class _CareMateEmbeddedModuleState extends State<CareMateEmbeddedModule> {
   }
 
   @override
-  Widget build(BuildContext context) => FutureBuilder<void>(
-        future: _notificationReady,
-        builder: (context, snapshot) {
-          if (snapshot.connectionState != ConnectionState.done) {
-            return const Scaffold(
-                body: Center(child: CircularProgressIndicator()));
-          }
-          return MultiProvider(
-            providers: [
-              ChangeNotifierProvider(
-                  create: (_) => LocaleProvider(initialLocale: widget.locale)),
-              ChangeNotifierProvider<CareNotificationProvider>.value(
-                value: _notificationProvider,
-              ),
-              ChangeNotifierProvider<CompanionPhaseNotificationProvider>.value(
-                value: _phaseNotificationProvider,
-              ),
-            ],
-            child: CareMateApp(
-              config: AppConfig.fromEnvironment(),
-              authInitialized: true,
-              home: CareMateModuleHost(
-                onOpenGlobalProfile: widget.onOpenGlobalProfile,
-                child: Provider<LifeMateApiClient>.value(
-                  value: widget.apiClient,
-                  child: LifeMateRuntimeConfigGate(
-                    product: 'caremate',
-                    currentVersion: careMateAppVersion,
-                    child: _AuthenticatedCareMateShell(
-                      apiClient: widget.apiClient,
-                    ),
-                  ),
+  Widget build(BuildContext context) => MultiProvider(
+        providers: [
+          ChangeNotifierProvider(
+              create: (_) => LocaleProvider(initialLocale: widget.locale)),
+          ChangeNotifierProvider<CareNotificationProvider>.value(
+            value: _notificationProvider,
+          ),
+          ChangeNotifierProvider<CompanionPhaseNotificationProvider>.value(
+            value: _phaseNotificationProvider,
+          ),
+        ],
+        child: CareMateApp(
+          config: AppConfig.fromEnvironment(),
+          authInitialized: true,
+          packageAssetName: 'caremate',
+          home: CareMateModuleHost(
+            onOpenGlobalProfile: widget.onOpenGlobalProfile,
+            child: Provider<LifeMateApiClient>.value(
+              value: widget.apiClient,
+              child: LifeMateRuntimeConfigGate(
+                product: 'caremate',
+                currentVersion: careMateAppVersion,
+                child: _AuthenticatedCareMateShell(
+                  apiClient: widget.apiClient,
                 ),
               ),
             ),
-          );
-        },
+          ),
+        ),
       );
 }
 

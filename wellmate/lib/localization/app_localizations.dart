@@ -13,9 +13,13 @@ class AppLocalizations {
   }
 
   Future<bool> load() async {
-    String jsonString = await rootBundle.loadString(
-      'lib/localization/${locale.languageCode}.json',
-    );
+    final assetPath = 'lib/localization/${locale.languageCode}.json';
+    late final String jsonString;
+    try {
+      jsonString = await rootBundle.loadString(assetPath);
+    } on FlutterError {
+      jsonString = await rootBundle.loadString('packages/wellmate/$assetPath');
+    }
     Map<String, dynamic> jsonMap = json.decode(jsonString);
     _localizedStrings = jsonMap.map(
       (key, value) => MapEntry(key, value.toString()),
