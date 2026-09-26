@@ -85,12 +85,22 @@ label_match = label_pattern.search(text)
 if label_match is None or label_match.group(1) not in {'cocoonmate', 'CocoonMate'}:
     raise SystemExit('generated Cocoon label contract changed')
 text = label_pattern.sub('android:label="CocoonMate"', text, count=1)
-if 'android:icon="@mipmap/ic_launcher"' not in text:
-    raise SystemExit('generated launcher icon contract changed')
-text = text.replace(
-    'android:icon="@mipmap/ic_launcher"',
-    'android:icon="@mipmap/cocoon_launcher" android:roundIcon="@mipmap/cocoon_launcher"',
-    1,
+application_pattern = re.compile(r'<application\b[^>]*>')
+application_match = application_pattern.search(text)
+if application_match is None:
+    raise SystemExit('generated Android application contract changed')
+application_tag = application_match.group(0)
+for attribute in ('android:icon', 'android:roundIcon'):
+    attribute_pattern = re.compile(r'\s' + re.escape(attribute) + r'="[^"]*"')
+    replacement = f' {attribute}="@mipmap/cocoon_launcher"'
+    if attribute_pattern.search(application_tag):
+        application_tag = attribute_pattern.sub(replacement, application_tag, count=1)
+    else:
+        application_tag = re.sub(r'\s*/?>$', lambda match: replacement + match.group(0), application_tag)
+text = (
+    text[:application_match.start()]
+    + application_tag
+    + text[application_match.end():]
 )
 manifest_path.write_text(text)
 
