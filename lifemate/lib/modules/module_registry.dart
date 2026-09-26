@@ -5,6 +5,8 @@ import 'package:caremate/main.dart' show CareMateEmbeddedModule;
 import 'package:cocoonmate/app/cocoon_standalone_app.dart'
     show CocoonAuthenticatedHost;
 
+import '../profile/module_profile_sections.dart';
+
 enum LifeMateModuleId { wellMate, careMate, cocoonMate, womenHealth, fitMate }
 
 enum ModuleAvailability { available, locked, unavailable }
@@ -155,7 +157,12 @@ class LifeMateModuleRegistry {
 
   /// Production product roots. The shell passes its own authenticated API
   /// client and navigation actions into each mounted product experience.
-  factory LifeMateModuleRegistry.production() {
+  factory LifeMateModuleRegistry.production({
+    AppConfig? config,
+    LifeMateRemoteConfigClient Function(String product)?
+    remoteConfigClientBuilder,
+    LifeMateCompanionCareApi Function()? companionCareApiBuilder,
+  }) {
     return LifeMateModuleRegistry([
       LifeMateModuleDefinition(
         id: LifeMateModuleId.wellMate,
@@ -169,7 +176,10 @@ class LifeMateModuleRegistry {
               apiClient: apiClient,
               locale: Localizations.localeOf(context),
               onOpenGlobalProfile: hostActions.onOpenGlobalProfile,
+              config: config,
+              remoteConfigClient: remoteConfigClientBuilder?.call('wellmate'),
             ),
+        profileSectionsBuilder: buildWellMateProfileSections,
       ),
       LifeMateModuleDefinition(
         id: LifeMateModuleId.careMate,
@@ -183,7 +193,11 @@ class LifeMateModuleRegistry {
               apiClient: apiClient,
               locale: Localizations.localeOf(context),
               onOpenGlobalProfile: hostActions.onOpenGlobalProfile,
+              config: config,
+              remoteConfigClient: remoteConfigClientBuilder?.call('caremate'),
+              companionCareApi: companionCareApiBuilder?.call(),
             ),
+        profileSectionsBuilder: buildCareMateProfileSections,
       ),
       LifeMateModuleDefinition(
         id: LifeMateModuleId.cocoonMate,

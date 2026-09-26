@@ -210,56 +210,61 @@ class _LifeMateShellState extends State<LifeMateShell> {
       child: Scaffold(
         extendBody: _destination == ShellDestination.home,
         extendBodyBehindAppBar: _destination == ShellDestination.home,
-        appBar: AppBar(
-          leading: _destination == ShellDestination.today
-              ? IconButton(
-                  tooltip: _t('Back to Home', 'بازگشت به خانه'),
-                  onPressed: () => _select(ShellDestination.home),
-                  icon: const Icon(Icons.arrow_back_rounded),
-                )
-              : null,
-          toolbarHeight: _destination == ShellDestination.home ? 76 : 68,
-          backgroundColor: _destination == ShellDestination.home
-              ? Colors.transparent
-              : null,
-          elevation: 0,
-          systemOverlayStyle: _destination == ShellDestination.home
-              ? SystemUiOverlayStyle.light
-              : null,
-          title: _destination == ShellDestination.home
-              ? _HomeShellTitle(isPersian: _isPersian)
-              : Text(
-                  _title(_destination),
-                  style: const TextStyle(fontWeight: FontWeight.w800),
-                ),
-          actions: [
-            IconButton(
-              tooltip: _t('Notifications', 'اعلان‌ها'),
-              onPressed: _showNotificationCenter,
-              style: _destination == ShellDestination.home
-                  ? IconButton.styleFrom(
-                      backgroundColor: const Color(0xB52A3444),
-                      foregroundColor: Colors.white,
-                    )
-                  : null,
-              icon: const Icon(Icons.notifications_none_rounded),
-            ),
-            if (_destination != ShellDestination.you)
-              IconButton(
-                key: const ValueKey('shell-open-profile'),
-                tooltip: _t('Open profile', 'باز کردن پروفایل'),
-                onPressed: () => _select(ShellDestination.you),
-                icon: CircleAvatar(
-                  radius: 19,
-                  backgroundColor: _destination == ShellDestination.home
-                      ? const Color(0xFFE8D8C8)
-                      : null,
-                  child: const Icon(Icons.person_outline_rounded, size: 21),
-                ),
+        appBar: _destination == ShellDestination.you
+            ? null
+            : AppBar(
+                leading: _destination == ShellDestination.today
+                    ? IconButton(
+                        tooltip: _t('Back to Home', 'بازگشت به خانه'),
+                        onPressed: () => _select(ShellDestination.home),
+                        icon: const Icon(Icons.arrow_back_rounded),
+                      )
+                    : null,
+                toolbarHeight: _destination == ShellDestination.home ? 76 : 68,
+                backgroundColor: _destination == ShellDestination.home
+                    ? Colors.transparent
+                    : null,
+                elevation: 0,
+                systemOverlayStyle: _destination == ShellDestination.home
+                    ? SystemUiOverlayStyle.light
+                    : null,
+                title: _destination == ShellDestination.home
+                    ? _HomeShellTitle(isPersian: _isPersian)
+                    : Text(
+                        _title(_destination),
+                        style: const TextStyle(fontWeight: FontWeight.w800),
+                      ),
+                actions: [
+                  IconButton(
+                    tooltip: _t('Notifications', 'اعلان‌ها'),
+                    onPressed: _showNotificationCenter,
+                    style: _destination == ShellDestination.home
+                        ? IconButton.styleFrom(
+                            backgroundColor: const Color(0xB52A3444),
+                            foregroundColor: Colors.white,
+                          )
+                        : null,
+                    icon: const Icon(Icons.notifications_none_rounded),
+                  ),
+                  if (_destination != ShellDestination.you)
+                    IconButton(
+                      key: const ValueKey('shell-open-profile'),
+                      tooltip: _t('Open profile', 'باز کردن پروفایل'),
+                      onPressed: () => _select(ShellDestination.you),
+                      icon: CircleAvatar(
+                        radius: 19,
+                        backgroundColor: _destination == ShellDestination.home
+                            ? const Color(0xFFE8D8C8)
+                            : null,
+                        child: const Icon(
+                          Icons.person_outline_rounded,
+                          size: 21,
+                        ),
+                      ),
+                    ),
+                  const SizedBox(width: 8),
+                ],
               ),
-            const SizedBox(width: 8),
-          ],
-        ),
         body: IndexedStack(
           index: destinations.indexOf(_destination),
           children: destinations.map(_buildDestination).toList(growable: false),
@@ -340,11 +345,18 @@ class _LifeMateShellState extends State<LifeMateShell> {
         child: CampHome(
           isPersian: _isPersian,
           onOpenToday: _showTodayPeek,
-          onOpenWellMate: () => _openModule(LifeMateModuleId.wellMate),
-          onOpenCareMate: () => _openModule(LifeMateModuleId.careMate),
-          onOpenReproductiveContext: () =>
-              _openModule(LifeMateModuleId.womenHealth),
-          onOpenFitMate: () => _openModule(LifeMateModuleId.fitMate),
+          onOpenWellMate: _canOpenModule(LifeMateModuleId.wellMate)
+              ? () => _openModule(LifeMateModuleId.wellMate)
+              : null,
+          onOpenCareMate: _canOpenModule(LifeMateModuleId.careMate)
+              ? () => _openModule(LifeMateModuleId.careMate)
+              : null,
+          onOpenReproductiveContext: _canOpenModule(LifeMateModuleId.cocoonMate)
+              ? () => _openModule(LifeMateModuleId.cocoonMate)
+              : null,
+          onOpenFitMate: _canOpenModule(LifeMateModuleId.fitMate)
+              ? () => _openModule(LifeMateModuleId.fitMate)
+              : null,
           zonePresentations: widget.campZonePresentations,
         ),
       ),
@@ -399,6 +411,10 @@ class _LifeMateShellState extends State<LifeMateShell> {
       apiClient: apiClient,
       isPersian: _isPersian,
       onLocaleChanged: widget.onLocaleChanged ?? (_) {},
+      onBack: () => _select(ShellDestination.home),
+      onNotifications: _showNotificationCenter,
+      onOpenWellMate: () => _openModule(LifeMateModuleId.wellMate),
+      onOpenCareMate: () => _openModule(LifeMateModuleId.careMate),
       productSections: productSections,
     );
   }
@@ -410,6 +426,9 @@ class _LifeMateShellState extends State<LifeMateShell> {
     ShellDestination.circle => _t('Circle', 'دایره'),
     ShellDestination.you => _t('You', 'شما'),
   };
+
+  bool _canOpenModule(LifeMateModuleId moduleId) =>
+      _moduleRegistry.byId(moduleId)?.canOpen ?? false;
 }
 
 class _HomeShellTitle extends StatelessWidget {

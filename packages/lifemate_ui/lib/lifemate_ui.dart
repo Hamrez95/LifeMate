@@ -8,6 +8,7 @@ export 'src/localization.dart';
 export 'src/onboarding_components.dart';
 export 'src/onboarding_specialized.dart';
 export 'src/onboarding_theme.dart';
+export 'src/package_asset_bundle.dart';
 export 'src/profile_theme.dart';
 export 'src/registration_experience_gate.dart';
 export 'src/remote_config_gate.dart';

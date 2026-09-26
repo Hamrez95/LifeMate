@@ -4,6 +4,7 @@ import 'package:lifemate_ui/lifemate_ui.dart';
 import 'package:provider/provider.dart';
 
 import '../../core/theme/app_style.dart';
+import '../../localization/locale_provider.dart';
 
 class EditableProfileScreen extends StatelessWidget {
   const EditableProfileScreen({super.key});
@@ -59,6 +60,7 @@ class EditableProfileScreen extends StatelessWidget {
               ),
               fontFamily: isPersian ? 'Vazir' : 'Poppins',
               keyPrefix: 'profile',
+              onLocaleChanged: context.read<LocaleProvider?>()?.setLocale,
             ),
           ),
         ],

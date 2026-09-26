@@ -10,7 +10,8 @@ fail() {
 }
 
 command -v flutter >/dev/null 2>&1 || fail "flutter is required"
-command -v python3 >/dev/null 2>&1 || fail "python3 is required"
+python_bin="${PYTHON:-python3}"
+command -v "$python_bin" >/dev/null 2>&1 || fail "$python_bin is required"
 [[ -f "$app_dir/pubspec.yaml" ]] || fail "lifemate/pubspec.yaml is missing"
 
 (
@@ -31,7 +32,7 @@ gradle="$app_dir/android/app/build.gradle.kts"
 [[ -f "$manifest" ]] || fail "generated AndroidManifest.xml is missing"
 [[ -f "$gradle" ]] || fail "generated Android build.gradle.kts is missing"
 
-python3 - "$manifest" "$gradle" <<'PY'
+"$python_bin" - "$manifest" "$gradle" <<'PY'
 from pathlib import Path
 import re
 import sys
@@ -48,7 +49,10 @@ if 'android.permission.INTERNET' not in text:
         open_tag + '\n    <uses-permission android:name="android.permission.INTERNET" />',
         1,
     )
-if 'android:label="lifemate"' not in text:
+if (
+    'android:label="lifemate"' not in text
+    and 'android:label="LifeMate"' not in text
+):
     raise SystemExit('generated LifeMate label contract changed')
 text = text.replace('android:label="lifemate"', 'android:label="LifeMate"', 1)
 activity = re.search(r'(<activity\b[^>]*android:name="[^\"]*MainActivity"[^>]*>)(.*?)(</activity>)', text, re.S)

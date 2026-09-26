@@ -42,10 +42,17 @@ class _LifeMateAppState extends State<LifeMateApp> {
   Locale get _locale =>
       _runtimeLocale ?? widget.localeOverride ?? _platformLocale;
 
+  @override
+  void initState() {
+    super.initState();
+    LifeMateRuntimeLocale.setLanguageCode(_locale.languageCode);
+  }
+
   void _setLocale(Locale locale) {
     final normalized = locale.languageCode == 'fa'
         ? const Locale('fa')
         : const Locale('en');
+    LifeMateRuntimeLocale.setLanguageCode(normalized.languageCode);
     if (_locale == normalized) return;
     setState(() => _runtimeLocale = normalized);
   }
