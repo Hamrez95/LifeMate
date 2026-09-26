@@ -292,7 +292,7 @@ function Prepare-App([object]$Item, [string]$OperationTarget = $Target, [hashtab
     try { Invoke-External 'bash' @($Item.prepareScript,'prepare') $Script:Root } finally { $env:LIFEMATE_RELEASE_ENVIRONMENT = $oldEnvironment; foreach ($name in $oldRuntime.Keys) { [Environment]::SetEnvironmentVariable($name, $oldRuntime[$name], 'Process') } }
   }
   Invoke-External 'flutter' @('pub','get') (Join-Path $Script:Root $Item.path)
-  if (Get-OptionalBoolean $Item 'generateLauncherIcons') {
+  if ((Get-OptionalBoolean $Item 'generateLauncherIcons') -and $OperationTarget -eq 'Android') {
     Invoke-External 'dart' @('run','flutter_launcher_icons') (Join-Path $Script:Root $Item.path)
   }
 }
