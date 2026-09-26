@@ -1,11 +1,13 @@
 {
-  "compilerOptions": { "strict": true },
+  "compilerOptions": {
+    "strict": true
+  },
   "imports": {
     "postgres": "npm:postgres@3.4.7"
   },
   "tasks": {
-    "check": "deno check index.ts runtime_database.ts runtime_database_test.ts deep_verification.ts deep_verification_test.ts",
-    "test": "deno test --no-check runtime_database_test.ts",
+    "check": "deno check index.ts runtime_database.ts runtime_database_test.ts deep_verification.ts deep_verification_test.ts test_inventory_test.ts",
+    "test": "deno test --no-check --allow-read=. runtime_database_test.ts test_inventory_test.ts",
     "test:integration": "deno test --no-check --allow-env --allow-net=localhost:5432,127.0.0.1:5432 deep_verification_test.ts"
   }
 }
