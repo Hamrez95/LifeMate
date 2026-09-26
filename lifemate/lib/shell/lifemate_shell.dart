@@ -340,11 +340,18 @@ class _LifeMateShellState extends State<LifeMateShell> {
         child: CampHome(
           isPersian: _isPersian,
           onOpenToday: _showTodayPeek,
-          onOpenWellMate: () => _openModule(LifeMateModuleId.wellMate),
-          onOpenCareMate: () => _openModule(LifeMateModuleId.careMate),
-          onOpenReproductiveContext: () =>
-              _openModule(LifeMateModuleId.womenHealth),
-          onOpenFitMate: () => _openModule(LifeMateModuleId.fitMate),
+          onOpenWellMate: _canOpenModule(LifeMateModuleId.wellMate)
+              ? () => _openModule(LifeMateModuleId.wellMate)
+              : null,
+          onOpenCareMate: _canOpenModule(LifeMateModuleId.careMate)
+              ? () => _openModule(LifeMateModuleId.careMate)
+              : null,
+          onOpenReproductiveContext: _canOpenModule(LifeMateModuleId.cocoonMate)
+              ? () => _openModule(LifeMateModuleId.cocoonMate)
+              : null,
+          onOpenFitMate: _canOpenModule(LifeMateModuleId.fitMate)
+              ? () => _openModule(LifeMateModuleId.fitMate)
+              : null,
           zonePresentations: widget.campZonePresentations,
         ),
       ),
@@ -410,6 +417,9 @@ class _LifeMateShellState extends State<LifeMateShell> {
     ShellDestination.circle => _t('Circle', 'دایره'),
     ShellDestination.you => _t('You', 'شما'),
   };
+
+  bool _canOpenModule(LifeMateModuleId moduleId) =>
+      _moduleRegistry.byId(moduleId)?.canOpen ?? false;
 }
 
 class _HomeShellTitle extends StatelessWidget {

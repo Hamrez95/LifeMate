@@ -24,7 +24,7 @@ class CampHome extends StatelessWidget {
 
   final bool isPersian;
   final VoidCallback onOpenToday;
-  final VoidCallback onOpenWellMate;
+  final VoidCallback? onOpenWellMate;
   final VoidCallback? onOpenCareMate;
   final VoidCallback? onOpenReproductiveContext;
   final VoidCallback? onOpenFitMate;
@@ -71,16 +71,32 @@ class CampHome extends StatelessWidget {
         zoneId: 'lifemate_home',
         stateLabel: _t('Open', 'باز'),
       ),
-      CampZonePresentation(zoneId: 'wellmate', stateLabel: _t('Open', 'باز')),
+      CampZonePresentation(
+        zoneId: 'wellmate',
+        availability: onOpenWellMate == null
+            ? CampZoneAvailability.locked
+            : CampZoneAvailability.active,
+        stateLabel: onOpenWellMate == null
+            ? _t('Locked', 'قفل است')
+            : _t('Open', 'باز'),
+      ),
       CampZonePresentation(
         zoneId: 'caremate',
-        availability: CampZoneAvailability.locked,
-        stateLabel: _t('Locked', 'قفل است'),
+        availability: onOpenCareMate == null
+            ? CampZoneAvailability.locked
+            : CampZoneAvailability.active,
+        stateLabel: onOpenCareMate == null
+            ? _t('Locked', 'قفل است')
+            : _t('Open', 'باز'),
       ),
       CampZonePresentation(
         zoneId: 'reproductive_context',
-        availability: CampZoneAvailability.locked,
-        stateLabel: _t('Locked', 'قفل است'),
+        availability: onOpenReproductiveContext == null
+            ? CampZoneAvailability.locked
+            : CampZoneAvailability.active,
+        stateLabel: onOpenReproductiveContext == null
+            ? _t('Locked', 'قفل است')
+            : _t('Open', 'باز'),
       ),
       CampZonePresentation(
         zoneId: 'fitmate',
@@ -141,7 +157,7 @@ class CampHome extends StatelessWidget {
                         case 'lifemate_home':
                           onOpenToday();
                         case 'wellmate':
-                          onOpenWellMate();
+                          onOpenWellMate?.call();
                         case 'caremate':
                           onOpenCareMate?.call();
                         case 'reproductive_context':

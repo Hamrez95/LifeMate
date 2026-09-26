@@ -5,6 +5,8 @@ import 'package:caremate/main.dart' show CareMateEmbeddedModule;
 import 'package:cocoonmate/app/cocoon_standalone_app.dart'
     show CocoonAuthenticatedHost;
 
+import '../profile/module_profile_sections.dart';
+
 enum LifeMateModuleId { wellMate, careMate, cocoonMate, womenHealth, fitMate }
 
 enum ModuleAvailability { available, locked, unavailable }
@@ -170,6 +172,7 @@ class LifeMateModuleRegistry {
               locale: Localizations.localeOf(context),
               onOpenGlobalProfile: hostActions.onOpenGlobalProfile,
             ),
+        profileSectionsBuilder: buildWellMateProfileSections,
       ),
       LifeMateModuleDefinition(
         id: LifeMateModuleId.careMate,
@@ -184,6 +187,7 @@ class LifeMateModuleRegistry {
               locale: Localizations.localeOf(context),
               onOpenGlobalProfile: hostActions.onOpenGlobalProfile,
             ),
+        profileSectionsBuilder: buildCareMateProfileSections,
       ),
       LifeMateModuleDefinition(
         id: LifeMateModuleId.cocoonMate,
