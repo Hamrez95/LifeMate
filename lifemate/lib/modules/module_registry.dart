@@ -157,7 +157,12 @@ class LifeMateModuleRegistry {
 
   /// Production product roots. The shell passes its own authenticated API
   /// client and navigation actions into each mounted product experience.
-  factory LifeMateModuleRegistry.production() {
+  factory LifeMateModuleRegistry.production({
+    AppConfig? config,
+    LifeMateRemoteConfigClient Function(String product)?
+    remoteConfigClientBuilder,
+    LifeMateCompanionCareApi Function()? companionCareApiBuilder,
+  }) {
     return LifeMateModuleRegistry([
       LifeMateModuleDefinition(
         id: LifeMateModuleId.wellMate,
@@ -171,6 +176,8 @@ class LifeMateModuleRegistry {
               apiClient: apiClient,
               locale: Localizations.localeOf(context),
               onOpenGlobalProfile: hostActions.onOpenGlobalProfile,
+              config: config,
+              remoteConfigClient: remoteConfigClientBuilder?.call('wellmate'),
             ),
         profileSectionsBuilder: buildWellMateProfileSections,
       ),
@@ -186,6 +193,9 @@ class LifeMateModuleRegistry {
               apiClient: apiClient,
               locale: Localizations.localeOf(context),
               onOpenGlobalProfile: hostActions.onOpenGlobalProfile,
+              config: config,
+              remoteConfigClient: remoteConfigClientBuilder?.call('caremate'),
+              companionCareApi: companionCareApiBuilder?.call(),
             ),
         profileSectionsBuilder: buildCareMateProfileSections,
       ),

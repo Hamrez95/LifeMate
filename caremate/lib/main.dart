@@ -231,12 +231,18 @@ class CareMateEmbeddedModule extends StatefulWidget {
     required this.apiClient,
     required this.locale,
     required this.onOpenGlobalProfile,
+    this.config,
+    this.remoteConfigClient,
+    this.companionCareApi,
     super.key,
   });
 
   final LifeMateApiClient apiClient;
   final Locale locale;
   final VoidCallback onOpenGlobalProfile;
+  final AppConfig? config;
+  final LifeMateRemoteConfigClient? remoteConfigClient;
+  final LifeMateCompanionCareApi? companionCareApi;
 
   @override
   State<CareMateEmbeddedModule> createState() => _CareMateEmbeddedModuleState();
@@ -246,7 +252,9 @@ class _CareMateEmbeddedModuleState extends State<CareMateEmbeddedModule> {
   late final CareNotificationProvider _notificationProvider =
       CareNotificationProvider();
   late final CompanionPhaseNotificationProvider _phaseNotificationProvider =
-      CompanionPhaseNotificationProvider();
+      CompanionPhaseNotificationProvider(
+    companionApi: widget.companionCareApi,
+  );
   late final Future<void> _notificationReady = _notificationProvider
       .initialize()
       .catchError((Object error, StackTrace stackTrace) {
@@ -288,7 +296,7 @@ class _CareMateEmbeddedModuleState extends State<CareMateEmbeddedModule> {
           ),
         ],
         child: CareMateApp(
-          config: AppConfig.fromEnvironment(),
+          config: widget.config ?? AppConfig.fromEnvironment(),
           authInitialized: true,
           packageAssetName: 'caremate',
           home: CareMateModuleHost(
@@ -296,6 +304,7 @@ class _CareMateEmbeddedModuleState extends State<CareMateEmbeddedModule> {
             child: Provider<LifeMateApiClient>.value(
               value: widget.apiClient,
               child: LifeMateRuntimeConfigGate(
+                client: widget.remoteConfigClient,
                 product: 'caremate',
                 currentVersion: careMateAppVersion,
                 child: _AuthenticatedCareMateShell(

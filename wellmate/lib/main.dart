@@ -264,6 +264,8 @@ class WellMateEmbeddedModule extends StatefulWidget {
     required this.apiClient,
     required this.locale,
     required this.onOpenGlobalProfile,
+    this.config,
+    this.remoteConfigClient,
     this.initialTab = 5,
     super.key,
   });
@@ -271,6 +273,8 @@ class WellMateEmbeddedModule extends StatefulWidget {
   final LifeMateApiClient apiClient;
   final Locale locale;
   final VoidCallback onOpenGlobalProfile;
+  final AppConfig? config;
+  final LifeMateRemoteConfigClient? remoteConfigClient;
   final int initialTab;
 
   @override
@@ -318,12 +322,13 @@ class _WellMateEmbeddedModuleState extends State<WellMateEmbeddedModule> {
           ChangeNotifierProvider(create: (_) => MedicationProvider()),
         ],
         child: WellMateApp(
-          config: AppConfig.fromEnvironment(),
+          config: widget.config ?? AppConfig.fromEnvironment(),
           authInitialized: true,
           packageAssetName: 'wellmate',
           home: Provider<LifeMateApiClient>.value(
             value: widget.apiClient,
             child: LifeMateRuntimeConfigGate(
+              client: widget.remoteConfigClient,
               product: 'wellmate',
               currentVersion: wellMateAppVersion,
               child: _AuthenticatedWellMateShell(
@@ -358,6 +363,7 @@ class _AuthenticatedWellMateShellState
   final GlobalKey<NavigatorState> _navigatorKey = GlobalKey<NavigatorState>();
   final WellMateNavigationRefreshObserver _refreshObserver =
       WellMateNavigationRefreshObserver();
+  late NotificationProvider _notifications;
   Timer? _widgetSyncTimer;
   bool _widgetSyncInFlight = false;
   bool _groupNavigationQueued = false;
@@ -365,9 +371,9 @@ class _AuthenticatedWellMateShellState
   @override
   void initState() {
     super.initState();
-    final notifications = context.read<NotificationProvider>();
-    notifications.attachApiClient(widget.apiClient);
-    notifications.addListener(_scheduleGroupedMedicationNavigation);
+    _notifications = context.read<NotificationProvider>();
+    _notifications.attachApiClient(widget.apiClient);
+    _notifications.addListener(_scheduleGroupedMedicationNavigation);
     WidgetsBinding.instance.addObserver(this);
     WellMateRefreshSignal.revision.addListener(_scheduleMedicationWidgetSync);
     scheduleMicrotask(_scheduleMedicationWidgetSync);
@@ -443,9 +449,8 @@ class _AuthenticatedWellMateShellState
 
   @override
   void dispose() {
-    final notifications = context.read<NotificationProvider>();
-    notifications.removeListener(_scheduleGroupedMedicationNavigation);
-    notifications.detachApiClient(widget.apiClient);
+    _notifications.removeListener(_scheduleGroupedMedicationNavigation);
+    _notifications.detachApiClient(widget.apiClient);
     _widgetSyncTimer?.cancel();
     WellMateRefreshSignal.revision.removeListener(
       _scheduleMedicationWidgetSync,
