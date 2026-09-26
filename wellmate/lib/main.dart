@@ -184,8 +184,10 @@ class WellMateApp extends StatelessWidget {
             useMaterial3: true,
           ),
           locale: localeProvider.locale,
-          localizationsDelegates: const [
-            AppLocalizations.delegate,
+          localizationsDelegates: [
+            packageAssetName == null
+                ? AppLocalizations.delegate
+                : AppLocalizations.delegateFor(packageAssetName!),
             GlobalMaterialLocalizations.delegate,
             GlobalWidgetsLocalizations.delegate,
             GlobalCupertinoLocalizations.delegate,

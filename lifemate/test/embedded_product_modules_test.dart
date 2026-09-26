@@ -7,6 +7,10 @@ import 'package:flutter_local_notifications/flutter_local_notifications.dart';
 import 'package:http/http.dart' as http;
 import 'package:http/testing.dart';
 import 'package:caremate/screens/caremate_root_shell.dart';
+import 'package:caremate/core/localization/app_localizations.dart'
+    as caremate_localizations;
+import 'package:wellmate/localization/app_localizations.dart'
+    as wellmate_localizations;
 import 'package:wellmate/main.dart' show WellMateEmbeddedModule;
 import 'package:caremate/main.dart' show CareMateEmbeddedModule;
 import 'package:lifemate/app/lifemate_app.dart';
@@ -16,6 +20,23 @@ import 'package:lifemate/shell/lifemate_shell.dart';
 import 'package:lifemate_client/lifemate_client.dart';
 
 void main() {
+  test(
+    'embedded product localization assets resolve from their packages',
+    () async {
+      final wellMateStrings =
+          await wellmate_localizations.AppLocalizations.delegateFor(
+            'wellmate',
+          ).load(const Locale('en'));
+      final careMateStrings =
+          await caremate_localizations.AppLocalizations.delegateFor(
+            'caremate',
+          ).load(const Locale('en'));
+
+      expect(wellMateStrings['appTitle'], 'WellMate');
+      expect(careMateStrings['appTitle'], 'CareMate');
+    },
+  );
+
   setUpAll(() {
     FlutterLocalNotificationsPlatform.instance =
         _NoopFlutterLocalNotificationsPlatform();
@@ -43,9 +64,25 @@ void main() {
     apiClient = LifeMateApiClient(
       baseUri: Uri.parse('https://api.example.test'),
       accessToken: () => 'test-session-token',
-      httpClient: MockClient(
-        (_) async => http.Response('{"code":"session_invalid"}', 401),
-      ),
+      httpClient: MockClient((request) async {
+        if (request.url.path.endsWith('/api/v1/me')) {
+          return http.Response(
+            jsonEncode({
+              'user': {'id': 'test-caregiver-id'},
+            }),
+            200,
+          );
+        }
+        if (request.url.path.endsWith('/api/v1/care/relationships')) {
+          return http.Response(
+            jsonEncode([
+              {'caregiverUserId': 'test-caregiver-id', 'status': 'active'},
+            ]),
+            200,
+          );
+        }
+        return http.Response('{"code":"session_invalid"}', 401);
+      }),
     );
   });
 
@@ -98,6 +135,16 @@ void main() {
     tester,
   ) async {
     await openZone(tester, 'caremate');
+    for (
+      var attempt = 0;
+      attempt < 10 && find.byType(CareMateRootShell).evaluate().isEmpty;
+      attempt++
+    ) {
+      await tester.runAsync(
+        () => Future<void>.delayed(const Duration(milliseconds: 100)),
+      );
+      await tester.pump();
+    }
 
     expect(find.byType(CareMateEmbeddedModule), findsOneWidget);
     expect(find.byType(CareMateRootShell), findsOneWidget);

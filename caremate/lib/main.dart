@@ -168,8 +168,10 @@ class CareMateApp extends StatelessWidget {
       ),
       locale: localeProvider.locale,
       supportedLocales: const [Locale('en'), Locale('fa')],
-      localizationsDelegates: const [
-        AppLocalizations.delegate,
+      localizationsDelegates: [
+        packageAssetName == null
+            ? AppLocalizations.delegate
+            : AppLocalizations.delegateFor(packageAssetName!),
         GlobalMaterialLocalizations.delegate,
         GlobalWidgetsLocalizations.delegate,
         GlobalCupertinoLocalizations.delegate,
