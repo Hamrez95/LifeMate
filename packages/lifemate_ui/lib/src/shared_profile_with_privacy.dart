@@ -29,9 +29,11 @@ class LifeMateSharedProfileScreen extends StatelessWidget {
     required this.onReferral,
     required this.onSupport,
     required this.onManageSubscriptions,
+    this.onBack,
     this.legalPrivacyApi,
     this.feedbackBuilder,
     this.additionalActions = const <legacy.LifeMateProfileAdditionalAction>[],
+    this.additionalSections = const <Widget>[],
   });
 
   final LifeMateApiClient apiClient;
@@ -50,9 +52,11 @@ class LifeMateSharedProfileScreen extends StatelessWidget {
   final VoidCallback onReferral;
   final VoidCallback onSupport;
   final VoidCallback onManageSubscriptions;
+  final VoidCallback? onBack;
   final LifeMateLegalPrivacyApi? legalPrivacyApi;
   final WidgetBuilder? feedbackBuilder;
   final List<legacy.LifeMateProfileAdditionalAction> additionalActions;
+  final List<Widget> additionalSections;
 
   bool get _isCareMate => appName.trim().toLowerCase() == 'caremate';
 
@@ -84,9 +88,8 @@ class LifeMateSharedProfileScreen extends StatelessWidget {
           iconColor: Colors.deepOrange,
           label: context.tr('profile.feedback.label'),
           semanticLabel: context.tr('profile.feedback.semantic'),
-          onTap: () => Navigator.of(context).push(
-            MaterialPageRoute<void>(builder: feedbackBuilder!),
-          ),
+          onTap: () => Navigator.of(context)
+              .push(MaterialPageRoute<void>(builder: feedbackBuilder!)),
         ),
       legacy.LifeMateProfileAdditionalAction(
         key: const ValueKey('profile-demographics'),
@@ -138,7 +141,9 @@ class LifeMateSharedProfileScreen extends StatelessWidget {
       onReferral: onReferral,
       onSupport: onSupport,
       onManageSubscriptions: onManageSubscriptions,
+      onBack: onBack,
       additionalActions: supplementalActions,
+      additionalSections: additionalSections,
     );
   }
 }
