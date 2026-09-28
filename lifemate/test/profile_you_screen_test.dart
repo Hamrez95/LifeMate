@@ -153,6 +153,26 @@ void main() {
       TextDirection.rtl,
     );
   });
+
+  testWidgets('shell starts with the saved profile language and direction', (
+    tester,
+  ) async {
+    final api = _profileApi(locale: 'fa');
+    addTearDown(api.close);
+
+    await tester.pumpWidget(_LocalizedShellHarness(api));
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 20));
+
+    expect(find.text('خانه'), findsWidgets);
+    expect(LifeMateRuntimeLocale.languageCode, 'fa');
+    expect(
+      tester
+          .widget<Directionality>(find.byType(Directionality).first)
+          .textDirection,
+      TextDirection.rtl,
+    );
+  });
 }
 
 class _LocalizedShellHarness extends StatefulWidget {
@@ -180,14 +200,14 @@ class _LocalizedShellHarnessState extends State<_LocalizedShellHarness> {
   );
 }
 
-LifeMateApiClient _profileApi() {
+LifeMateApiClient _profileApi({String locale = 'en'}) {
   var profile = <String, dynamic>{
     'id': 'profile-1',
     'userId': 'user-1',
     'displayName': 'Hamid',
     'phoneNumber': null,
     'email': 'owner@example.test',
-    'locale': 'en',
+    'locale': locale,
     'timeZone': 'Europe/Berlin',
     'avatarKey': 'person_green',
     'profilePhotoUrl': null,

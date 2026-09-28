@@ -112,6 +112,14 @@ class _LifeMateShellState extends State<LifeMateShell> {
             final profile = rawProfile is Map<String, dynamic>
                 ? rawProfile
                 : const <String, dynamic>{};
+            final savedLanguage = switch (profile['locale']) {
+              'fa' => const Locale('fa'),
+              'en' => const Locale('en'),
+              _ => null,
+            };
+            if (savedLanguage != null) {
+              widget.onLocaleChanged?.call(savedLanguage);
+            }
             // Keep only presentation fields in shell memory. Contact and health
             // fields from /me are not needed for the Camp header.
             final presentation = <String, dynamic>{
