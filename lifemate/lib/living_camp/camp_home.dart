@@ -21,6 +21,7 @@ class CampHome extends StatelessWidget {
     this.zonePresentations,
     this.environmentPreferences = const CampEnvironmentPreferences(),
     this.nowUtc,
+    this.showAvatar = false,
   });
 
   final bool isPersian;
@@ -34,6 +35,7 @@ class CampHome extends StatelessWidget {
   final List<CampZonePresentation>? zonePresentations;
   final CampEnvironmentPreferences environmentPreferences;
   final DateTime Function()? nowUtc;
+  final bool showAvatar;
 
   String _t(String en, String fa) => isPersian ? fa : en;
 
@@ -122,18 +124,19 @@ class CampHome extends StatelessWidget {
                     zones: zones,
                     presentations: presentations,
                     actors: [
-                      CampSceneActor(
-                        actorId: 'main_avatar_vector',
-                        // The actor gets the complete world canvas so its feet
-                        // can travel between the house and WellMate in world
-                        // coordinates while keeping the scene's ground anchor.
-                        anchor: const CampPoint(500, 2000),
-                        width: 1000,
-                        height: 2000,
-                        builder: (_) => _CampRoamingAvatar(
-                          motionEnabled: environment.motionEnabled,
+                      if (showAvatar)
+                        CampSceneActor(
+                          actorId: 'main_avatar_vector',
+                          // The actor gets the complete world canvas so its feet
+                          // can travel between the house and WellMate in world
+                          // coordinates while keeping the scene's ground anchor.
+                          anchor: const CampPoint(500, 2000),
+                          width: 1000,
+                          height: 2000,
+                          builder: (_) => _CampRoamingAvatar(
+                            motionEnabled: environment.motionEnabled,
+                          ),
                         ),
-                      ),
                       CampSceneActor(
                         actorId: 'moon_garden_decoration',
                         anchor: const CampPoint(830, 1150),

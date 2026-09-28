@@ -23,12 +23,13 @@ window glows at night, following the existing local sunrise/sunset easing.
 The day illustrations still contain baked-in warm pixels beneath the masks, so
 the light pass remains a visual approximation that needs device review.
 
-The editable Flutter vector actor follows a deterministic home → WellMate →
-home route on the 1000×2000 world canvas. At WellMate it plays one-shot
-`wellness` and `drink` actions, then returns to the home anchor. Tapping a
-product remains immediate and independent of the animation. Its `idle` pose is
-used with Reduced Motion. `TickerMode` pauses scene animation when the shell is
-not visible or a modal sheet is open; the route resumes from its last progress.
+An editable Flutter vector route prototype can follow a deterministic home →
+WellMate → home path on the 1000×2000 world canvas. At WellMate it plays
+one-shot `wellness` and `drink` actions, then returns home. It is hidden by
+default in first-release Camp because the current character art is a prototype;
+only the opt-in PoC widget test enables it. A future animator can replace the
+renderer without changing the shell. `TickerMode` pauses the optional prototype
+when the shell is not visible or a modal sheet is open.
 
 This is a free native Flutter 2.5D implementation. It is **not** a `.riv`
 export. Issue #1074 is being fulfilled with the approved editable Flutter
