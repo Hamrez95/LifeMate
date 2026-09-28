@@ -23,9 +23,8 @@ final ValueNotifier<LifeMatePendingSyncEvent?> lifeMatePendingSyncEvent =
 final ValueNotifier<LifeMateOfflineSyncResult?> lifeMateOfflineSyncResult =
     ValueNotifier<LifeMateOfflineSyncResult?>(null);
 
-typedef LifeMateTreatmentReminderReconciler = Future<void> Function(
-  Map<String, dynamic> serverSnapshot,
-);
+typedef LifeMateTreatmentReminderReconciler =
+    Future<void> Function(Map<String, dynamic> serverSnapshot);
 
 final class LifeMateTreatmentReconnectResult {
   const LifeMateTreatmentReconnectResult({
@@ -65,6 +64,10 @@ class DurableLifeMateApiClient extends LifeMateApiClient {
          httpClient: innerHttpClient,
        );
 
+  final ValueNotifier<bool> offlineRuntimeAvailable = ValueNotifier(true);
+
+  Future<void> retryOfflineRuntimeInitialization() async {}
+
   Future<void> adoptSharedOfflineRuntime({
     required String environmentId,
     required String accountId,
@@ -74,7 +77,9 @@ class DurableLifeMateApiClient extends LifeMateApiClient {
     LifeMateLocalHealthStore? localStore,
     LifeMateMutationStorage? legacyStorage,
   }) => Future<void>.error(
-    UnsupportedError('Protected offline health execution is unavailable on web.'),
+    UnsupportedError(
+      'Protected offline health execution is unavailable on web.',
+    ),
   );
 
   Future<List<Map<String, dynamic>>> pendingOfflineTreatmentPlanCreates() =>
@@ -105,7 +110,9 @@ class DurableLifeMateApiClient extends LifeMateApiClient {
     required int caregiverReminderMinutesBefore,
     DateTime? createdAtUtc,
   }) => Future<void>.error(
-    UnsupportedError('Protected offline health execution is unavailable on web.'),
+    UnsupportedError(
+      'Protected offline health execution is unavailable on web.',
+    ),
   );
 
   Future<void> enqueueOfflineTreatmentPlanCreate({
@@ -121,7 +128,9 @@ class DurableLifeMateApiClient extends LifeMateApiClient {
     required int caregiverReminderMinutesBefore,
     DateTime? createdAtUtc,
   }) => Future<void>.error(
-    UnsupportedError('Protected offline health execution is unavailable on web.'),
+    UnsupportedError(
+      'Protected offline health execution is unavailable on web.',
+    ),
   );
 
   Future<void> enqueueOfflineTreatmentPlanEdit({
@@ -143,7 +152,9 @@ class DurableLifeMateApiClient extends LifeMateApiClient {
     required String status,
     DateTime? createdAtUtc,
   }) => Future<void>.error(
-    UnsupportedError('Protected offline health execution is unavailable on web.'),
+    UnsupportedError(
+      'Protected offline health execution is unavailable on web.',
+    ),
   );
 
   Future<LifeMateTreatmentReconnectResult> reconcileTreatmentAfterReconnect({
@@ -180,7 +191,9 @@ class DurableLifeMateApiClient extends LifeMateApiClient {
     int maximumPages = 10,
     LifeMateBeforeProjectionCheckpoint? beforeCheckpoint,
   }) => Future<LifeMateCareEventProjectionSyncResult>.error(
-    UnsupportedError('Protected offline health execution is unavailable on web.'),
+    UnsupportedError(
+      'Protected offline health execution is unavailable on web.',
+    ),
   );
 
   Future<int> pendingMutationCount() async => 0;

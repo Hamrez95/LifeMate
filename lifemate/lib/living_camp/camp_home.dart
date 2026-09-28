@@ -22,6 +22,7 @@ class CampHome extends StatelessWidget {
     this.environmentPreferences = const CampEnvironmentPreferences(),
     this.nowUtc,
     this.showAvatar = false,
+    this.welcomeName,
   });
 
   final bool isPersian;
@@ -36,6 +37,7 @@ class CampHome extends StatelessWidget {
   final CampEnvironmentPreferences environmentPreferences;
   final DateTime Function()? nowUtc;
   final bool showAvatar;
+  final String? welcomeName;
 
   String _t(String en, String fa) => isPersian ? fa : en;
 
@@ -192,6 +194,7 @@ class CampHome extends StatelessWidget {
                   isPersian: isPersian,
                   isNight: environment.phase == CampDayPhase.night,
                   onOpenToday: onOpenToday,
+                  welcomeName: welcomeName,
                 ),
               ),
             ],
@@ -224,99 +227,117 @@ class _CampWelcome extends StatelessWidget {
     required this.isPersian,
     required this.isNight,
     required this.onOpenToday,
+    this.welcomeName,
   });
 
   final bool isPersian;
   final bool isNight;
   final VoidCallback onOpenToday;
+  final String? welcomeName;
 
   @override
-  Widget build(BuildContext context) => Row(
-    crossAxisAlignment: CrossAxisAlignment.start,
-    children: [
-      Expanded(
-        child: IgnorePointer(
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Text(
-                isNight
-                    ? (isPersian ? 'شب بخیر،' : 'Good evening,')
-                    : (isPersian ? 'روز بخیر،' : 'Good day,'),
-                style: const TextStyle(color: Colors.white, fontSize: 17),
-              ),
-              Text(
-                isPersian ? 'خوش آمدی 👋' : 'Welcome back 👋',
-                maxLines: 1,
-                style: const TextStyle(
-                  color: Colors.white,
-                  fontSize: 24,
-                  fontWeight: FontWeight.w800,
-                  shadows: [Shadow(color: Color(0xAA10212F), blurRadius: 9)],
+  Widget build(BuildContext context) {
+    final normalizedName = welcomeName?.trim().replaceAll(RegExp(r'\s+'), ' ');
+    final greetingName = normalizedName == null || normalizedName.isEmpty
+        ? (isPersian ? 'خوش آمدی 👋' : 'Welcome back 👋')
+        : '$normalizedName 👋';
+
+    return Row(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Expanded(
+          child: IgnorePointer(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  isNight
+                      ? (isPersian ? 'شب بخیر،' : 'Good evening,')
+                      : (isPersian ? 'روز بخیر،' : 'Good day,'),
+                  style: const TextStyle(color: Colors.white, fontSize: 17),
                 ),
-              ),
-              Text(
-                isPersian ? 'کمپ زنده' : 'Living Camp',
-                style: const TextStyle(color: Color(0xFFEEECE3), fontSize: 14),
-              ),
-            ],
+                Text(
+                  greetingName,
+                  maxLines: 1,
+                  style: const TextStyle(
+                    color: Colors.white,
+                    fontSize: 24,
+                    fontWeight: FontWeight.w800,
+                    shadows: [Shadow(color: Color(0xAA10212F), blurRadius: 9)],
+                  ),
+                ),
+                Text(
+                  isPersian ? 'کمپ زنده' : 'Living Camp',
+                  style: const TextStyle(
+                    color: Color(0xFFEEECE3),
+                    fontSize: 14,
+                  ),
+                ),
+              ],
+            ),
           ),
         ),
-      ),
-      const SizedBox(width: 8),
-      ConstrainedBox(
-        constraints: const BoxConstraints(maxWidth: 152),
-        child: Material(
-          color: const Color(0xE42A3444),
-          borderRadius: BorderRadius.circular(22),
-          child: InkWell(
-            key: const ValueKey('camp-today-card'),
-            onTap: onOpenToday,
+        const SizedBox(width: 8),
+        ConstrainedBox(
+          constraints: const BoxConstraints(maxWidth: 152),
+          child: Material(
+            color: const Color(0xE42A3444),
             borderRadius: BorderRadius.circular(22),
-            child: Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 11, vertical: 10),
-              child: Row(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  const Icon(Icons.wb_sunny_rounded, color: Color(0xFFFFD66D)),
-                  const SizedBox(width: 7),
-                  Flexible(
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      mainAxisSize: MainAxisSize.min,
-                      children: [
-                        Text(
-                          isPersian ? 'امروز' : 'Today',
-                          style: const TextStyle(
-                            color: Colors.white,
-                            fontWeight: FontWeight.w700,
-                          ),
-                        ),
-                        Text(
-                          isPersian ? 'روزت را ببین' : 'See your day',
-                          maxLines: 1,
-                          overflow: TextOverflow.ellipsis,
-                          style: const TextStyle(
-                            color: Color(0xFFD9DEDD),
-                            fontSize: 11,
-                          ),
-                        ),
-                      ],
+            child: InkWell(
+              key: const ValueKey('camp-today-card'),
+              onTap: onOpenToday,
+              borderRadius: BorderRadius.circular(22),
+              child: Padding(
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 11,
+                  vertical: 10,
+                ),
+                child: Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    const Icon(
+                      Icons.wb_sunny_rounded,
+                      color: Color(0xFFFFD66D),
                     ),
-                  ),
-                  const Icon(
-                    Icons.chevron_right,
-                    color: Colors.white,
-                    size: 18,
-                  ),
-                ],
+                    const SizedBox(width: 7),
+                    Flexible(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          Text(
+                            isPersian ? 'امروز' : 'Today',
+                            style: const TextStyle(
+                              color: Colors.white,
+                              fontWeight: FontWeight.w700,
+                            ),
+                          ),
+                          Text(
+                            isPersian ? 'روزت را ببین' : 'See your day',
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                            style: const TextStyle(
+                              color: Color(0xFFD9DEDD),
+                              fontSize: 11,
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                    const Icon(
+                      Icons.chevron_right,
+                      color: Colors.white,
+                      size: 18,
+                    ),
+                  ],
+                ),
               ),
             ),
           ),
         ),
-      ),
-    ],
-  );
+      ],
+    );
+  }
 }
 
 class _CampZoneSign extends StatelessWidget {

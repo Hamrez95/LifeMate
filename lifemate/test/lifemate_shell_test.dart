@@ -99,7 +99,8 @@ void main() {
         }
         if (request.url.path.endsWith('/api/v1/me')) {
           return http.Response(
-            '{"user":{"id":"account-1","displayName":"Hamid"}}',
+            '{"user":{"id":"account-1"},"profile":{'
+            '"displayName":"Hamid","avatarKey":"person_green"}}',
             200,
           );
         }
@@ -129,6 +130,11 @@ void main() {
     expect(zone('CareMate').properties.enabled, isFalse);
     expect(zone('Cocoon / Women Health').properties.enabled, isTrue);
     expect(capabilityRequestSeen, isTrue);
+    expect(find.text('Hamid 👋'), findsOneWidget);
+    final profileAvatar = tester.widget<LifeMateProfileAvatar>(
+      find.byType(LifeMateProfileAvatar),
+    );
+    expect(profileAvatar.avatarKey, 'person_green');
     expect(tester.takeException(), isNull);
   });
 

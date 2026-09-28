@@ -58,10 +58,14 @@ class _LifeMateShellState extends State<LifeMateShell> {
   bool _campIntroductionScheduled = false;
   LifeMateApiClient? _defaultCampCompanionClient;
   ApiCampCompanionSelectionSource? _defaultCampCompanionSource;
+  Map<String, dynamic> _currentProfile = const <String, dynamic>{};
+  int _profileRequestGeneration = 0;
 
   @override
   void initState() {
     super.initState();
+    LifeMateProfileRefresh.revision.addListener(_refreshCurrentProfile);
+    _refreshCurrentProfile();
     _ensureCapabilityRegistry();
     _scheduleCampIntroduction();
   }
@@ -74,8 +78,57 @@ class _LifeMateShellState extends State<LifeMateShell> {
       _capabilityRegistry = null;
       _capabilityClient = null;
       _capabilityRequestPending = false;
+      if (oldWidget.apiClient != widget.apiClient) {
+        _currentProfile = const <String, dynamic>{};
+        _refreshCurrentProfile();
+      }
       _ensureCapabilityRegistry();
     }
+  }
+
+  @override
+  void dispose() {
+    LifeMateProfileRefresh.revision.removeListener(_refreshCurrentProfile);
+    _profileRequestGeneration++;
+    super.dispose();
+  }
+
+  void _refreshCurrentProfile() {
+    final apiClient = widget.apiClient;
+    final generation = ++_profileRequestGeneration;
+    if (apiClient == null) {
+      if (mounted && _currentProfile.isNotEmpty) {
+        setState(() => _currentProfile = const <String, dynamic>{});
+      }
+      return;
+    }
+
+    unawaited(
+      apiClient
+          .getCurrentUser()
+          .then((currentUser) {
+            if (!mounted || generation != _profileRequestGeneration) return;
+            final rawProfile = currentUser['profile'];
+            final profile = rawProfile is Map<String, dynamic>
+                ? rawProfile
+                : const <String, dynamic>{};
+            // Keep only presentation fields in shell memory. Contact and health
+            // fields from /me are not needed for the Camp header.
+            final presentation = <String, dynamic>{
+              if (profile['displayName'] is String)
+                'displayName': profile['displayName'],
+              if (profile['avatarKey'] is String)
+                'avatarKey': profile['avatarKey'],
+              if (profile['profilePhotoUrl'] is String)
+                'profilePhotoUrl': profile['profilePhotoUrl'],
+            };
+            setState(() => _currentProfile = presentation);
+          })
+          .catchError((Object _) {
+            if (!mounted || generation != _profileRequestGeneration) return;
+            setState(() => _currentProfile = const <String, dynamic>{});
+          }),
+    );
   }
 
   bool get _isPersian => Localizations.localeOf(context).languageCode == 'fa';
@@ -368,6 +421,11 @@ class _LifeMateShellState extends State<LifeMateShell> {
                         style: const TextStyle(fontWeight: FontWeight.w800),
                       ),
                 actions: [
+                  if (widget.apiClient is DurableLifeMateApiClient)
+                    _OfflineRuntimeStatusAction(
+                      client: widget.apiClient! as DurableLifeMateApiClient,
+                      isPersian: _isPersian,
+                    ),
                   IconButton(
                     tooltip: _t('Notifications', 'اعلان‌ها'),
                     onPressed: _showNotificationCenter,
@@ -389,10 +447,16 @@ class _LifeMateShellState extends State<LifeMateShell> {
                         backgroundColor: _destination == ShellDestination.home
                             ? const Color(0xFFE8D8C8)
                             : null,
-                        child: const Icon(
-                          Icons.person_outline_rounded,
-                          size: 21,
-                        ),
+                        child: _currentProfile.isEmpty
+                            ? const Icon(Icons.person_outline_rounded, size: 21)
+                            : LifeMateProfileAvatar(
+                                avatarKey: _currentProfile['avatarKey']
+                                    ?.toString(),
+                                photoUrl: _currentProfile['profilePhotoUrl']
+                                    ?.toString(),
+                                radius: 19,
+                                showBorder: false,
+                              ),
                       ),
                     ),
                   const SizedBox(width: 8),
@@ -491,6 +555,7 @@ class _LifeMateShellState extends State<LifeMateShell> {
               ? () => _openModule(LifeMateModuleId.fitMate)
               : null,
           zonePresentations: widget.campZonePresentations,
+          welcomeName: _currentProfile['displayName']?.toString(),
         ),
       ),
       ShellDestination.today => TodayFullDay(
@@ -568,6 +633,56 @@ class _LifeMateShellState extends State<LifeMateShell> {
 
   bool _canOpenModule(LifeMateModuleId moduleId) =>
       _moduleRegistry.byId(moduleId)?.canOpen ?? false;
+}
+
+class _OfflineRuntimeStatusAction extends StatelessWidget {
+  const _OfflineRuntimeStatusAction({
+    required this.client,
+    required this.isPersian,
+  });
+
+  final DurableLifeMateApiClient client;
+  final bool isPersian;
+
+  @override
+  Widget build(BuildContext context) => ValueListenableBuilder<bool>(
+    valueListenable: client.offlineRuntimeAvailable,
+    builder: (context, available, _) {
+      if (available) return const SizedBox.shrink();
+      return IconButton(
+        tooltip: isPersian
+            ? 'ذخیره‌سازی آفلاین آماده نیست؛ برای تلاش دوباره بزنید'
+            : 'Offline storage is unavailable; tap to retry',
+        onPressed: () async {
+          try {
+            await client.retryOfflineRuntimeInitialization();
+            if (!context.mounted) return;
+            ScaffoldMessenger.of(context).showSnackBar(
+              SnackBar(
+                content: Text(
+                  isPersian
+                      ? 'ذخیره‌سازی آفلاین آماده شد.'
+                      : 'Offline storage is ready.',
+                ),
+              ),
+            );
+          } on Object {
+            if (!context.mounted) return;
+            ScaffoldMessenger.of(context).showSnackBar(
+              SnackBar(
+                content: Text(
+                  isPersian
+                      ? 'ذخیره‌سازی آفلاین آماده نشد. اطلاعات صف‌شده حفظ شده؛ بعداً دوباره تلاش کنید.'
+                      : 'Offline storage is still unavailable. Queued data is preserved; try again later.',
+                ),
+              ),
+            );
+          }
+        },
+        icon: const Icon(Icons.sync_problem_rounded),
+      );
+    },
+  );
 }
 
 class _HomeShellTitle extends StatelessWidget {
