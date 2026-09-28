@@ -105,3 +105,11 @@ jobs:
           grep -Fq 'isCoreLibraryDesugaringEnabled = true' "$gradle"
           grep -Fq 'coreLibraryDesugaring("com.android.tools:desugar_jdk_libs:2.1.5")' "$gradle"
           test -s lifemate/build/app/outputs/flutter-apk/app-release.apk
+
+      - name: Upload internal Android verification APK
+        uses: actions/upload-artifact@v4
+        with:
+          name: lifemate-shell-internal-verification-apk
+          path: lifemate/build/app/outputs/flutter-apk/app-release.apk
+          if-no-files-found: error
+          retention-days: 3
