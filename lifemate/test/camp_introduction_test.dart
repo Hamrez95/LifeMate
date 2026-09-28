@@ -79,4 +79,23 @@ void main() {
       expect(store.getKeys(), {'lifemate.camp_intro.v1.completed'});
     },
   );
+
+  testWidgets('profile guide entry points its chevron with locale direction', (
+    tester,
+  ) async {
+    await tester.pumpWidget(
+      MaterialApp(
+        home: Directionality(
+          textDirection: TextDirection.rtl,
+          child: Scaffold(
+            body: CampIntroductionTile(isPersian: true, onTap: () {}),
+          ),
+        ),
+      ),
+    );
+
+    final tile = tester.widget<ListTile>(find.byType(ListTile));
+    expect(tile.trailing, isA<Icon>());
+    expect((tile.trailing! as Icon).icon, Icons.chevron_left_rounded);
+  });
 }

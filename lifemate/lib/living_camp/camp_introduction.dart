@@ -304,7 +304,9 @@ class CampIntroductionTile extends StatelessWidget {
             ? 'با خانه‌ها و بخش‌های LifeMate آشنا شو.'
             : 'Learn how the LifeMate Camp is organized.',
       ),
-      trailing: const Icon(Icons.chevron_right_rounded),
+      trailing: Icon(
+        isPersian ? Icons.chevron_left_rounded : Icons.chevron_right_rounded,
+      ),
       onTap: onTap,
     ),
   );
