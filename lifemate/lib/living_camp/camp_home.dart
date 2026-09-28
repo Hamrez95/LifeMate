@@ -7,6 +7,7 @@ import 'camp_avatar_fallback.dart';
 import 'camp_vector_avatar.dart';
 import 'camp_environment.dart';
 import 'camp_scene_renderer.dart';
+import 'camp_avatar_route.dart';
 
 class CampHome extends StatelessWidget {
   const CampHome({
@@ -123,9 +124,12 @@ class CampHome extends StatelessWidget {
                     actors: [
                       CampSceneActor(
                         actorId: 'main_avatar_vector',
-                        anchor: const CampPoint(505, 1135),
-                        width: 145,
-                        height: 210,
+                        // The actor gets the complete world canvas so its feet
+                        // can travel between the house and WellMate in world
+                        // coordinates while keeping the scene's ground anchor.
+                        anchor: const CampPoint(500, 2000),
+                        width: 1000,
+                        height: 2000,
                         builder: (_) => _CampRoamingAvatar(
                           motionEnabled: environment.motionEnabled,
                         ),
@@ -426,7 +430,7 @@ class _CampBackdropState extends State<_CampBackdrop>
   );
 }
 
-/// The actor actually walks along the path; the vector animation supplies steps.
+/// Walks the main path between the LifeMate home and WellMate.
 class _CampRoamingAvatar extends StatefulWidget {
   const _CampRoamingAvatar({required this.motionEnabled});
 
@@ -438,36 +442,10 @@ class _CampRoamingAvatar extends StatefulWidget {
 
 class _CampRoamingAvatarState extends State<_CampRoamingAvatar>
     with SingleTickerProviderStateMixin {
-  late final AnimationController _path =
-      AnimationController(vsync: this, duration: const Duration(seconds: 9))
-        ..value = .5
-        ..addStatusListener(_onPathStatus)
-        ..forward();
-  CampAvatarAction _action = CampAvatarAction.walk;
-  int _command = 0;
-
-  void _onPathStatus(AnimationStatus status) {
-    if (!mounted || !widget.motionEnabled) return;
-    if (status == AnimationStatus.completed ||
-        status == AnimationStatus.dismissed) {
-      setState(() {
-        _action = status == AnimationStatus.completed
-            ? CampAvatarAction.drink
-            : CampAvatarAction.wellness;
-        _command++;
-      });
-    }
-  }
-
-  void _onActionComplete(CampAvatarAction action, String? commandId) {
-    if (!mounted || commandId != '$_command') return;
-    setState(() => _action = CampAvatarAction.walk);
-    if (_path.status == AnimationStatus.completed) {
-      _path.reverse();
-    } else {
-      _path.forward();
-    }
-  }
+  late final AnimationController _path = AnimationController(
+    vsync: this,
+    duration: const Duration(seconds: 28),
+  )..repeat();
 
   @override
   void didUpdateWidget(_CampRoamingAvatar oldWidget) {
@@ -475,8 +453,7 @@ class _CampRoamingAvatarState extends State<_CampRoamingAvatar>
     if (!widget.motionEnabled) {
       _path.stop();
     } else if (!oldWidget.motionEnabled) {
-      _action = CampAvatarAction.walk;
-      _path.forward();
+      _path.repeat();
     }
   }
 
@@ -489,20 +466,33 @@ class _CampRoamingAvatarState extends State<_CampRoamingAvatar>
   @override
   Widget build(BuildContext context) => AnimatedBuilder(
     animation: _path,
-    builder: (context, _) => Transform.translate(
-      offset: widget.motionEnabled
-          ? Offset(
-              (_path.value - .5) * 28,
-              -math.sin(_path.value * math.pi) * 8,
-            )
-          : Offset.zero,
-      child: CampVectorAvatar(
-        family: CampAvatarFamily.adultMasculine,
-        action: widget.motionEnabled ? _action : CampAvatarAction.idle,
-        motionEnabled: widget.motionEnabled,
-        commandId: '$_command',
-        onActionComplete: _onActionComplete,
-      ),
+    builder: (context, _) => LayoutBuilder(
+      builder: (context, constraints) {
+        final progress = widget.motionEnabled ? _path.value : 1.0;
+        final sample = CampAvatarRoute.sample(progress);
+        final scale = constraints.maxWidth / CampWorldSize().width;
+        const actorWidth = 118.0;
+        const actorHeight = 174.0;
+        return Stack(
+          clipBehavior: Clip.none,
+          children: [
+            Positioned(
+              left: sample.position.x * scale - actorWidth * scale / 2,
+              top: sample.position.y * scale - actorHeight * scale,
+              width: actorWidth * scale,
+              height: actorHeight * scale,
+              child: CampVectorAvatar(
+                family: CampAvatarFamily.adultMasculine,
+                action: widget.motionEnabled
+                    ? sample.action
+                    : CampAvatarAction.idle,
+                motionEnabled: widget.motionEnabled,
+                commandId: sample.commandId,
+              ),
+            ),
+          ],
+        );
+      },
     ),
   );
 }
@@ -580,9 +570,112 @@ class _CampZoneVisualState extends State<_CampZoneVisual>
           );
         },
       ),
+      if (widget.zoneId != 'fitmate')
+        Builder(
+          builder: (context) {
+            final daylight = _CampDaylight.maybeOf(context)?.factor ?? 0;
+            return TweenAnimationBuilder<double>(
+              tween: Tween<double>(begin: daylight, end: daylight),
+              duration: const Duration(seconds: 30),
+              curve: Curves.easeInOut,
+              builder: (context, factor, _) => IgnorePointer(
+                child: ExcludeSemantics(
+                  child: CustomPaint(
+                    key: ValueKey('camp-window-lights-${widget.zoneId}'),
+                    painter: _CampWindowLightsPainter(
+                      zoneId: widget.zoneId,
+                      daylight: factor,
+                    ),
+                  ),
+                ),
+              ),
+            );
+          },
+        ),
       _CampZoneSign(label: widget.label),
     ],
   );
+}
+
+/// Corrects the baked warm pixels in the day illustrations and adds a
+/// separately animated light pass at dusk/night. Coordinates are normalized
+/// to each zone asset so the overlay follows the same fitted illustration.
+class _CampWindowLightsPainter extends CustomPainter {
+  const _CampWindowLightsPainter({
+    required this.zoneId,
+    required this.daylight,
+  });
+
+  final String zoneId;
+  final double daylight;
+
+  static const _lights = <String, List<Rect>>{
+    'lifemate_home': [
+      Rect.fromLTWH(.485, .285, .085, .095),
+      Rect.fromLTWH(.642, .468, .135, .105),
+    ],
+    'wellmate': [
+      Rect.fromLTWH(.565, .205, .075, .095),
+      Rect.fromLTWH(.766, .365, .065, .085),
+    ],
+    'caremate': [Rect.fromLTWH(.625, .305, .075, .13)],
+    'reproductive_context': [
+      Rect.fromLTWH(.485, .13, .055, .09),
+      Rect.fromLTWH(.285, .30, .065, .11),
+      Rect.fromLTWH(.64, .275, .07, .1),
+    ],
+  };
+
+  @override
+  void paint(Canvas canvas, Size size) {
+    final windows = _lights[zoneId];
+    if (windows == null) return;
+    final night = (1 - daylight).clamp(0.0, 1.0);
+    for (final normalized in windows) {
+      final rect = Rect.fromLTWH(
+        normalized.left * size.width,
+        normalized.top * size.height,
+        normalized.width * size.width,
+        normalized.height * size.height,
+      );
+      final radius = math.min(rect.width, rect.height) * .18;
+      final rrect = RRect.fromRectAndRadius(rect, Radius.circular(radius));
+      if (night > .01) {
+        final glowRect = rect.inflate(math.min(rect.width, rect.height) * .8);
+        canvas.drawRect(
+          glowRect,
+          Paint()
+            ..shader = RadialGradient(
+              colors: [
+                const Color(0xFFFFC96B).withValues(alpha: night * .58),
+                const Color(0xFFFFA83D).withValues(alpha: night * .20),
+                const Color(0x00FFA83D),
+              ],
+            ).createShader(glowRect),
+        );
+      }
+      canvas.drawRRect(
+        rrect,
+        Paint()
+          ..color = Color.lerp(
+            const Color(0xFFFFD47E),
+            const Color(0xFF593A2C),
+            daylight,
+          )!,
+      );
+      if (night > .01) {
+        canvas.drawRRect(
+          rrect.deflate(math.min(rect.width, rect.height) * .24),
+          Paint()..color = const Color(0xFFFFE8AD).withValues(alpha: night),
+        );
+      }
+    }
+  }
+
+  @override
+  bool shouldRepaint(_CampWindowLightsPainter oldDelegate) =>
+      oldDelegate.zoneId != zoneId ||
+      (oldDelegate.daylight - daylight).abs() > .001;
 }
 
 class _CampDaylight extends InheritedWidget {

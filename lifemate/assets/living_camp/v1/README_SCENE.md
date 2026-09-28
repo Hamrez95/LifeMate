@@ -17,14 +17,22 @@ in the catalog for compatibility.
 
 The scene keeps the 1000×2000 logical coordinate contract. Distant terrain
 drifts by at most three logical pixels behind independent foreground zones;
-local zone light glows breathe gently. The editable Flutter vector actor walks
-the central path and performs `drink` and `wellness` at its endpoints. Its
-`idle` pose is used with Reduced Motion. `TickerMode` pauses scene animation
-when the shell is not visible or a modal sheet is open. Navigation does not
-depend on animation completion.
+local zone light glows breathe gently. A separate Flutter window-light pass
+fades the house and product-site lights down during daylight and adds warm
+window glows at night, following the existing local sunrise/sunset easing.
+The day illustrations still contain baked-in warm pixels beneath the masks, so
+the light pass remains a visual approximation that needs device review.
+
+The editable Flutter vector actor follows a deterministic home → WellMate →
+home route on the 1000×2000 world canvas. At WellMate it plays one-shot
+`wellness` and `drink` actions, then returns to the home anchor. Tapping a
+product remains immediate and independent of the animation. Its `idle` pose is
+used with Reduced Motion. `TickerMode` pauses scene animation when the shell is
+not visible or a modal sheet is open; the route resumes from its last progress.
 
 This is a free native Flutter 2.5D implementation. It is **not** a `.riv`
-export. Issue #1074's Rive deliverable remains unmet because the authenticated
-Free workspace did not offer `.riv` export. Device frame timing, GPU cost and
-memory use have not been measured; the automated checks cover rendering,
-navigation, actor actions and Reduced Motion.
+export. Issue #1074 is being fulfilled with the approved editable Flutter
+vector substitute because the authenticated Free Rive workspace did not offer
+`.riv` export. Device frame timing, GPU cost and memory use have not been
+measured; automated checks cover route sampling, rendering, navigation, actor
+actions, lifecycle pause/resume and Reduced Motion.
