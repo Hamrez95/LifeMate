@@ -123,6 +123,14 @@ class CampHome extends StatelessWidget {
                   child: CampSceneRenderer(
                     zones: zones,
                     presentations: presentations,
+                    enabledZoneIds: {
+                      'lifemate_home',
+                      if (onOpenWellMate != null) 'wellmate',
+                      if (onOpenCareMate != null) 'caremate',
+                      if (onOpenReproductiveContext != null)
+                        'reproductive_context',
+                      if (onOpenFitMate != null) 'fitmate',
+                    },
                     actors: [
                       if (showAvatar)
                         CampSceneActor(

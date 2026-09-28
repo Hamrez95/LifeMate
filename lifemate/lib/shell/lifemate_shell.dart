@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:lifemate_client/lifemate_client.dart';
@@ -47,13 +49,103 @@ class LifeMateShell extends StatefulWidget {
 class _LifeMateShellState extends State<LifeMateShell> {
   late ShellDestination _destination = widget.initialDestination;
   bool _overlayOpen = false;
+  LifeMateModuleRegistry? _capabilityRegistry;
+  LifeMateApiClient? _capabilityClient;
+  String? _capabilityAccountId;
+  int _capabilityRequestGeneration = 0;
+  bool _capabilityRequestPending = false;
   LifeMateApiClient? _defaultCampCompanionClient;
   ApiCampCompanionSelectionSource? _defaultCampCompanionSource;
+
+  @override
+  void initState() {
+    super.initState();
+    _ensureCapabilityRegistry();
+  }
+
+  @override
+  void didUpdateWidget(covariant LifeMateShell oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (oldWidget.apiClient != widget.apiClient ||
+        oldWidget.moduleRegistry != widget.moduleRegistry) {
+      _capabilityRegistry = null;
+      _capabilityClient = null;
+      _capabilityRequestPending = false;
+      _ensureCapabilityRegistry();
+    }
+  }
 
   bool get _isPersian => Localizations.localeOf(context).languageCode == 'fa';
 
   LifeMateModuleRegistry get _moduleRegistry =>
-      widget.moduleRegistry ?? LifeMateModuleRegistry.production();
+      widget.moduleRegistry ??
+      _capabilityRegistry ??
+      LifeMateModuleRegistry.production();
+
+  String? get _currentAccountId {
+    try {
+      return LifeMateAuth.currentAccountId;
+    } on Object {
+      return null;
+    }
+  }
+
+  void _ensureCapabilityRegistry() {
+    final apiClient = widget.apiClient;
+    if (widget.moduleRegistry != null || apiClient == null) return;
+
+    final accountId = _currentAccountId;
+    if (_capabilityRequestPending ||
+        (identical(_capabilityClient, apiClient) &&
+            _capabilityAccountId == accountId &&
+            _capabilityRegistry != null)) {
+      return;
+    }
+
+    final generation = ++_capabilityRequestGeneration;
+    _capabilityClient = apiClient;
+    _capabilityAccountId = accountId;
+    _capabilityRequestPending = true;
+    // Keep product houses closed until the authenticated server snapshot has
+    // been resolved. The shell remains usable while the request is pending.
+    _capabilityRegistry = LifeMateModuleRegistry.production().withCapabilities(
+      const LifeMateCapabilitySnapshot(
+        accountId: 'pending',
+        selfPersonId: null,
+        applications: <String>{},
+        features: <String>{},
+      ),
+    );
+
+    unawaited(() async {
+      LifeMateModuleRegistry? resolved;
+      try {
+        final snapshot = await apiClient.getCapabilities();
+        if (accountId == null || _currentAccountId == accountId) {
+          resolved = LifeMateModuleRegistry.production().withCapabilities(
+            snapshot,
+          );
+        }
+      } on Object {
+        // Keep the shell navigable if the snapshot is temporarily unavailable;
+        // product APIs still enforce authorization on every data request.
+      }
+      if (!mounted || generation != _capabilityRequestGeneration) return;
+      final accountChanged =
+          accountId != null && _currentAccountId != accountId;
+      setState(() {
+        _capabilityRequestPending = false;
+        if (resolved != null) _capabilityRegistry = resolved;
+        // The capability snapshot is presentation data only. If it cannot be
+        // loaded, leave routing visible; each product API still authorizes its
+        // own data access on the server.
+        if (resolved == null && !accountChanged) {
+          _capabilityRegistry = LifeMateModuleRegistry.production();
+        }
+      });
+      if (accountChanged) _ensureCapabilityRegistry();
+    }());
+  }
 
   TodaySnapshotSource get _todaySource =>
       widget.todaySource ?? const UnavailableTodaySource();
@@ -202,6 +294,7 @@ class _LifeMateShellState extends State<LifeMateShell> {
 
   @override
   Widget build(BuildContext context) {
+    _ensureCapabilityRegistry();
     final destinations = shellDestinationOrder;
     final primaryDestinations = shellPrimaryDestinationOrder;
     return PopScope<Object?>(

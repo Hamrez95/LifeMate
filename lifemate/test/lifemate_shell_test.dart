@@ -81,6 +81,57 @@ void main() {
     expect(tester.takeException(), isNull);
   });
 
+  testWidgets('production Camp uses active application capabilities', (
+    tester,
+  ) async {
+    var capabilityRequestSeen = false;
+    final capabilityClient = LifeMateApiClient(
+      baseUri: Uri.parse('https://api.example.test'),
+      accessToken: () => 'test-token',
+      httpClient: MockClient((request) async {
+        if (request.url.path.endsWith('/api/v1/capabilities')) {
+          capabilityRequestSeen = true;
+          return http.Response(
+            '{"accountId":"account-1","selfPersonId":"person-1",'
+            '"applications":["wellmate"],"features":["treatment.basic"]}',
+            200,
+          );
+        }
+        if (request.url.path.endsWith('/api/v1/me')) {
+          return http.Response(
+            '{"user":{"id":"account-1","displayName":"Hamid"}}',
+            200,
+          );
+        }
+        return http.Response('[]', 200);
+      }),
+    );
+    addTearDown(capabilityClient.close);
+
+    await tester.pumpWidget(
+      LifeMateApp(
+        home: LifeMateShell(apiClient: capabilityClient),
+        localeOverride: const Locale('en'),
+      ),
+    );
+    await tester.runAsync(
+      () => Future<void>.delayed(const Duration(milliseconds: 30)),
+    );
+    await tester.pump();
+
+    Semantics zone(String label) => tester.widget<Semantics>(
+      find.byWidgetPredicate(
+        (widget) => widget is Semantics && widget.properties.label == label,
+      ),
+    );
+
+    expect(zone('WellMate').properties.enabled, isTrue);
+    expect(zone('CareMate').properties.enabled, isFalse);
+    expect(zone('Cocoon / Women Health').properties.enabled, isTrue);
+    expect(capabilityRequestSeen, isTrue);
+    expect(tester.takeException(), isNull);
+  });
+
   testWidgets('renders four primary destinations and opens Today from card', (
     tester,
   ) async {

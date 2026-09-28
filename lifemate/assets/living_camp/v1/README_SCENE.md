@@ -15,6 +15,13 @@ Zone hit targets, signs, state badges, the Today card, and the four primary
 navigation destinations are Flutter widgets. The legacy day background remains
 in the catalog for compatibility.
 
+In production, WellMate and CareMate house availability is refreshed from the
+authenticated `/api/v1/capabilities` snapshot (`applications`). If that read is
+temporarily unavailable, the shell stays navigable and the product APIs remain
+the authorization boundary. CocoonMate remains launchable because its reviewed
+authenticated bootstrap resolves its initial enrollment. Entitlement decisions
+remain inside each product's server-backed feature flows.
+
 The scene keeps the 1000×2000 logical coordinate contract. Distant terrain
 drifts by at most three logical pixels behind independent foreground zones;
 local zone light glows breathe gently. A separate Flutter window-light pass
