@@ -26,6 +26,15 @@ final ValueNotifier<LifeMateOfflineSyncResult?> lifeMateOfflineSyncResult =
 typedef LifeMateTreatmentReminderReconciler =
     Future<void> Function(Map<String, dynamic> serverSnapshot);
 
+typedef LifeMateOfflineRuntimeInitializer =
+    Future<void> Function({
+      required String environmentId,
+      required String accountId,
+      required String personId,
+      required String legacyAuthenticatedAccountId,
+      required String timeZone,
+    });
+
 final class LifeMateTreatmentReconnectResult {
   const LifeMateTreatmentReconnectResult({
     required this.replay,
@@ -58,6 +67,7 @@ class DurableLifeMateApiClient extends LifeMateApiClient {
     required String? Function() accountId,
     Object? queue,
     http.Client? innerHttpClient,
+    LifeMateOfflineRuntimeInitializer? offlineRuntimeInitializer,
   }) : super(
          baseUri: baseUri,
          accessToken: accessToken,
