@@ -62,6 +62,7 @@ void main() {
     expect(find.text('Health profile'), findsOneWidget);
     expect(find.text('Care management'), findsOneWidget);
     expect(find.text('WellMate settings'), findsOneWidget);
+    expect(find.text('Camp guide'), findsOneWidget);
     expect(find.byKey(const ValueKey('lifemate-data-export')), findsOneWidget);
     expect(find.text('Ambient audio'), findsNothing);
 

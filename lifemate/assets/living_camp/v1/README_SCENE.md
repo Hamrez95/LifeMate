@@ -15,6 +15,11 @@ Zone hit targets, signs, state badges, the Today card, and the four primary
 navigation destinations are Flutter widgets. The legacy day background remains
 in the catalog for compatibility.
 
+On the first authenticated launch, a three-step Camp guide appears after the
+launch reveal and can be replayed from the shared profile. Its completion flag
+is a device-level preference; it stores no account or health data. The guide
+uses original vector icons and is independent of the future character art.
+
 In production, WellMate and CareMate house availability is refreshed from the
 authenticated `/api/v1/capabilities` snapshot (`applications`). If that read is
 temporarily unavailable, the shell stays navigable and the product APIs remain

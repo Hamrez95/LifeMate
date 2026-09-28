@@ -8,6 +8,7 @@ import '../circle/api_camp_companion_selection_source.dart';
 import '../circle/camp_companion_selection.dart';
 import '../circle/camp_companion_selection_view.dart';
 import '../living_camp/camp_home.dart';
+import '../living_camp/camp_introduction.dart';
 import '../living_camp/camp_scene_renderer.dart';
 import '../modules/module_registry.dart';
 import '../modules/module_route_host.dart';
@@ -54,6 +55,7 @@ class _LifeMateShellState extends State<LifeMateShell> {
   String? _capabilityAccountId;
   int _capabilityRequestGeneration = 0;
   bool _capabilityRequestPending = false;
+  bool _campIntroductionScheduled = false;
   LifeMateApiClient? _defaultCampCompanionClient;
   ApiCampCompanionSelectionSource? _defaultCampCompanionSource;
 
@@ -61,6 +63,7 @@ class _LifeMateShellState extends State<LifeMateShell> {
   void initState() {
     super.initState();
     _ensureCapabilityRegistry();
+    _scheduleCampIntroduction();
   }
 
   @override
@@ -87,6 +90,43 @@ class _LifeMateShellState extends State<LifeMateShell> {
       return LifeMateAuth.currentAccountId;
     } on Object {
       return null;
+    }
+  }
+
+  void _scheduleCampIntroduction() {
+    if (_campIntroductionScheduled ||
+        widget.apiClient == null ||
+        widget.moduleRegistry != null) {
+      return;
+    }
+    final accountId = _currentAccountId;
+    if (accountId == null) return;
+    _campIntroductionScheduled = true;
+    WidgetsBinding.instance.addPostFrameCallback((_) async {
+      if (!mounted) return;
+      if (!MediaQuery.disableAnimationsOf(context)) {
+        await Future<void>.delayed(const Duration(milliseconds: 3100));
+      }
+      if (!mounted || _currentAccountId != accountId) return;
+
+      var completed = false;
+      try {
+        completed = await const CampIntroductionPreferences().hasCompleted;
+      } on Object {
+        // The Camp remains usable if the device preference store is unavailable.
+      }
+      if (!mounted || _currentAccountId != accountId || completed) return;
+      await _showCampIntroduction();
+    });
+  }
+
+  Future<void> _showCampIntroduction() async {
+    if (!mounted) return;
+    await showCampIntroduction(context: context, isPersian: _isPersian);
+    try {
+      await const CampIntroductionPreferences().markCompleted();
+    } on Object {
+      // The profile keeps a replay entry even if completion could not persist.
     }
   }
 
@@ -508,7 +548,13 @@ class _LifeMateShellState extends State<LifeMateShell> {
       onNotifications: _showNotificationCenter,
       onOpenWellMate: () => _openModule(LifeMateModuleId.wellMate),
       onOpenCareMate: () => _openModule(LifeMateModuleId.careMate),
-      productSections: productSections,
+      productSections: [
+        ...productSections,
+        CampIntroductionTile(
+          isPersian: _isPersian,
+          onTap: () => unawaited(_showCampIntroduction()),
+        ),
+      ],
     );
   }
 
