@@ -154,13 +154,7 @@ export function createCocoonApplicationBoundary(databaseUrl: string) {
               and s.starts_at_utc<=now()
               and (s.current_period_end_utc is null or s.current_period_end_utc>now())
           ) as entitled,
-          exists(
-            select 1
-            from commerce.offers o
-            join cocoon_product cp on cp.id=o.product_id
-            where o.status='Published'
-              and cp.lifecycle_status='Published'
-          ) as offer_available,
+          commerce.cocoon_product_offer_available() as offer_available,
           commerce.cocoon_period_conversion_eligible(
             ${accountId}::uuid,
             ${personId}::uuid
