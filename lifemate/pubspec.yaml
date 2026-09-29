@@ -64,3 +64,8 @@ flutter_launcher_icons:
   adaptive_icon_background: '#102A4D'
   adaptive_icon_foreground: assets/branding/lifemate_logo.png
   min_sdk_android: 21
+  web:
+    generate: true
+    image_path: assets/branding/lifemate_logo.png
+    background_color: '#102A4D'
+    theme_color: '#102A4D'
