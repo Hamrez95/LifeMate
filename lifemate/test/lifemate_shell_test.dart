@@ -41,8 +41,17 @@ LifeMateModuleRegistry _campModuleRegistry() {
       labelFa: 'کوکون‌میت',
       icon: Icons.child_friendly_outlined,
       availability: ModuleAvailability.available,
-      pageBuilder: (_, __, ___) =>
-          const Scaffold(body: Text('CocoonMate mounted')),
+      pageBuilder: (_, __, hostActions) => Scaffold(
+        body: Column(
+          children: [
+            const Text('CocoonMate mounted'),
+            TextButton(
+              onPressed: hostActions.onOpenGlobalProfile,
+              child: const Text('Open shared profile'),
+            ),
+          ],
+        ),
+      ),
     ),
   );
 }
@@ -335,5 +344,34 @@ void main() {
     await tester.pump(const Duration(milliseconds: 350));
     await tester.pump(const Duration(milliseconds: 400));
     expect(find.text('CocoonMate mounted'), findsOneWidget);
+  });
+
+  testWidgets('Cocoon membership handoff returns to shell profile', (
+    tester,
+  ) async {
+    await tester.binding.setSurfaceSize(const Size(412, 915));
+    addTearDown(() => tester.binding.setSurfaceSize(null));
+
+    await tester.pumpWidget(
+      LifeMateApp(
+        home: LifeMateShell(
+          apiClient: apiClient,
+          moduleRegistry: _campModuleRegistry(),
+          campCompanionSource: const UnavailableCampCompanionSelectionSource(),
+        ),
+        localeOverride: const Locale('en'),
+      ),
+    );
+
+    await tester.tap(
+      find.byKey(const ValueKey('camp-zone-hit-reproductive_context')),
+    );
+    await tester.pump(const Duration(milliseconds: 350));
+    await tester.pump(const Duration(milliseconds: 400));
+    await tester.tap(find.text('Open shared profile'));
+    await tester.pumpAndSettle();
+
+    expect(find.text('CocoonMate mounted'), findsNothing);
+    expect(find.text('You'), findsWidgets);
   });
 }
