@@ -99,6 +99,29 @@ void main() {
     },
   );
 
+  testWidgets('Cocoon commerce gate returns to the shell membership profile', (
+    tester,
+  ) async {
+    var openedProfile = false;
+    await tester.pumpWidget(
+      MaterialApp(
+        home: CocoonAuthenticatedHost(
+          config: configured,
+          locale: const Locale('en'),
+          runtimeLoader: () async => _validRuntime(),
+          bootstrapLoader: () async => _snapshot(entitlement: 'inactive'),
+          onOpenGlobalProfile: () => openedProfile = true,
+        ),
+      ),
+    );
+    await tester.pump();
+    await tester.pump();
+
+    expect(find.text('Choose access to CocoonMate'), findsOneWidget);
+    await tester.tap(find.text('View options'));
+    expect(openedProfile, isTrue);
+  });
+
   testWidgets('authoritative bootstrap is offered to protected cache seam', (
     tester,
   ) async {

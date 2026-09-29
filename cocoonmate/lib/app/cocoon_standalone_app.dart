@@ -1560,9 +1560,11 @@ class _CocoonAuthenticatedHostState extends State<CocoonAuthenticatedHost>
 
   @override
   Future<void> openCommerce() async {
-    // #782 keeps Commerce authoritative. The subscription surface is mounted
-    // by the host in a later product slice; never fabricate local entitlement.
+    // Commerce remains authoritative. Until its product-specific surface is
+    // mounted, route the user to the shell-owned profile where membership is
+    // already visible; never fabricate local entitlement.
     recordSafeEvent('cocoon_commerce_requested');
+    widget.onOpenGlobalProfile?.call();
   }
 
   @override
