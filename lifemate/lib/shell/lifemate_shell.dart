@@ -3,6 +3,8 @@ import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:lifemate_client/lifemate_client.dart';
+import 'package:lifemate_ui/lifemate_ui.dart'
+    show LifeMateSubscriptionCenterScreen;
 
 import '../circle/api_camp_companion_selection_source.dart';
 import '../circle/camp_companion_selection.dart';
@@ -304,6 +306,7 @@ class _LifeMateShellState extends State<LifeMateShell> {
         apiClient: widget.apiClient,
         hostActions: LifeMateModuleHostActions(
           onOpenGlobalProfile: _openGlobalProfileFromModule,
+          onOpenCommerce: _openSubscriptionCenter,
           onReturnHome: () => Navigator.of(context).pop(),
         ),
       );
@@ -329,6 +332,7 @@ class _LifeMateShellState extends State<LifeMateShell> {
           apiClient: widget.apiClient,
           hostActions: LifeMateModuleHostActions(
             onOpenGlobalProfile: _openGlobalProfileFromModule,
+            onOpenCommerce: _openSubscriptionCenter,
             onReturnHome: () => Navigator.of(context).pop(),
           ),
         );
@@ -348,6 +352,20 @@ class _LifeMateShellState extends State<LifeMateShell> {
   void _openGlobalProfileFromModule() {
     Navigator.of(context).pop();
     _select(ShellDestination.you);
+  }
+
+  void _openSubscriptionCenter() {
+    final apiClient = widget.apiClient;
+    if (apiClient == null) return;
+    Navigator.of(context).push<void>(
+      MaterialPageRoute<void>(
+        settings: const RouteSettings(name: '/you/subscription'),
+        builder: (_) => LifeMateSubscriptionCenterScreen(
+          apiClient: apiClient,
+          accent: const Color(0xFF2F8F73),
+        ),
+      ),
+    );
   }
 
   Future<void> _showTodayPeek() async {

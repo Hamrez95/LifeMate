@@ -182,62 +182,15 @@ class ProfileYouScreen extends StatelessWidget {
   }
 
   void _showMembership(BuildContext context) {
-    showModalBottomSheet<void>(
-      context: context,
-      showDragHandle: true,
-      builder: (sheetContext) => SafeArea(
-        child: FutureBuilder<Map<String, dynamic>>(
-          future: apiClient.getSubscriptionSnapshot(),
-          builder: (context, state) => Padding(
-            padding: const EdgeInsetsDirectional.fromSTEB(24, 12, 24, 28),
-            child: Column(
-              mainAxisSize: MainAxisSize.min,
-              crossAxisAlignment: CrossAxisAlignment.stretch,
-              children: [
-                Text(
-                  t('Membership', 'عضویت'),
-                  style: Theme.of(context).textTheme.titleLarge,
-                ),
-                const SizedBox(height: 12),
-                if (state.connectionState != ConnectionState.done)
-                  const Center(child: CircularProgressIndicator())
-                else if (state.hasError)
-                  Text(
-                    t(
-                      'Membership could not be loaded.',
-                      'وضعیت عضویت دریافت نشد.',
-                    ),
-                  )
-                else
-                  Text(_membershipSummary(state.data ?? const {})),
-                const SizedBox(height: 16),
-                FilledButton(
-                  onPressed: () => Navigator.of(sheetContext).pop(),
-                  child: Text(t('Close', 'بستن')),
-                ),
-              ],
-            ),
-          ),
+    Navigator.of(context).push<void>(
+      MaterialPageRoute<void>(
+        settings: const RouteSettings(name: '/you/subscription'),
+        builder: (_) => LifeMateSubscriptionCenterScreen(
+          apiClient: apiClient,
+          accent: _profileAccent,
         ),
       ),
     );
-  }
-
-  String _membershipSummary(Map<String, dynamic> value) {
-    for (final key in const [
-      'status',
-      'subscriptionStatus',
-      'state',
-      'planStatus',
-    ]) {
-      final status = value[key]?.toString().trim();
-      if (status != null && status.isNotEmpty) return status;
-    }
-    for (final key in const ['planName', 'plan', 'offerName', 'productName']) {
-      final plan = value[key]?.toString().trim();
-      if (plan != null && plan.isNotEmpty) return plan;
-    }
-    return t('No active membership is available.', 'عضویت فعالی ثبت نشده است.');
   }
 
   void _showAccessibility(BuildContext context) {

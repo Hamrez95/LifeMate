@@ -24,10 +24,12 @@ typedef ModulePageBuilder =
 class LifeMateModuleHostActions {
   const LifeMateModuleHostActions({
     this.onOpenGlobalProfile = _moduleNoop,
+    this.onOpenCommerce = _moduleNoop,
     this.onReturnHome = _moduleNoop,
   });
 
   final VoidCallback onOpenGlobalProfile;
+  final VoidCallback onOpenCommerce;
   final VoidCallback onReturnHome;
 }
 
@@ -254,6 +256,7 @@ class LifeMateModuleRegistry {
               config: AppConfig.fromEnvironment(),
               locale: Localizations.localeOf(context),
               onOpenGlobalProfile: hostActions.onOpenGlobalProfile,
+              onOpenCommerce: hostActions.onOpenCommerce,
             ),
       ),
       ...LifeMateModuleRegistry.foundation().modules.where(
