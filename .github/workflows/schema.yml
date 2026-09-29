@@ -14,6 +14,8 @@ on:
       - 'supabase/tests/growth_reward_fulfillment_contract.sql'
       - 'supabase/tests/campaign_orchestrator_contract.sql'
       - 'supabase/tests/feedback_idempotency_contract.sql'
+      - 'supabase/tests/client_runtime_config_contract.sql'
+      - 'supabase/tests/cocoon_paid_conversion_eligibility_contract.sql'
       - 'tools/security/verify-portable-auth-boundary.py'
       - 'tools/security/verify_portable_auth_boundary_test.py'
       - '.github/workflows/schema.yml'
@@ -32,6 +34,8 @@ on:
       - 'supabase/tests/growth_reward_fulfillment_contract.sql'
       - 'supabase/tests/campaign_orchestrator_contract.sql'
       - 'supabase/tests/feedback_idempotency_contract.sql'
+      - 'supabase/tests/client_runtime_config_contract.sql'
+      - 'supabase/tests/cocoon_paid_conversion_eligibility_contract.sql'
       - 'tools/security/verify-portable-auth-boundary.py'
       - 'tools/security/verify_portable_auth_boundary_test.py'
       - '.github/workflows/schema.yml'
@@ -180,6 +184,12 @@ jobs:
             ) then raise exception 'non-role-assignable elevated permission assigned to admin role'; end if;
           end $$;
           SQL
+
+      - name: Verify CocoonMate is accepted by the runtime config database contract
+        run: psql "$TEST_DATABASE_URL" --set=ON_ERROR_STOP=1 --file=supabase/tests/client_runtime_config_contract.sql
+
+      - name: Verify Cocoon paid conversion eligibility least-privilege contract
+        run: psql "$TEST_DATABASE_URL" --set=ON_ERROR_STOP=1 --file=supabase/tests/cocoon_paid_conversion_eligibility_contract.sql
 
       - name: Prove Admin RBAC and database denial boundaries
         run: psql "$TEST_DATABASE_URL" --set=ON_ERROR_STOP=1 --file=supabase/tests/admin_security_denial_contract.sql
