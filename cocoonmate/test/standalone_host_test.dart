@@ -99,6 +99,29 @@ void main() {
     },
   );
 
+  testWidgets('Cocoon commerce gate opens the shell subscription center', (
+    tester,
+  ) async {
+    var openedCommerce = false;
+    await tester.pumpWidget(
+      MaterialApp(
+        home: CocoonAuthenticatedHost(
+          config: configured,
+          locale: const Locale('en'),
+          runtimeLoader: () async => _validRuntime(),
+          bootstrapLoader: () async => _snapshot(entitlement: 'inactive'),
+          onOpenCommerce: () => openedCommerce = true,
+        ),
+      ),
+    );
+    await tester.pump();
+    await tester.pump();
+
+    expect(find.text('Choose access to CocoonMate'), findsOneWidget);
+    await tester.tap(find.text('View options'));
+    expect(openedCommerce, isTrue);
+  });
+
   testWidgets('authoritative bootstrap is offered to protected cache seam', (
     tester,
   ) async {

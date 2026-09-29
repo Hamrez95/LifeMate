@@ -22,10 +22,13 @@ dependencies:
     path: ../caremate
   cocoonmate:
     path: ../cocoonmate
+  provider: ^6.0.5
+  shared_preferences: ^2.5.5
 
 dev_dependencies:
   flutter_test:
     sdk: flutter
+  flutter_lints: ^6.0.0
   flutter_launcher_icons: 0.14.4
   http: 1.6.0
 
@@ -61,3 +64,8 @@ flutter_launcher_icons:
   adaptive_icon_background: '#102A4D'
   adaptive_icon_foreground: assets/branding/lifemate_logo.png
   min_sdk_android: 21
+  web:
+    generate: true
+    image_path: assets/branding/lifemate_logo.png
+    background_color: '#102A4D'
+    theme_color: '#102A4D'

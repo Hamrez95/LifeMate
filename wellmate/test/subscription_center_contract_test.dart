@@ -8,7 +8,7 @@ void main() {
     'subscription centre is server driven and contains no local commercial price',
     () {
       final source = File(
-        'lib/screens/profile/subscription_center_screen.dart',
+        '../packages/lifemate_ui/lib/src/subscription_center_screen.dart',
       ).readAsStringSync();
 
       expect(source, contains('getSubscriptionSnapshot()'));
@@ -18,8 +18,7 @@ void main() {
       expect(source, contains('LifeMateOfferCard('));
       expect(
         lifeMateSubscriptionCenterPersianMessages[
-          'subscription.serverPricing.note'
-        ],
+            'subscription.serverPricing.note'],
         'قیمت، تخفیف، سقف‌ها و مدت آزمایشی از حساب شما در سرور دریافت می‌شوند.',
       );
       expect(
@@ -33,20 +32,19 @@ void main() {
 
   test('gift and Period conversion preserve their privacy boundaries', () {
     final source = File(
-      'lib/screens/profile/subscription_center_screen.dart',
+      '../packages/lifemate_ui/lib/src/subscription_center_screen.dart',
     ).readAsStringSync();
     final gift = lifeMateSubscriptionCenterPersianMessages[
-      'subscription.gift.card.message'
-    ];
+        'subscription.gift.card.message'];
     final conversion = lifeMateSubscriptionCenterPersianMessages[
-      'subscription.convert.dialog.message'
-    ];
+        'subscription.convert.dialog.message'];
 
     expect(gift, contains('هدیه فقط اشتراک را فعال می‌کند'));
     expect(gift, contains('هیچ دسترسی یا اطلاعات سلامتی را تغییر نمی‌دهد'));
     expect(conversion, contains('تاریخچهٔ تقویم شما حفظ می‌شود.'));
     expect(conversion, contains('بازگشت به Period نیازمند اشتراک جدید است.'));
-    expect(source, contains("subscriptionTr('subscription.gift.card.message')"));
+    expect(
+        source, contains("subscriptionTr('subscription.gift.card.message')"));
     expect(source, contains("'subscription.convert.dialog.message'"));
   });
 
@@ -56,8 +54,10 @@ void main() {
       unorderedEquals(lifeMateSubscriptionCenterEnglishMessages.keys),
     );
     for (final key in lifeMateSubscriptionCenterPersianMessages.keys) {
-      expect(lifeMateSubscriptionCenterPersianMessages[key]?.trim(), isNotEmpty);
-      expect(lifeMateSubscriptionCenterEnglishMessages[key]?.trim(), isNotEmpty);
+      expect(
+          lifeMateSubscriptionCenterPersianMessages[key]?.trim(), isNotEmpty);
+      expect(
+          lifeMateSubscriptionCenterEnglishMessages[key]?.trim(), isNotEmpty);
     }
   });
 

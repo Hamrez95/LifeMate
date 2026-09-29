@@ -8,6 +8,54 @@ import 'package:lifemate/modules/module_registry.dart';
 import 'package:lifemate/shell/lifemate_shell.dart';
 import 'package:lifemate/circle/camp_companion_selection.dart';
 
+LifeMateModuleRegistry _campModuleRegistry() {
+  var registry = LifeMateModuleRegistry.foundation();
+  registry = registry.replacing(
+    LifeMateModuleDefinition(
+      id: LifeMateModuleId.wellMate,
+      routeName: '/modules/wellmate',
+      labelEn: 'WellMate',
+      labelFa: 'ول‌میت',
+      icon: Icons.health_and_safety_outlined,
+      availability: ModuleAvailability.available,
+      pageBuilder: (_, __, ___) => const Scaffold(body: Text('WellMate')),
+    ),
+  );
+  registry = registry.replacing(
+    LifeMateModuleDefinition(
+      id: LifeMateModuleId.careMate,
+      routeName: '/modules/caremate',
+      labelEn: 'CareMate',
+      labelFa: 'کرمیت',
+      icon: Icons.volunteer_activism_outlined,
+      availability: ModuleAvailability.available,
+      pageBuilder: (_, __, ___) =>
+          const Scaffold(body: Text('CareMate mounted')),
+    ),
+  );
+  return registry.replacing(
+    LifeMateModuleDefinition(
+      id: LifeMateModuleId.cocoonMate,
+      routeName: '/modules/cocoonmate',
+      labelEn: 'CocoonMate',
+      labelFa: 'کوکون‌میت',
+      icon: Icons.child_friendly_outlined,
+      availability: ModuleAvailability.available,
+      pageBuilder: (_, __, hostActions) => Scaffold(
+        body: Column(
+          children: [
+            const Text('CocoonMate mounted'),
+            TextButton(
+              onPressed: hostActions.onOpenGlobalProfile,
+              child: const Text('Open shared profile'),
+            ),
+          ],
+        ),
+      ),
+    ),
+  );
+}
+
 void main() {
   final apiClient = LifeMateApiClient(
     baseUri: Uri.parse('https://api.example.test'),
@@ -39,6 +87,63 @@ void main() {
       3,
     );
     expect(find.text('شما'), findsWidgets);
+    expect(tester.takeException(), isNull);
+  });
+
+  testWidgets('production Camp uses active application capabilities', (
+    tester,
+  ) async {
+    var capabilityRequestSeen = false;
+    final capabilityClient = LifeMateApiClient(
+      baseUri: Uri.parse('https://api.example.test'),
+      accessToken: () => 'test-token',
+      httpClient: MockClient((request) async {
+        if (request.url.path.endsWith('/api/v1/capabilities')) {
+          capabilityRequestSeen = true;
+          return http.Response(
+            '{"accountId":"account-1","selfPersonId":"person-1",'
+            '"applications":["wellmate"],"features":["treatment.basic"]}',
+            200,
+          );
+        }
+        if (request.url.path.endsWith('/api/v1/me')) {
+          return http.Response(
+            '{"user":{"id":"account-1"},"profile":{'
+            '"displayName":"Hamid","avatarKey":"person_green"}}',
+            200,
+          );
+        }
+        return http.Response('[]', 200);
+      }),
+    );
+    addTearDown(capabilityClient.close);
+
+    await tester.pumpWidget(
+      LifeMateApp(
+        home: LifeMateShell(apiClient: capabilityClient),
+        localeOverride: const Locale('en'),
+      ),
+    );
+    await tester.runAsync(
+      () => Future<void>.delayed(const Duration(milliseconds: 30)),
+    );
+    await tester.pump();
+
+    Semantics zone(String label) => tester.widget<Semantics>(
+      find.byWidgetPredicate(
+        (widget) => widget is Semantics && widget.properties.label == label,
+      ),
+    );
+
+    expect(zone('WellMate').properties.enabled, isTrue);
+    expect(zone('CareMate').properties.enabled, isFalse);
+    expect(zone('Cocoon / Women Health').properties.enabled, isTrue);
+    expect(capabilityRequestSeen, isTrue);
+    expect(find.text('Hamid 👋'), findsOneWidget);
+    final profileAvatar = tester.widget<LifeMateProfileAvatar>(
+      find.byType(LifeMateProfileAvatar),
+    );
+    expect(profileAvatar.avatarKey, 'person_green');
     expect(tester.takeException(), isNull);
   });
 
@@ -189,5 +294,84 @@ void main() {
       find.text('This module is not mounted in the parent app yet.'),
       findsOneWidget,
     );
+  });
+
+  testWidgets('CareMate and Cocoon houses open their available products', (
+    tester,
+  ) async {
+    await tester.binding.setSurfaceSize(const Size(412, 915));
+    addTearDown(() => tester.binding.setSurfaceSize(null));
+
+    await tester.pumpWidget(
+      LifeMateApp(
+        home: LifeMateShell(
+          apiClient: apiClient,
+          moduleRegistry: _campModuleRegistry(),
+          campCompanionSource: const UnavailableCampCompanionSelectionSource(),
+        ),
+        localeOverride: const Locale('en'),
+      ),
+    );
+
+    expect(find.text('Locked'), findsNothing);
+    await tester.tap(find.byKey(const ValueKey('camp-zone-hit-caremate')));
+    await tester.pump(const Duration(milliseconds: 350));
+    await tester.pump(const Duration(milliseconds: 400));
+    expect(find.text('CareMate mounted'), findsOneWidget);
+  });
+
+  testWidgets('Cocoon house opens the registered CocoonMate product', (
+    tester,
+  ) async {
+    await tester.binding.setSurfaceSize(const Size(412, 915));
+    addTearDown(() => tester.binding.setSurfaceSize(null));
+
+    await tester.pumpWidget(
+      LifeMateApp(
+        home: LifeMateShell(
+          apiClient: apiClient,
+          moduleRegistry: _campModuleRegistry(),
+          campCompanionSource: const UnavailableCampCompanionSelectionSource(),
+        ),
+        localeOverride: const Locale('en'),
+      ),
+    );
+
+    expect(find.text('Locked'), findsNothing);
+    await tester.tap(
+      find.byKey(const ValueKey('camp-zone-hit-reproductive_context')),
+    );
+    await tester.pump(const Duration(milliseconds: 350));
+    await tester.pump(const Duration(milliseconds: 400));
+    expect(find.text('CocoonMate mounted'), findsOneWidget);
+  });
+
+  testWidgets('Cocoon membership handoff returns to shell profile', (
+    tester,
+  ) async {
+    await tester.binding.setSurfaceSize(const Size(412, 915));
+    addTearDown(() => tester.binding.setSurfaceSize(null));
+
+    await tester.pumpWidget(
+      LifeMateApp(
+        home: LifeMateShell(
+          apiClient: apiClient,
+          moduleRegistry: _campModuleRegistry(),
+          campCompanionSource: const UnavailableCampCompanionSelectionSource(),
+        ),
+        localeOverride: const Locale('en'),
+      ),
+    );
+
+    await tester.tap(
+      find.byKey(const ValueKey('camp-zone-hit-reproductive_context')),
+    );
+    await tester.pump(const Duration(milliseconds: 350));
+    await tester.pump(const Duration(milliseconds: 400));
+    await tester.tap(find.text('Open shared profile'));
+    await tester.pumpAndSettle();
+
+    expect(find.text('CocoonMate mounted'), findsNothing);
+    expect(find.text('You'), findsWidgets);
   });
 }

@@ -13,12 +13,14 @@ class LifeMateSharedEditableProfileScreen extends StatefulWidget {
     required this.theme,
     required this.fontFamily,
     required this.keyPrefix,
+    this.onLocaleChanged,
   });
 
   final LifeMateApiClient apiClient;
   final LifeMateProfileThemeData theme;
   final String fontFamily;
   final String keyPrefix;
+  final ValueChanged<Locale>? onLocaleChanged;
 
   @override
   State<LifeMateSharedEditableProfileScreen> createState() =>
@@ -134,26 +136,26 @@ class _LifeMateSharedEditableProfileScreenState
       setState(() {
         _error = switch (error.code) {
           'profile_photo_too_large' => LifeMateRuntimeLocale.select(
-            fa: LifeMateRuntimeLocale.select(
-              fa: 'حجم عکس باید کمتر از ۳ مگابایت باشد.',
+              fa: LifeMateRuntimeLocale.select(
+                fa: 'حجم عکس باید کمتر از ۳ مگابایت باشد.',
+                en: "The size of the photo must be less than 3 MB.",
+              ),
               en: "The size of the photo must be less than 3 MB.",
             ),
-            en: "The size of the photo must be less than 3 MB.",
-          ),
           'invalid_profile_photo' => LifeMateRuntimeLocale.select(
-            fa: LifeMateRuntimeLocale.select(
-              fa: 'فرمت عکس پشتیبانی نمی‌شود.',
+              fa: LifeMateRuntimeLocale.select(
+                fa: 'فرمت عکس پشتیبانی نمی‌شود.',
+                en: "The image format is not supported.",
+              ),
               en: "The image format is not supported.",
             ),
-            en: "The image format is not supported.",
-          ),
           _ => LifeMateRuntimeLocale.select(
-            fa: LifeMateRuntimeLocale.select(
-              fa: 'ذخیره عکس انجام نشد. دوباره تلاش کنید.',
+              fa: LifeMateRuntimeLocale.select(
+                fa: 'ذخیره عکس انجام نشد. دوباره تلاش کنید.',
+                en: "Failed to save photo. Try again.",
+              ),
               en: "Failed to save photo. Try again.",
             ),
-            en: "Failed to save photo. Try again.",
-          ),
         };
       });
     } on FormatException catch (error) {
@@ -306,6 +308,9 @@ class _LifeMateSharedEditableProfileScreenState
       if (!mounted) return;
       setState(() => _applyProfile(updated));
       LifeMateProfileRefresh.notifyChanged();
+      final languageCode = updated['locale']?.toString() == 'en' ? 'en' : 'fa';
+      LifeMateRuntimeLocale.setLanguageCode(languageCode);
+      widget.onLocaleChanged?.call(Locale(languageCode));
       _notice(
         LifeMateNoticeType.success,
         title: LifeMateRuntimeLocale.select(
@@ -398,14 +403,14 @@ class _LifeMateSharedEditableProfileScreenState
     final textStyle = TextStyle(fontFamily: widget.fontFamily);
     return Theme(
       data: Theme.of(context).copyWith(
-        colorScheme: Theme.of(
-          context,
-        ).colorScheme.copyWith(primary: widget.theme.accent),
+        colorScheme: Theme.of(context)
+            .colorScheme
+            .copyWith(primary: widget.theme.accent),
         textTheme: Theme.of(context).textTheme.apply(
-          fontFamily: widget.fontFamily,
-          bodyColor: widget.theme.titleColor,
-          displayColor: widget.theme.titleColor,
-        ),
+              fontFamily: widget.fontFamily,
+              bodyColor: widget.theme.titleColor,
+              displayColor: widget.theme.titleColor,
+            ),
       ),
       child: Scaffold(
         key: ValueKey('lifemate-shared-editable-profile-layout'),
@@ -680,9 +685,9 @@ class _LifeMateSharedEditableProfileScreenState
                         textInputAction: TextInputAction.next,
                         validator: (value) {
                           final compact = (value ?? '').trim().replaceAll(
-                            RegExp(r'[\s()-]'),
-                            '',
-                          );
+                                RegExp(r'[\s()-]'),
+                                '',
+                              );
                           if (compact.isEmpty) return null;
                           if (!RegExp(r'^\+?[0-9]{7,15}$').hasMatch(compact)) {
                             return LifeMateRuntimeLocale.select(
@@ -715,11 +720,8 @@ class _LifeMateSharedEditableProfileScreenState
                             value: 'fa',
                             label: Text(
                               LifeMateRuntimeLocale.select(
-                                fa: LifeMateRuntimeLocale.select(
-                                  fa: 'فارسی',
-                                  en: "Farsi",
-                                ),
-                                en: "Farsi",
+                                fa: 'فارسی',
+                                en: 'Persian',
                               ),
                             ),
                           ),
@@ -729,7 +731,7 @@ class _LifeMateSharedEditableProfileScreenState
                         onSelectionChanged: _saving
                             ? null
                             : (selection) =>
-                                  setState(() => _locale = selection.single),
+                                setState(() => _locale = selection.single),
                       ),
                       SizedBox(height: 18),
                       _ProfileField(
@@ -748,14 +750,14 @@ class _LifeMateSharedEditableProfileScreenState
                         onFieldSubmitted: (_) => _save(),
                         validator: (value) =>
                             (value?.trim().isNotEmpty ?? false)
-                            ? null
-                            : LifeMateRuntimeLocale.select(
-                                fa: LifeMateRuntimeLocale.select(
-                                  fa: 'منطقه زمانی را وارد کنید.',
-                                  en: "Enter the time zone.",
-                                ),
-                                en: "Enter the time zone.",
-                              ),
+                                ? null
+                                : LifeMateRuntimeLocale.select(
+                                    fa: LifeMateRuntimeLocale.select(
+                                      fa: 'منطقه زمانی را وارد کنید.',
+                                      en: "Enter the time zone.",
+                                    ),
+                                    en: "Enter the time zone.",
+                                  ),
                       ),
                       Padding(
                         padding: EdgeInsets.only(top: 6),

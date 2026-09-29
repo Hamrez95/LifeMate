@@ -38,6 +38,31 @@ void main() {
     }
   });
 
+  test('active server capabilities control enrolled product houses', () {
+    final registry = LifeMateModuleRegistry.production().withCapabilities(
+      const LifeMateCapabilitySnapshot(
+        accountId: 'account-1',
+        selfPersonId: 'person-1',
+        applications: {'wellmate'},
+        features: {'treatment.basic'},
+      ),
+    );
+
+    expect(
+      registry.byId(LifeMateModuleId.wellMate)?.availability,
+      ModuleAvailability.available,
+    );
+    expect(
+      registry.byId(LifeMateModuleId.careMate)?.availability,
+      ModuleAvailability.unavailable,
+    );
+    // Cocoon's authenticated bootstrap owns its first-time enrollment flow.
+    expect(
+      registry.byId(LifeMateModuleId.cocoonMate)?.availability,
+      ModuleAvailability.available,
+    );
+  });
+
   test('registry rejects duplicate IDs and duplicate routes', () {
     const first = LifeMateModuleDefinition(
       id: LifeMateModuleId.wellMate,

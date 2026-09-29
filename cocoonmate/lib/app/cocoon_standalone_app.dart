@@ -96,6 +96,7 @@ class CocoonAuthenticatedHost extends StatefulWidget {
     this.gate3MutationAdapter,
     this.signOut,
     this.onOpenGlobalProfile,
+    this.onOpenCommerce,
     this.offlineBootstrapCache,
     this.offlineSnapshotLoader,
     this.offlineOwnerForget,
@@ -111,6 +112,7 @@ class CocoonAuthenticatedHost extends StatefulWidget {
   final CocoonGate3MutationAdapter? gate3MutationAdapter;
   final CocoonSignOut? signOut;
   final VoidCallback? onOpenGlobalProfile;
+  final VoidCallback? onOpenCommerce;
   final CocoonOfflineBootstrapCache? offlineBootstrapCache;
   final CocoonOfflineSnapshotLoader? offlineSnapshotLoader;
   final CocoonOfflineOwnerForget? offlineOwnerForget;
@@ -1560,9 +1562,11 @@ class _CocoonAuthenticatedHostState extends State<CocoonAuthenticatedHost>
 
   @override
   Future<void> openCommerce() async {
-    // #782 keeps Commerce authoritative. The subscription surface is mounted
-    // by the host in a later product slice; never fabricate local entitlement.
+    // Commerce remains authoritative. Until its product-specific surface is
+    // mounted, route the user to the shell-owned profile where membership is
+    // already visible; never fabricate local entitlement.
     recordSafeEvent('cocoon_commerce_requested');
+    (widget.onOpenCommerce ?? widget.onOpenGlobalProfile)?.call();
   }
 
   @override

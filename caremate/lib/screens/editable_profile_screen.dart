@@ -4,6 +4,7 @@ import 'package:lifemate_ui/lifemate_ui.dart';
 import 'package:provider/provider.dart';
 
 import '../core/constants/app_colors.dart';
+import '../core/localization/locale_provider.dart';
 
 class CareMateEditableProfileScreen extends StatelessWidget {
   const CareMateEditableProfileScreen({super.key});
@@ -59,6 +60,7 @@ class CareMateEditableProfileScreen extends StatelessWidget {
               ),
               fontFamily: isPersian ? 'Vazir' : 'Poppins',
               keyPrefix: 'care-profile',
+              onLocaleChanged: context.read<LocaleProvider?>()?.setLocale,
             ),
           ),
         ],
