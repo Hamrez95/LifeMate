@@ -1,7 +1,9 @@
 {
-  "compilerOptions": { "strict": true },
+  "compilerOptions": {
+    "strict": true
+  },
   "tasks": {
-    "check": "deno check index.ts handler.ts handler_test.ts phone_normalization_test.ts provider.ts provider_test.ts",
-    "test": "deno test handler_test.ts phone_normalization_test.ts provider_test.ts"
+    "check": "deno check index.ts handler.ts handler_test.ts phone_normalization_test.ts provider.ts provider_test.ts test_inventory_test.ts",
+    "test": "deno test --allow-read=. handler_test.ts phone_normalization_test.ts provider_test.ts test_inventory_test.ts"
   }
 }
