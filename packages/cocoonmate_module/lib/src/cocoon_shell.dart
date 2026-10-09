@@ -62,8 +62,8 @@ class _CocoonShellState extends State<CocoonShell> {
             t('Access', 'دسترسی'),
             t('Choose access to CocoonMate', 'دسترسی کوکون‌میت را انتخاب کنید'),
             t(
-              'Your health information is separate from subscription. Review the available options before continuing.',
-              'اطلاعات سلامت از اشتراک جداست؛ پیش از ادامه گزینه‌های موجود را ببین.',
+              'CocoonMate access is not active for this account yet. Review the available options; your health information remains separate from subscription.',
+              'دسترسی کوکون‌میت هنوز برای این حساب فعال نیست. گزینه‌های موجود را ببین؛ اطلاعات سلامت از اشتراک جدا نگه داشته می‌شود.',
             ),
             t('View options', 'مشاهده گزینه‌ها'),
             host.openCommerce,

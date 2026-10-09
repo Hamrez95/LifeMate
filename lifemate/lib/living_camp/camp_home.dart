@@ -3,11 +3,8 @@ import 'dart:math' as math;
 import 'package:flutter/material.dart';
 
 import 'camp_asset_catalog.dart';
-import 'camp_avatar_fallback.dart';
-import 'camp_vector_avatar.dart';
 import 'camp_environment.dart';
 import 'camp_scene_renderer.dart';
-import 'camp_avatar_route.dart';
 
 class CampHome extends StatelessWidget {
   const CampHome({
@@ -21,7 +18,6 @@ class CampHome extends StatelessWidget {
     this.zonePresentations,
     this.environmentPreferences = const CampEnvironmentPreferences(),
     this.nowUtc,
-    this.showAvatar = false,
     this.welcomeName,
   });
 
@@ -36,7 +32,6 @@ class CampHome extends StatelessWidget {
   final List<CampZonePresentation>? zonePresentations;
   final CampEnvironmentPreferences environmentPreferences;
   final DateTime Function()? nowUtc;
-  final bool showAvatar;
   final String? welcomeName;
 
   String _t(String en, String fa) => isPersian ? fa : en;
@@ -122,6 +117,7 @@ class CampHome extends StatelessWidget {
               Positioned.fill(
                 child: _CampDaylight(
                   factor: environment.daylightFactor,
+                  motionEnabled: environment.motionEnabled,
                   child: CampSceneRenderer(
                     zones: zones,
                     presentations: presentations,
@@ -134,28 +130,23 @@ class CampHome extends StatelessWidget {
                       if (onOpenFitMate != null) 'fitmate',
                     },
                     actors: [
-                      if (showAvatar)
-                        CampSceneActor(
-                          actorId: 'main_avatar_vector',
-                          // The actor gets the complete world canvas so its feet
-                          // can travel between the house and WellMate in world
-                          // coordinates while keeping the scene's ground anchor.
-                          anchor: const CampPoint(500, 2000),
-                          width: 1000,
-                          height: 2000,
-                          builder: (_) => _CampRoamingAvatar(
-                            motionEnabled: environment.motionEnabled,
-                          ),
-                        ),
+                      // Avatars are withheld from the first release until the
+                      // final art and motion direction are available.
                       CampSceneActor(
                         actorId: 'moon_garden_decoration',
                         anchor: const CampPoint(830, 1150),
                         width: 330,
                         height: 300,
-                        builder: (_) => Image.asset(
-                          CampAssetCatalog.moonGarden,
-                          fit: BoxFit.contain,
-                          filterQuality: FilterQuality.medium,
+                        builder: (_) => Opacity(
+                          opacity: (1 - environment.daylightFactor).clamp(
+                            0.0,
+                            1.0,
+                          ),
+                          child: Image.asset(
+                            CampAssetCatalog.moonGarden,
+                            fit: BoxFit.contain,
+                            filterQuality: FilterQuality.medium,
+                          ),
                         ),
                       ),
                     ],
@@ -295,9 +286,9 @@ class _CampWelcome extends StatelessWidget {
                 child: Row(
                   mainAxisSize: MainAxisSize.min,
                   children: [
-                    const Icon(
-                      Icons.wb_sunny_rounded,
-                      color: Color(0xFFFFD66D),
+                    Icon(
+                      isNight ? Icons.nightlight_round : Icons.wb_sunny_rounded,
+                      color: const Color(0xFFFFD66D),
                     ),
                     const SizedBox(width: 7),
                     Flexible(
@@ -324,8 +315,8 @@ class _CampWelcome extends StatelessWidget {
                         ],
                       ),
                     ),
-                    const Icon(
-                      Icons.chevron_right,
+                    Icon(
+                      isPersian ? Icons.chevron_left : Icons.chevron_right,
                       color: Colors.white,
                       size: 18,
                     ),
@@ -402,8 +393,15 @@ class _CampBackdropState extends State<_CampBackdrop>
   );
 
   @override
+  void initState() {
+    super.initState();
+    _syncAmbientMotion();
+  }
+
+  @override
   void didUpdateWidget(_CampBackdrop oldWidget) {
     super.didUpdateWidget(oldWidget);
+    if (oldWidget.motionEnabled != widget.motionEnabled) _syncAmbientMotion();
     if ((oldWidget.daylightFactor - widget.daylightFactor).abs() > .0001) {
       final currentFactor = _daylightTransition.value;
       _daylightTransition = Tween<double>(
@@ -419,6 +417,14 @@ class _CampBackdropState extends State<_CampBackdrop>
     _drift.dispose();
     _daylight.dispose();
     super.dispose();
+  }
+
+  void _syncAmbientMotion() {
+    if (widget.motionEnabled) {
+      if (!_drift.isAnimating) _drift.repeat();
+      return;
+    }
+    _drift.stop();
   }
 
   @override
@@ -462,73 +468,6 @@ class _CampBackdropState extends State<_CampBackdrop>
   );
 }
 
-/// Walks the main path between the LifeMate home and WellMate.
-class _CampRoamingAvatar extends StatefulWidget {
-  const _CampRoamingAvatar({required this.motionEnabled});
-
-  final bool motionEnabled;
-
-  @override
-  State<_CampRoamingAvatar> createState() => _CampRoamingAvatarState();
-}
-
-class _CampRoamingAvatarState extends State<_CampRoamingAvatar>
-    with SingleTickerProviderStateMixin {
-  late final AnimationController _path = AnimationController(
-    vsync: this,
-    duration: const Duration(seconds: 28),
-  )..repeat();
-
-  @override
-  void didUpdateWidget(_CampRoamingAvatar oldWidget) {
-    super.didUpdateWidget(oldWidget);
-    if (!widget.motionEnabled) {
-      _path.stop();
-    } else if (!oldWidget.motionEnabled) {
-      _path.repeat();
-    }
-  }
-
-  @override
-  void dispose() {
-    _path.dispose();
-    super.dispose();
-  }
-
-  @override
-  Widget build(BuildContext context) => AnimatedBuilder(
-    animation: _path,
-    builder: (context, _) => LayoutBuilder(
-      builder: (context, constraints) {
-        final progress = widget.motionEnabled ? _path.value : 1.0;
-        final sample = CampAvatarRoute.sample(progress);
-        final scale = constraints.maxWidth / CampWorldSize().width;
-        const actorWidth = 118.0;
-        const actorHeight = 174.0;
-        return Stack(
-          clipBehavior: Clip.none,
-          children: [
-            Positioned(
-              left: sample.position.x * scale - actorWidth * scale / 2,
-              top: sample.position.y * scale - actorHeight * scale,
-              width: actorWidth * scale,
-              height: actorHeight * scale,
-              child: CampVectorAvatar(
-                family: CampAvatarFamily.adultMasculine,
-                action: widget.motionEnabled
-                    ? sample.action
-                    : CampAvatarAction.idle,
-                motionEnabled: widget.motionEnabled,
-                commandId: sample.commandId,
-              ),
-            ),
-          ],
-        );
-      },
-    ),
-  );
-}
-
 /// Each zone stays a separate transparent, hit-tested 2.5D foreground layer.
 class _CampZoneVisual extends StatefulWidget {
   const _CampZoneVisual({required this.zoneId, required this.label});
@@ -541,92 +480,113 @@ class _CampZoneVisual extends StatefulWidget {
 }
 
 class _CampZoneVisualState extends State<_CampZoneVisual>
-    with SingleTickerProviderStateMixin {
+    with TickerProviderStateMixin {
   late final AnimationController _glow = AnimationController(
     vsync: this,
     duration: const Duration(seconds: 4),
   )..repeat(reverse: true);
+  late final AnimationController _daylight = AnimationController(
+    vsync: this,
+    duration: const Duration(seconds: 30),
+  );
+  late Animation<double> _daylightTransition;
+  late double _daylightTarget;
+  bool _hasDaylightTarget = false;
+
+  @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    final next = _CampDaylight.maybeOf(context)?.factor ?? 1;
+    if (!_hasDaylightTarget) {
+      _hasDaylightTarget = true;
+      _daylightTarget = next;
+      _daylightTransition = AlwaysStoppedAnimation(next);
+      return;
+    }
+    if ((_daylightTarget - next).abs() <= .0001) return;
+    final current = _daylightTransition.value;
+    _daylightTarget = next;
+    _daylightTransition = Tween<double>(
+      begin: current,
+      end: next,
+    ).animate(CurvedAnimation(parent: _daylight, curve: Curves.easeInOutCubic));
+    _daylight.forward(from: 0);
+  }
 
   @override
   void dispose() {
     _glow.dispose();
+    _daylight.dispose();
     super.dispose();
   }
 
   @override
-  Widget build(BuildContext context) => Stack(
-    fit: StackFit.expand,
-    children: [
-      AnimatedBuilder(
-        animation: _glow,
-        builder: (context, _) => Transform.translate(
-          offset: Offset(
-            math.sin(_glow.value * math.pi * 2) * 1.1,
-            math.cos(_glow.value * math.pi * 2) * .8,
-          ),
-          child: Image.asset(
-            CampAssetCatalog.resolve(
-              zoneId: widget.zoneId,
-              variant: widget.zoneId == 'fitmate'
-                  ? 'under_construction'
-                  : 'default',
-            ).path,
-            fit: BoxFit.contain,
-            filterQuality: FilterQuality.medium,
-          ),
-        ),
-      ),
-      AnimatedBuilder(
-        animation: _glow,
-        builder: (context, _) {
-          final daylight = _CampDaylight.maybeOf(context)?.factor ?? 0;
-          final night = 1 - daylight;
-          return Align(
-            alignment: const Alignment(.1, -.1),
-            child: Container(
-              width: 18,
-              height: 18,
-              decoration: BoxDecoration(
-                shape: BoxShape.circle,
-                boxShadow: [
-                  BoxShadow(
-                    color: const Color(
-                      0xFFFFD477,
-                    ).withValues(alpha: night * (.08 + _glow.value * .16)),
-                    blurRadius: night * (18 + _glow.value * 9),
-                    spreadRadius: night * 5,
-                  ),
-                ],
+  Widget build(BuildContext context) {
+    final motionEnabled = _CampDaylight.maybeOf(context)?.motionEnabled ?? true;
+    return AnimatedBuilder(
+      animation: Listenable.merge([_glow, _daylight]),
+      builder: (context, _) {
+        final glow = motionEnabled ? _glow.value : .5;
+        final daylight = motionEnabled
+            ? _daylightTransition.value
+            : _daylightTarget;
+        final night = 1 - daylight;
+        return Stack(
+          fit: StackFit.expand,
+          children: [
+            Transform.translate(
+              offset: Offset(
+                math.sin(glow * math.pi * 2) * 1.1,
+                math.cos(glow * math.pi * 2) * .8,
+              ),
+              child: Image.asset(
+                CampAssetCatalog.resolve(
+                  zoneId: widget.zoneId,
+                  variant: widget.zoneId == 'fitmate'
+                      ? 'under_construction'
+                      : 'default',
+                ).path,
+                fit: BoxFit.contain,
+                filterQuality: FilterQuality.medium,
               ),
             ),
-          );
-        },
-      ),
-      if (widget.zoneId != 'fitmate')
-        Builder(
-          builder: (context) {
-            final daylight = _CampDaylight.maybeOf(context)?.factor ?? 0;
-            return TweenAnimationBuilder<double>(
-              tween: Tween<double>(begin: daylight, end: daylight),
-              duration: const Duration(seconds: 30),
-              curve: Curves.easeInOut,
-              builder: (context, factor, _) => IgnorePointer(
+            Align(
+              alignment: const Alignment(.1, -.1),
+              child: Container(
+                width: 18,
+                height: 18,
+                decoration: BoxDecoration(
+                  shape: BoxShape.circle,
+                  boxShadow: [
+                    BoxShadow(
+                      color: const Color(
+                        0xFFFFD477,
+                      ).withValues(alpha: night * (.08 + glow * .16)),
+                      blurRadius: night * (18 + glow * 9),
+                      spreadRadius: night * 5,
+                    ),
+                  ],
+                ),
+              ),
+            ),
+            if (widget.zoneId != 'fitmate')
+              IgnorePointer(
                 child: ExcludeSemantics(
                   child: CustomPaint(
                     key: ValueKey('camp-window-lights-${widget.zoneId}'),
                     painter: _CampWindowLightsPainter(
                       zoneId: widget.zoneId,
-                      daylight: factor,
+                      daylight: daylight,
                     ),
                   ),
                 ),
               ),
-            );
-          },
-        ),
-      _CampZoneSign(label: widget.label),
-    ],
-  );
+            _CampZoneSign(label: widget.label),
+          ],
+        );
+      },
+    );
+  }
 }
 
 /// Corrects the baked warm pixels in the day illustrations and adds a
@@ -711,14 +671,20 @@ class _CampWindowLightsPainter extends CustomPainter {
 }
 
 class _CampDaylight extends InheritedWidget {
-  const _CampDaylight({required this.factor, required super.child});
+  const _CampDaylight({
+    required this.factor,
+    required this.motionEnabled,
+    required super.child,
+  });
 
   final double factor;
+  final bool motionEnabled;
 
   static _CampDaylight? maybeOf(BuildContext context) =>
       context.dependOnInheritedWidgetOfExactType<_CampDaylight>();
 
   @override
   bool updateShouldNotify(_CampDaylight oldWidget) =>
-      (factor - oldWidget.factor).abs() > .002;
+      (factor - oldWidget.factor).abs() > .002 ||
+      motionEnabled != oldWidget.motionEnabled;
 }

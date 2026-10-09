@@ -2,8 +2,6 @@ import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:lifemate/living_camp/camp_environment.dart';
 import 'package:lifemate/living_camp/camp_home.dart';
-import 'package:lifemate/living_camp/camp_avatar_fallback.dart';
-import 'package:lifemate/living_camp/camp_vector_avatar.dart';
 
 void main() {
   const resolver = CampDaylightResolver();
@@ -195,40 +193,9 @@ void main() {
     expect(openedToday, isTrue);
   });
 
-  testWidgets('Camp actor walks to WellMate and performs wellness actions', (
+  testWidgets('first-release Camp does not mount a placeholder avatar', (
     tester,
   ) async {
-    await tester.pumpWidget(
-      MaterialApp(
-        home: Scaffold(
-          body: CampHome(
-            isPersian: false,
-            onOpenToday: () {},
-            onOpenWellMate: () {},
-            showAvatar: true,
-            nowUtc: () => DateTime.utc(2026, 1, 1, 19),
-          ),
-        ),
-      ),
-    );
-    await tester.pump(const Duration(milliseconds: 100));
-    CampVectorAvatar actor() => tester.widget(find.byType(CampVectorAvatar));
-    expect(actor().action, CampAvatarAction.walk);
-    expect(
-      find.byKey(const ValueKey('camp-window-lights-lifemate_home')),
-      findsOneWidget,
-    );
-
-    await tester.pump(const Duration(seconds: 11));
-    expect(actor().action, CampAvatarAction.wellness);
-
-    await tester.pump(const Duration(seconds: 2));
-    expect(actor().action, CampAvatarAction.drink);
-    await tester.pump(const Duration(seconds: 2));
-    expect(actor().action, CampAvatarAction.walk);
-  });
-
-  testWidgets('first-release Camp hides the avatar by default', (tester) async {
     await tester.pumpWidget(
       MaterialApp(
         home: Scaffold(
@@ -242,6 +209,13 @@ void main() {
       ),
     );
 
-    expect(find.byType(CampVectorAvatar), findsNothing);
+    expect(
+      find.byKey(const ValueKey('camp-actor-main_avatar_vector')),
+      findsNothing,
+    );
+    expect(
+      find.byKey(const ValueKey('camp-window-lights-lifemate_home')),
+      findsOneWidget,
+    );
   });
 }

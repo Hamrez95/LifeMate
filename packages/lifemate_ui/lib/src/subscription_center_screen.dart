@@ -532,11 +532,11 @@ class _EntitlementTile extends StatelessWidget {
             : Theme.of(context).colorScheme.onSurfaceVariant,
       ),
       title: Text(
-        _text(
-          item['label'] ?? item['productName'],
-          fallback: context.subscriptionTr(
-            'subscription.entitlement.fallback',
-          ),
+        lifeMateSubscriptionServerLabel(
+          (item['label'] ?? item['productName'])?.toString(),
+          locale: context.lifeMateLocale.locale,
+          policy: false,
+          fallback: context.subscriptionTr('subscription.entitlement.fallback'),
         ),
       ),
       subtitle: Text(
@@ -559,8 +559,10 @@ class _PolicyTile extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) => LifeMateLockedFeatureIndicator(
-        label: _text(
-          policy['label'] ?? policy['title'],
+        label: lifeMateSubscriptionServerLabel(
+          (policy['label'] ?? policy['title'])?.toString(),
+          locale: context.lifeMateLocale.locale,
+          policy: true,
           fallback: context.subscriptionTr('subscription.policy.fallback'),
         ),
         theme: theme,

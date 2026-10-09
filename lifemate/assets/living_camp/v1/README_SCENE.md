@@ -35,17 +35,14 @@ window glows at night, following the existing local sunrise/sunset easing.
 The day illustrations still contain baked-in warm pixels beneath the masks, so
 the light pass remains a visual approximation that needs device review.
 
-An editable Flutter vector route prototype can follow a deterministic home →
-WellMate → home path on the 1000×2000 world canvas. At WellMate it plays
-one-shot `wellness` and `drink` actions, then returns home. It is hidden by
-default in first-release Camp because the current character art is a prototype;
-only the opt-in PoC widget test enables it. A future animator can replace the
-renderer without changing the shell. `TickerMode` pauses the optional prototype
-when the shell is not visible or a modal sheet is open.
+The editable Flutter vector route prototype remains source-only reference
+material. No character is mounted in the first-release Camp: the current art
+does not meet the approved visual direction. A future animator can supply a
+replacement without changing the shell's world-coordinate or product-routing
+contracts.
 
 This is a free native Flutter 2.5D implementation. It is **not** a `.riv`
-export. Issue #1074 is being fulfilled with the approved editable Flutter
-vector substitute because the authenticated Free Rive workspace did not offer
-`.riv` export. Device frame timing, GPU cost and memory use have not been
-measured; automated checks cover route sampling, rendering, navigation, actor
-actions, lifecycle pause/resume and Reduced Motion.
+export, and it does not complete #1074. The authenticated Free Rive workspace
+did not offer `.riv` export. Device frame timing, GPU cost and memory use have
+not been measured; automated checks cover environment calculation, rendering,
+navigation, lifecycle pause/resume and Reduced Motion.
