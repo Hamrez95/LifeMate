@@ -13,29 +13,31 @@ void main() {
       var queued = false;
       final adapter = _adapter(
         clock: () => localNow,
-        submitCheckInOnline: ({
-          required clientRequestId,
-          required observedAtUtc,
-          required localDate,
-          required timeZone,
-          required feeling,
-          required energy,
-        }) async {
-          onlineId = clientRequestId;
-          onlineDate = localDate;
-          expect(timeZone, 'Asia/Tehran');
-          expect(feeling, CocoonPregnancyFeeling.comfortable);
-          expect(energy, CocoonPregnancyEnergy.steady);
-        },
-        enqueueCheckInOffline: ({
-          required clientRequestId,
-          required observedAtUtc,
-          required localDate,
-          required feeling,
-          required energy,
-        }) async {
-          queued = true;
-        },
+        submitCheckInOnline:
+            ({
+              required clientRequestId,
+              required observedAtUtc,
+              required localDate,
+              required timeZone,
+              required feeling,
+              required energy,
+            }) async {
+              onlineId = clientRequestId;
+              onlineDate = localDate;
+              expect(timeZone, 'Asia/Tehran');
+              expect(feeling, CocoonPregnancyFeeling.comfortable);
+              expect(energy, CocoonPregnancyEnergy.steady);
+            },
+        enqueueCheckInOffline:
+            ({
+              required clientRequestId,
+              required observedAtUtc,
+              required localDate,
+              required feeling,
+              required energy,
+            }) async {
+              queued = true;
+            },
       );
 
       final result = await adapter.submitCheckIn(
@@ -60,33 +62,35 @@ void main() {
       String? queuedEnergy;
       final adapter = _adapter(
         clock: () => localNow,
-        submitCheckInOnline: ({
-          required clientRequestId,
-          required observedAtUtc,
-          required localDate,
-          required timeZone,
-          required feeling,
-          required energy,
-        }) async {
-          onlineId = clientRequestId;
-          throw const LifeMateApiException(
-            statusCode: 0,
-            code: 'network_unavailable',
-            message: 'offline',
-          );
-        },
-        enqueueCheckInOffline: ({
-          required clientRequestId,
-          required observedAtUtc,
-          required localDate,
-          required feeling,
-          required energy,
-        }) async {
-          queuedId = clientRequestId;
-          queuedFeeling = feeling;
-          queuedEnergy = energy;
-          expect(localDate, DateTime(2026, 9, 16));
-        },
+        submitCheckInOnline:
+            ({
+              required clientRequestId,
+              required observedAtUtc,
+              required localDate,
+              required timeZone,
+              required feeling,
+              required energy,
+            }) async {
+              onlineId = clientRequestId;
+              throw const LifeMateApiException(
+                statusCode: 0,
+                code: 'network_unavailable',
+                message: 'offline',
+              );
+            },
+        enqueueCheckInOffline:
+            ({
+              required clientRequestId,
+              required observedAtUtc,
+              required localDate,
+              required feeling,
+              required energy,
+            }) async {
+              queuedId = clientRequestId;
+              queuedFeeling = feeling;
+              queuedEnergy = energy;
+              expect(localDate, DateTime(2026, 9, 16));
+            },
       );
 
       final result = await adapter.submitCheckIn(
@@ -107,29 +111,31 @@ void main() {
     () async {
       var queued = false;
       final adapter = _adapter(
-        submitCheckInOnline: ({
-          required clientRequestId,
-          required observedAtUtc,
-          required localDate,
-          required timeZone,
-          required feeling,
-          required energy,
-        }) async {
-          throw const LifeMateApiException(
-            statusCode: 403,
-            code: 'pregnancy_scope_denied',
-            message: 'denied',
-          );
-        },
-        enqueueCheckInOffline: ({
-          required clientRequestId,
-          required observedAtUtc,
-          required localDate,
-          required feeling,
-          required energy,
-        }) async {
-          queued = true;
-        },
+        submitCheckInOnline:
+            ({
+              required clientRequestId,
+              required observedAtUtc,
+              required localDate,
+              required timeZone,
+              required feeling,
+              required energy,
+            }) async {
+              throw const LifeMateApiException(
+                statusCode: 403,
+                code: 'pregnancy_scope_denied',
+                message: 'denied',
+              );
+            },
+        enqueueCheckInOffline:
+            ({
+              required clientRequestId,
+              required observedAtUtc,
+              required localDate,
+              required feeling,
+              required energy,
+            }) async {
+              queued = true;
+            },
       );
 
       await expectLater(
@@ -159,41 +165,43 @@ void main() {
       double? queuedSecondary;
       final adapter = _adapter(
         clock: () => localNow,
-        submitMeasurementOnline: ({
-          required clientRequestId,
-          required type,
-          required valuePrimary,
-          valueSecondary,
-          note,
-          required observedAtUtc,
-          required observedLocalDate,
-          required timeZone,
-        }) async {
-          onlineId = clientRequestId;
-          expect(type, CocoonPregnancyMeasurementType.bloodPressure);
-          expect(valuePrimary, 118);
-          expect(valueSecondary, 76);
-          throw const LifeMateApiException(
-            statusCode: 0,
-            code: 'network_timeout',
-            message: 'timeout',
-          );
-        },
-        enqueueMeasurementOffline: ({
-          required clientRequestId,
-          required observationType,
-          required valuePrimary,
-          valueSecondary,
-          note,
-          required observedAtUtc,
-          required observedLocalDate,
-        }) async {
-          queuedId = clientRequestId;
-          queuedType = observationType;
-          queuedPrimary = valuePrimary;
-          queuedSecondary = valueSecondary;
-          expect(observedLocalDate, DateTime(2026, 9, 16));
-        },
+        submitMeasurementOnline:
+            ({
+              required clientRequestId,
+              required type,
+              required valuePrimary,
+              valueSecondary,
+              note,
+              required observedAtUtc,
+              required observedLocalDate,
+              required timeZone,
+            }) async {
+              onlineId = clientRequestId;
+              expect(type, CocoonPregnancyMeasurementType.bloodPressure);
+              expect(valuePrimary, 118);
+              expect(valueSecondary, 76);
+              throw const LifeMateApiException(
+                statusCode: 0,
+                code: 'network_timeout',
+                message: 'timeout',
+              );
+            },
+        enqueueMeasurementOffline:
+            ({
+              required clientRequestId,
+              required observationType,
+              required valuePrimary,
+              valueSecondary,
+              note,
+              required observedAtUtc,
+              required observedLocalDate,
+            }) async {
+              queuedId = clientRequestId;
+              queuedType = observationType;
+              queuedPrimary = valuePrimary;
+              queuedSecondary = valueSecondary;
+              expect(observedLocalDate, DateTime(2026, 9, 16));
+            },
       );
 
       final result = await adapter.submitMeasurement(
@@ -223,7 +231,8 @@ CocoonGate3MutationAdapter _adapter({
     timeZone: 'Asia/Tehran',
     requestIdFactory: () => '123e4567-e89b-42d3-a456-426614174000',
     clock: clock ?? () => DateTime(2026, 9, 16, 12),
-    submitCheckInOnline: submitCheckInOnline ??
+    submitCheckInOnline:
+        submitCheckInOnline ??
         ({
           required clientRequestId,
           required observedAtUtc,
@@ -232,7 +241,8 @@ CocoonGate3MutationAdapter _adapter({
           required feeling,
           required energy,
         }) async {},
-    enqueueCheckInOffline: enqueueCheckInOffline ??
+    enqueueCheckInOffline:
+        enqueueCheckInOffline ??
         ({
           required clientRequestId,
           required observedAtUtc,
@@ -240,7 +250,8 @@ CocoonGate3MutationAdapter _adapter({
           required feeling,
           required energy,
         }) async {},
-    submitMeasurementOnline: submitMeasurementOnline ??
+    submitMeasurementOnline:
+        submitMeasurementOnline ??
         ({
           required clientRequestId,
           required type,
@@ -251,7 +262,8 @@ CocoonGate3MutationAdapter _adapter({
           required observedLocalDate,
           required timeZone,
         }) async {},
-    enqueueMeasurementOffline: enqueueMeasurementOffline ??
+    enqueueMeasurementOffline:
+        enqueueMeasurementOffline ??
         ({
           required clientRequestId,
           required observationType,

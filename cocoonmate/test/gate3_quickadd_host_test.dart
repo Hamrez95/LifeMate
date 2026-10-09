@@ -18,30 +18,32 @@ void main() {
     String? onlineId;
     String? queuedId;
     final mutation = _mutation(
-      submitCheckInOnline: ({
-        required clientRequestId,
-        required observedAtUtc,
-        required localDate,
-        required timeZone,
-        required feeling,
-        required energy,
-      }) async {
-        onlineId = clientRequestId;
-        throw const LifeMateApiException(
-          statusCode: 0,
-          code: 'network_unavailable',
-          message: 'offline',
-        );
-      },
-      enqueueCheckInOffline: ({
-        required clientRequestId,
-        required observedAtUtc,
-        required localDate,
-        required feeling,
-        required energy,
-      }) async {
-        queuedId = clientRequestId;
-      },
+      submitCheckInOnline:
+          ({
+            required clientRequestId,
+            required observedAtUtc,
+            required localDate,
+            required timeZone,
+            required feeling,
+            required energy,
+          }) async {
+            onlineId = clientRequestId;
+            throw const LifeMateApiException(
+              statusCode: 0,
+              code: 'network_unavailable',
+              message: 'offline',
+            );
+          },
+      enqueueCheckInOffline:
+          ({
+            required clientRequestId,
+            required observedAtUtc,
+            required localDate,
+            required feeling,
+            required energy,
+          }) async {
+            queuedId = clientRequestId;
+          },
     );
 
     await _pumpHost(tester, configured, mutation);
@@ -91,7 +93,8 @@ Future<void> _pumpHost(
         locale: const Locale('en'),
         runtimeLoader: () async => _validRuntime(),
         bootstrapLoader: () async => _snapshot(),
-        gate3ReadLoader: readLoader ??
+        gate3ReadLoader:
+            readLoader ??
             ({required now, required fa}) async => _emptyReads(now),
         gate3MutationAdapter: mutation,
         offlineBootstrapCache: (_) async {},
@@ -125,7 +128,8 @@ CocoonGate3MutationAdapter _mutation({
     timeZone: 'Asia/Tehran',
     requestIdFactory: () => '123e4567-e89b-42d3-a456-426614174000',
     clock: () => DateTime(2026, 9, 16, 12),
-    submitCheckInOnline: submitCheckInOnline ??
+    submitCheckInOnline:
+        submitCheckInOnline ??
         ({
           required clientRequestId,
           required observedAtUtc,
@@ -134,7 +138,8 @@ CocoonGate3MutationAdapter _mutation({
           required feeling,
           required energy,
         }) async {},
-    enqueueCheckInOffline: enqueueCheckInOffline ??
+    enqueueCheckInOffline:
+        enqueueCheckInOffline ??
         ({
           required clientRequestId,
           required observedAtUtc,
@@ -142,35 +147,37 @@ CocoonGate3MutationAdapter _mutation({
           required feeling,
           required energy,
         }) async {},
-    submitMeasurementOnline: ({
-      required clientRequestId,
-      required type,
-      required valuePrimary,
-      valueSecondary,
-      note,
-      required observedAtUtc,
-      required observedLocalDate,
-      required timeZone,
-    }) async {},
-    enqueueMeasurementOffline: ({
-      required clientRequestId,
-      required observationType,
-      required valuePrimary,
-      valueSecondary,
-      note,
-      required observedAtUtc,
-      required observedLocalDate,
-    }) async {},
+    submitMeasurementOnline:
+        ({
+          required clientRequestId,
+          required type,
+          required valuePrimary,
+          valueSecondary,
+          note,
+          required observedAtUtc,
+          required observedLocalDate,
+          required timeZone,
+        }) async {},
+    enqueueMeasurementOffline:
+        ({
+          required clientRequestId,
+          required observationType,
+          required valuePrimary,
+          valueSecondary,
+          note,
+          required observedAtUtc,
+          required observedLocalDate,
+        }) async {},
   );
 }
 
 CocoonGate3ReadModels _emptyReads(DateTime now) => CocoonGate3ReadModels(
-      calendarState: CocoonCalendarLoadState.empty,
-      calendarItems: const [],
-      calendarAsOfLocalDate: DateTime(now.year, now.month, now.day),
-      recordsState: CocoonRecordsState.empty,
-      records: const [],
-    );
+  calendarState: CocoonCalendarLoadState.empty,
+  calendarItems: const [],
+  calendarAsOfLocalDate: DateTime(now.year, now.month, now.day),
+  recordsState: CocoonRecordsState.empty,
+  records: const [],
+);
 
 LifeMateRuntimeConfigSnapshot _validRuntime() {
   return LifeMateRuntimeConfigSnapshot(
