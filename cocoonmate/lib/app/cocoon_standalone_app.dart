@@ -109,6 +109,7 @@ class CocoonAuthenticatedHost extends StatefulWidget {
 
   final AppConfig config;
   final Locale locale;
+
   /// The authenticated client owned by the Shell when CocoonMate is embedded.
   /// Cocoon-specific endpoints use their typed clients but read the same
   /// Supabase session; generic LifeMate operations reuse this client directly.
@@ -221,12 +222,12 @@ class _CocoonAuthenticatedHostState extends State<CocoonAuthenticatedHost>
       : null;
   late final LifeMateApiClient? _treatmentMutationClient =
       widget.sharedApiClient ??
-          (widget.bootstrapLoader == null
-              ? LifeMateApiClient(
-                  baseUri: widget.config.apiBaseUri,
-                  accessToken: () => LifeMateAuth.currentAccessToken,
-                )
-              : null);
+      (widget.bootstrapLoader == null
+          ? LifeMateApiClient(
+              baseUri: widget.config.apiBaseUri,
+              accessToken: () => LifeMateAuth.currentAccessToken,
+            )
+          : null);
 
   @override
   void initState() {
