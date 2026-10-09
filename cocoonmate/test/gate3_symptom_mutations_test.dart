@@ -16,40 +16,38 @@ void main() {
       String? queuedCode;
       String? queuedVersion;
       final adapter = _adapter(
-        submitSymptomOnline:
-            ({
-              required clientRequestId,
-              required observedAtUtc,
-              required localDate,
-              required timeZone,
-              required approvedCatalog,
-              required symptomCode,
-              required intensity,
-              note,
-            }) async {
-              onlineId = clientRequestId;
-              expect(approvedCatalog.version, 'pregnancy-symptoms-v1');
-              throw const LifeMateApiException(
-                statusCode: 0,
-                code: 'network_timeout',
-                message: 'timeout',
-              );
-            },
-        enqueueSymptomOffline:
-            ({
-              required clientRequestId,
-              required observedAtUtc,
-              required localDate,
-              required symptomCode,
-              required intensity,
-              required approvedCatalog,
-              note,
-            }) async {
-              queuedId = clientRequestId;
-              queuedCode = symptomCode;
-              queuedVersion = approvedCatalog.version;
-              expect(intensity, 'moderate');
-            },
+        submitSymptomOnline: ({
+          required clientRequestId,
+          required observedAtUtc,
+          required localDate,
+          required timeZone,
+          required approvedCatalog,
+          required symptomCode,
+          required intensity,
+          note,
+        }) async {
+          onlineId = clientRequestId;
+          expect(approvedCatalog.version, 'pregnancy-symptoms-v1');
+          throw const LifeMateApiException(
+            statusCode: 0,
+            code: 'network_timeout',
+            message: 'timeout',
+          );
+        },
+        enqueueSymptomOffline: ({
+          required clientRequestId,
+          required observedAtUtc,
+          required localDate,
+          required symptomCode,
+          required intensity,
+          required approvedCatalog,
+          note,
+        }) async {
+          queuedId = clientRequestId;
+          queuedCode = symptomCode;
+          queuedVersion = approvedCatalog.version;
+          expect(intensity, 'moderate');
+        },
       );
 
       final result = await adapter.submitSymptom(
@@ -70,31 +68,29 @@ void main() {
     var online = false;
     var queued = false;
     final adapter = _adapter(
-      submitSymptomOnline:
-          ({
-            required clientRequestId,
-            required observedAtUtc,
-            required localDate,
-            required timeZone,
-            required approvedCatalog,
-            required symptomCode,
-            required intensity,
-            note,
-          }) async {
-            online = true;
-          },
-      enqueueSymptomOffline:
-          ({
-            required clientRequestId,
-            required observedAtUtc,
-            required localDate,
-            required symptomCode,
-            required intensity,
-            required approvedCatalog,
-            note,
-          }) async {
-            queued = true;
-          },
+      submitSymptomOnline: ({
+        required clientRequestId,
+        required observedAtUtc,
+        required localDate,
+        required timeZone,
+        required approvedCatalog,
+        required symptomCode,
+        required intensity,
+        note,
+      }) async {
+        online = true;
+      },
+      enqueueSymptomOffline: ({
+        required clientRequestId,
+        required observedAtUtc,
+        required localDate,
+        required symptomCode,
+        required intensity,
+        required approvedCatalog,
+        note,
+      }) async {
+        queued = true;
+      },
     );
 
     await expectLater(
@@ -112,35 +108,33 @@ void main() {
   test('authorization failure is never queued as a symptom', () async {
     var queued = false;
     final adapter = _adapter(
-      submitSymptomOnline:
-          ({
-            required clientRequestId,
-            required observedAtUtc,
-            required localDate,
-            required timeZone,
-            required approvedCatalog,
-            required symptomCode,
-            required intensity,
-            note,
-          }) async {
-            throw const LifeMateApiException(
-              statusCode: 403,
-              code: 'pregnancy_scope_denied',
-              message: 'denied',
-            );
-          },
-      enqueueSymptomOffline:
-          ({
-            required clientRequestId,
-            required observedAtUtc,
-            required localDate,
-            required symptomCode,
-            required intensity,
-            required approvedCatalog,
-            note,
-          }) async {
-            queued = true;
-          },
+      submitSymptomOnline: ({
+        required clientRequestId,
+        required observedAtUtc,
+        required localDate,
+        required timeZone,
+        required approvedCatalog,
+        required symptomCode,
+        required intensity,
+        note,
+      }) async {
+        throw const LifeMateApiException(
+          statusCode: 403,
+          code: 'pregnancy_scope_denied',
+          message: 'denied',
+        );
+      },
+      enqueueSymptomOffline: ({
+        required clientRequestId,
+        required observedAtUtc,
+        required localDate,
+        required symptomCode,
+        required intensity,
+        required approvedCatalog,
+        note,
+      }) async {
+        queued = true;
+      },
     );
 
     await expectLater(
@@ -158,12 +152,12 @@ void main() {
 CocoonGate3MutationAdapter _adapter({
   required CocoonGate3SymptomOnlineSubmit submitSymptomOnline,
   required CocoonGate3SymptomOfflineEnqueue enqueueSymptomOffline,
-}) => CocoonGate3MutationAdapter(
-  timeZone: 'Asia/Tehran',
-  requestIdFactory: () => '123e4567-e89b-42d3-a456-426614174556',
-  clock: () => DateTime(2026, 9, 16, 12),
-  submitCheckInOnline:
-      ({
+}) =>
+    CocoonGate3MutationAdapter(
+      timeZone: 'Asia/Tehran',
+      requestIdFactory: () => '123e4567-e89b-42d3-a456-426614174556',
+      clock: () => DateTime(2026, 9, 16, 12),
+      submitCheckInOnline: ({
         required clientRequestId,
         required observedAtUtc,
         required localDate,
@@ -171,16 +165,14 @@ CocoonGate3MutationAdapter _adapter({
         required feeling,
         required energy,
       }) async {},
-  enqueueCheckInOffline:
-      ({
+      enqueueCheckInOffline: ({
         required clientRequestId,
         required observedAtUtc,
         required localDate,
         required feeling,
         required energy,
       }) async {},
-  submitMeasurementOnline:
-      ({
+      submitMeasurementOnline: ({
         required clientRequestId,
         required type,
         required valuePrimary,
@@ -190,8 +182,7 @@ CocoonGate3MutationAdapter _adapter({
         required observedLocalDate,
         required timeZone,
       }) async {},
-  enqueueMeasurementOffline:
-      ({
+      enqueueMeasurementOffline: ({
         required clientRequestId,
         required observationType,
         required valuePrimary,
@@ -200,6 +191,6 @@ CocoonGate3MutationAdapter _adapter({
         required observedAtUtc,
         required observedLocalDate,
       }) async {},
-  submitSymptomOnline: submitSymptomOnline,
-  enqueueSymptomOffline: enqueueSymptomOffline,
-);
+      submitSymptomOnline: submitSymptomOnline,
+      enqueueSymptomOffline: enqueueSymptomOffline,
+    );
