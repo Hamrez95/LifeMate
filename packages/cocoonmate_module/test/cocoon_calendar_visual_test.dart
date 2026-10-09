@@ -265,7 +265,7 @@ class _CalendarHost implements CocoonHostContract {
   @override
   Future<void> openGlobalProfile() async {}
   @override
-  Future<void> openLogin() async {}
+  Future<void> returnToLifeMateAuth() async {}
   @override
   Future<void> refresh() async {}
   @override

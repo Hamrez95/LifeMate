@@ -24,7 +24,7 @@ class FakeHost implements CocoonHostContract {
   @override
   Future<void> openGlobalProfile() async {}
   @override
-  Future<void> openLogin() async {}
+  Future<void> returnToLifeMateAuth() async {}
   @override
   Future<void> refresh() async {}
   @override
@@ -61,6 +61,18 @@ void main() {
 
     expect(find.text('Choose access to CocoonMate'), findsOneWidget);
     expect(find.text('View options'), findsOneWidget);
+  });
+
+  testWidgets('expired session returns to shared LifeMate authentication', (
+    tester,
+  ) async {
+    final host = FakeHost(CocoonEntryState.unauthenticated, const Locale('en'));
+    await tester.pumpWidget(appFor(host));
+
+    expect(find.text('LifeMate session ended'), findsOneWidget);
+    expect(find.text('Return to LifeMate'), findsOneWidget);
+    expect(find.text('Sign in'), findsNothing);
+    expect(find.byType(TextField), findsNothing);
   });
 
   testWidgets('protected owner snapshot keeps shell available while offline', (

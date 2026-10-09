@@ -1,5 +1,7 @@
 import 'dart:ui';
 
+import 'package:flutter/foundation.dart' show debugPrint, kDebugMode;
+
 import 'package:cocoonmate_module/cocoonmate_module.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_localizations/flutter_localizations.dart';
@@ -89,6 +91,7 @@ class CocoonAuthenticatedHost extends StatefulWidget {
   const CocoonAuthenticatedHost({
     required this.config,
     required this.locale,
+    this.sharedApiClient,
     this.runtimeLoader,
     this.bootstrapLoader,
     this.gate3ReadLoader,
@@ -96,6 +99,8 @@ class CocoonAuthenticatedHost extends StatefulWidget {
     this.gate3MutationAdapter,
     this.signOut,
     this.onOpenGlobalProfile,
+    this.onOpenCommerce,
+    this.onSessionEnded,
     this.offlineBootstrapCache,
     this.offlineSnapshotLoader,
     this.offlineOwnerForget,
@@ -104,6 +109,11 @@ class CocoonAuthenticatedHost extends StatefulWidget {
 
   final AppConfig config;
   final Locale locale;
+
+  /// The authenticated client owned by the Shell when CocoonMate is embedded.
+  /// Cocoon-specific endpoints use their typed clients but read the same
+  /// Supabase session; generic LifeMate operations reuse this client directly.
+  final LifeMateApiClient? sharedApiClient;
   final CocoonRuntimeLoader? runtimeLoader;
   final CocoonBootstrapLoader? bootstrapLoader;
   final CocoonGate3ReadLoader? gate3ReadLoader;
@@ -111,6 +121,8 @@ class CocoonAuthenticatedHost extends StatefulWidget {
   final CocoonGate3MutationAdapter? gate3MutationAdapter;
   final CocoonSignOut? signOut;
   final VoidCallback? onOpenGlobalProfile;
+  final VoidCallback? onOpenCommerce;
+  final VoidCallback? onSessionEnded;
   final CocoonOfflineBootstrapCache? offlineBootstrapCache;
   final CocoonOfflineSnapshotLoader? offlineSnapshotLoader;
   final CocoonOfflineOwnerForget? offlineOwnerForget;
@@ -209,12 +221,13 @@ class _CocoonAuthenticatedHostState extends State<CocoonAuthenticatedHost>
         )
       : null;
   late final LifeMateApiClient? _treatmentMutationClient =
-      widget.bootstrapLoader == null
-      ? LifeMateApiClient(
-          baseUri: widget.config.apiBaseUri,
-          accessToken: () => LifeMateAuth.currentAccessToken,
-        )
-      : null;
+      widget.sharedApiClient ??
+      (widget.bootstrapLoader == null
+          ? LifeMateApiClient(
+              baseUri: widget.config.apiBaseUri,
+              accessToken: () => LifeMateAuth.currentAccessToken,
+            )
+          : null);
 
   @override
   void initState() {
@@ -231,7 +244,9 @@ class _CocoonAuthenticatedHostState extends State<CocoonAuthenticatedHost>
     _treatmentsClient?.close();
     _measurementsHistoryClient?.close();
     _dailyClient?.close();
-    _treatmentMutationClient?.close();
+    if (!identical(_treatmentMutationClient, widget.sharedApiClient)) {
+      _treatmentMutationClient?.close();
+    }
     if (_ownsGate3MutationAdapter) _gate3MutationAdapter?.close();
     super.dispose();
   }
@@ -321,6 +336,7 @@ class _CocoonAuthenticatedHostState extends State<CocoonAuthenticatedHost>
   Future<void> refresh() async {
     if (_refreshing) return;
     _refreshing = true;
+    _diagnostic('bootstrap_started');
     if (mounted) setState(() => _entryState = CocoonEntryState.loading);
     try {
       final runtime =
@@ -329,6 +345,12 @@ class _CocoonAuthenticatedHostState extends State<CocoonAuthenticatedHost>
       if (runtime.product != 'cocoonmate' ||
           runtime.platform.trim().isEmpty ||
           !runtime.isTrustedForUpdatePolicy(DateTime.now())) {
+        final reason = runtime.product != 'cocoonmate'
+            ? 'runtime_product_mismatch'
+            : runtime.platform.trim().isEmpty
+            ? 'runtime_platform_missing'
+            : 'runtime_policy_untrusted';
+        _diagnostic(reason);
         _apply(CocoonEntryState.runtimeUnavailable, null);
         return;
       }
@@ -338,6 +360,14 @@ class _CocoonAuthenticatedHostState extends State<CocoonAuthenticatedHost>
               _pregnancyClient!.bootstrap(asOfDate: DateTime.now()));
       if (!await _cacheAuthoritativeBootstrap(snapshot)) return;
       final next = resolveCocoonEntryState(snapshot);
+      _diagnostic(
+        'bootstrap_decision',
+        detail:
+            'decision=${next.name};'
+            'application=${snapshot.application.enrollmentState.name};'
+            'entitlement=${snapshot.entitlement.state.name};'
+            'commerce=${snapshot.commerceEligibility.state.name}',
+      );
       _apply(
         next,
         snapshot.personId.isEmpty ? null : snapshot.personId,
@@ -354,9 +384,18 @@ class _CocoonAuthenticatedHostState extends State<CocoonAuthenticatedHost>
         _clearGate3ReadModels();
       }
     } on LifeMateApiException catch (error) {
+      _diagnostic(
+        'bootstrap_api_error',
+        detail:
+            'status=${error.statusCode};code=${_safeDiagnosticCode(error.code)}',
+      );
       if (error.isUnauthorized) {
         await _forgetOfflineOwner();
         await (widget.signOut?.call() ?? LifeMateAuth.signOut());
+        if (widget.onSessionEnded case final onSessionEnded?) {
+          onSessionEnded();
+          return;
+        }
         _apply(CocoonEntryState.unauthenticated, null);
       } else if (error.statusCode == 0) {
         _markGate3ReadModelsStale();
@@ -365,13 +404,24 @@ class _CocoonAuthenticatedHostState extends State<CocoonAuthenticatedHost>
         _apply(CocoonEntryState.runtimeUnavailable, null);
       }
     } on FormatException {
+      _diagnostic('bootstrap_invalid_response');
       _apply(CocoonEntryState.runtimeUnavailable, null);
     } catch (_) {
+      _diagnostic('bootstrap_unexpected_error');
       _apply(CocoonEntryState.runtimeUnavailable, null);
     } finally {
       _refreshing = false;
     }
   }
+
+  void _diagnostic(String event, {String? detail}) {
+    if (!kDebugMode) return;
+    final suffix = detail == null ? '' : ' $detail';
+    debugPrint('CocoonMate diagnostic: event=$event$suffix');
+  }
+
+  String _safeDiagnosticCode(String value) =>
+      RegExp(r'^[A-Za-z0-9_.-]{1,48}$').hasMatch(value) ? value : 'unknown';
 
   Future<void> _refreshGate3ReadModels() async {
     if (_refreshingGate3 || _entryState != CocoonEntryState.activePregnancy) {
@@ -1471,6 +1521,8 @@ class _CocoonAuthenticatedHostState extends State<CocoonAuthenticatedHost>
       legacyAccountId: legacyAccountId,
       accessToken: () => LifeMateAuth.currentAccessToken,
       identityResolver: () async {
+        final sharedClient = widget.sharedApiClient;
+        if (sharedClient != null) return sharedClient.getCapabilities();
         final client = LifeMateApiClient(
           baseUri: widget.config.apiBaseUri,
           accessToken: () => LifeMateAuth.currentAccessToken,
@@ -1553,16 +1605,19 @@ class _CocoonAuthenticatedHostState extends State<CocoonAuthenticatedHost>
   }
 
   @override
-  Future<void> openLogin() async {
+  Future<void> returnToLifeMateAuth() async {
     await _forgetOfflineOwner();
-    await LifeMateAuth.signOut();
+    await (widget.signOut?.call() ?? LifeMateAuth.signOut());
+    widget.onSessionEnded?.call();
   }
 
   @override
   Future<void> openCommerce() async {
-    // #782 keeps Commerce authoritative. The subscription surface is mounted
-    // by the host in a later product slice; never fabricate local entitlement.
+    // Commerce remains authoritative. Until its product-specific surface is
+    // mounted, route the user to the shell-owned profile where membership is
+    // already visible; never fabricate local entitlement.
     recordSafeEvent('cocoon_commerce_requested');
+    (widget.onOpenCommerce ?? widget.onOpenGlobalProfile)?.call();
   }
 
   @override

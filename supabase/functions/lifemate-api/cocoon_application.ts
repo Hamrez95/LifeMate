@@ -141,11 +141,6 @@ export function createCocoonApplicationBoundary(databaseUrl: string) {
           from commerce.products
           where code='cocoonmate' and status='Active'
           limit 1
-        ), period_product as (
-          select id
-          from commerce.products
-          where code='period-calendar' and status='Active'
-          limit 1
         )
         select
           exists(select 1 from cocoon_product where lifecycle_status<>'Retired') as product_available,
@@ -159,40 +154,10 @@ export function createCocoonApplicationBoundary(databaseUrl: string) {
               and s.starts_at_utc<=now()
               and (s.current_period_end_utc is null or s.current_period_end_utc>now())
           ) as entitled,
-          exists(
-            select 1
-            from commerce.offers o
-            join cocoon_product cp on cp.id=o.product_id
-            where o.status='Published'
-              and cp.lifecycle_status='Published'
-          ) as offer_available,
-          exists(
-            select 1
-            from commerce.subscriptions source
-            join period_product pp on pp.id=source.product_id
-            join commerce.subscription_payment_sources ps on ps.subscription_id=source.id
-            join commerce.transaction_effective_state_v1 tx on tx.transaction_id=ps.transaction_id
-            where source.owner_account_id=${accountId}::uuid
-              and (source.beneficiary_person_id is null or source.beneficiary_person_id=${personId}::uuid)
-              and source.status='Active'
-              and source.starts_at_utc<=now()
-              and source.current_period_end_utc>now()
-              and ps.service_period_end_utc>now()
-              and tx.effective_normalized_status in ('Succeeded','Refunded')
-              and tx.net_collected_minor>0
-              and not exists(
-                select 1 from commerce.subscription_conversions c
-                where c.source_subscription_id=source.id
-              )
-              and not exists(
-                select 1
-                from commerce.subscriptions existing
-                join cocoon_product cp2 on cp2.id=existing.product_id
-                where existing.owner_account_id=${accountId}::uuid
-                  and (existing.beneficiary_person_id is null or existing.beneficiary_person_id=${personId}::uuid)
-                  and existing.status='Active'
-                  and (existing.current_period_end_utc is null or existing.current_period_end_utc>now())
-              )
+          commerce.cocoon_product_offer_available() as offer_available,
+          commerce.cocoon_period_conversion_eligible(
+            ${accountId}::uuid,
+            ${personId}::uuid
           ) as conversion_eligible
       `;
       const row = rows[0] ?? {};

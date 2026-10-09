@@ -21,9 +21,9 @@ Current implementation facts:
 - #1073 Stage-1 layered Camp art package is merged on `main` via PR #1188;
 - PR #1192 merged a compact two-family raster avatar fallback and world-actor seam; it is explicitly not completion of #1074's real Rive deliverable;
 - PR #1226 merged the twelve-variant raster age-band fallback catalog (two families × 2/10/20/30/50/70); it remains explicitly separate from #1074's real Rive deliverable;
-- #1074 remains the only OPEN Work-preferred visual/Rive production task;
-- #1076 remains genuinely blocked by the reusable Rive avatar output from #1074;
-- #1079 remains the representative-art/Rive performance/battery/accessibility Go/No-Go gate and must not close before #1074/#1076 are genuinely integrated with the merged #1073 art;
+- #1074 remains OPEN for a future production avatar, but the character is intentionally withheld from the first-release Camp;
+- #1076 is deferred with #1074; initial product navigation never depends on character movement;
+- #1079 remains the scene performance/battery/accessibility Go/No-Go gate and must profile the actual first-release configuration; an avatar-specific profile follows only when a production actor is integrated;
 - Today/Alerts lane #1087–#1090 is merged;
 - Circle lane #1091–#1094 is merged; #1094 shipped via PR #1157 with privacy-safe companion-summary coverage;
 - Global Markets & Localization canonical decision/backlog exists: Core Epic #1161, Admin Epic `Hamrez95/lifemate-admin#332`, P0/P1/P2 contract→runtime chain #1162–#1177, and separate Commerce security task #1176.
@@ -149,7 +149,7 @@ These are invariants:
 
 ### World
 - fixed elevated/isometric cinematic viewport;
-- layered **2.5D** world: raster environment layers + small independent Rive actors/effects;
+- layered **2.5D** world: raster environment layers + small independent Flutter effects; future Rive actors remain optional;
 - Flutter owns shell UI, routing, semantics, state orchestration and accessibility;
 - no free camera, drag/zoom, joystick or city-builder behavior;
 - Flame is out of MVP unless profiling proves Flutter + Rive insufficient;
@@ -161,7 +161,7 @@ These are invariants:
 - Persian RTL and English LTR are first-class.
 
 ### Avatar / companions
-- main avatar is autonomous/deterministic, not user-steered;
+- no main avatar is rendered in the first release; the future actor is autonomous/deterministic, not user-steered;
 - two character families × six life-stage variants (~2, 10, 20, 30, 50, 70) in later MVP completion;
 - initial customization: skin tone only;
 - extensible action contract begins with `idle`, `walk`, `sit`, `drink`, `wellness`, `care`, `exercise`, `wave`, `sleep`;
@@ -270,23 +270,20 @@ Completed/merged:
 - #1077 — permission-free day/night, lifecycle and Reduced Motion
 - #1078 — accessible WellMate hotspot + immediate canonical route transition
 
-Pending Work:
-- #1074 — first reusable Rive avatar — Work-preferred
+Deferred visual work:
+- #1074 — first reusable Rive avatar — Work-preferred, intentionally absent from the first release;
+- #1076 — Home → WellMate → Home character-route PoC — deferred with #1074.
 
-Dependency behavior while Work is pending:
-- #1076 — **blocked by #1074** because the Home → WellMate → Home PoC requires the real reusable Rive actor; representative environment art is already available from #1073.
-- #1079 — final performance/battery/accessibility Go/No-Go requires representative integrated #1074/#1076 behavior with the merged #1073 art.
-
-Recommended P0 continuation:
-1. keep #1074 in the Work queue and LIVE verify any returned output;
-2. when #1074 returns, integrate it and execute #1076;
-3. when #1074/#1076 are representative in runtime alongside the merged #1073 art, execute #1079;
-4. only then unlock Living Camp MVP expansion #1082–#1086.
+Recommended P0 continuation for the first release:
+1. keep the Camp actor-free and validate its real navigation, lifecycle, RTL/LTR and day/night behavior;
+2. execute #1079 with the merged #1073 art and the actor-free runtime configuration;
+3. unlock the non-actor parts of Living Camp MVP (#1082, #1085 and #1086) when that evidence is acceptable;
+4. return to #1074 and #1076 only when final character art and animation direction are available.
 
 ### P1 — Living Camp MVP
-Begins only after acceptable #1079 evidence:
+Begins only after acceptable first-release #1079 evidence:
 - #1082 — active/locked/expired module-zone presentation
-- #1083 — complete avatar families + eligible-zone route system
+- #1083 — complete avatar families + eligible-zone route system (after #1074/#1076 resume)
 - #1084 — consent-safe companion presentation
 - #1085 — CocoonMate/Women Health contextual resolver
 - #1086 — first-run Camp introduction
@@ -331,17 +328,17 @@ Journey is a meaningful life-stage narrative, not another dashboard.
 
 This is the canonical recoverable Work queue. Every item remains OPEN until Work output is merged and LIVE verified.
 
-### #1074 — READY FOR WORK
+### #1074 — DEFERRED AFTER FIRST RELEASE
 - **Title:** Produce first reusable Rive avatar for PoC
-- **Priority:** P0
+- **Priority:** later visual milestone
 - **Dependency order:** after #1071/#1072; renderer #1075 already exists
-- **Status:** `WORK HANDOFF — READY`; Issue OPEN
+- **Status:** Issue OPEN; deferred by the first-release no-character decision
 - **Why Work:** real Rive authoring/animation, reusable actor asset, state-machine/tint/export production
 - **Work prompt:** stored in GitHub Issue #1074 comment headed `WORK HANDOFF — READY`
-- **Can continue in parallel:** unrelated Shell/Global/contract work not requiring the actor
-- **True downstream blockers:** #1076 real avatar route PoC, actor-dependent portions of #1079, later avatar-family expansion
+- **Can continue in parallel:** all first-release Shell, Camp, product and quality work
+- **Downstream when resumed:** #1076 real avatar route PoC and later avatar-family expansion
 
-When Work output appears, verify it before removing an item from this section.
+When final art and a Rive-capable workspace are available, verify the output before mounting it in the runtime.
 
 ## 9. Progression & Rewards future path
 
@@ -407,8 +404,8 @@ Impact Grove/cause vessels, if built later, are read-only presentation of canoni
 
 At this reconciliation point:
 
-1. **Keep #1074 in the Work queue and do not fake-complete Rive authoring.** When its real actor output returns, integrate it and execute #1076.
-2. The next Living Camp gate is #1079 only after #1074 and #1076 are representative with the merged #1073 assets.
+1. **Keep #1074 open and do not fake-complete Rive authoring.** It is not part of the first-release Camp runtime; resume it with #1076 after final actor art is available.
+2. The next Living Camp gate is #1079 against the merged #1073 scene without an avatar.
 3. For Global Markets, the earliest architectural implementation chain is #1162 → #1169, followed by #1163/#1164 → #1170/#1171. Do not let Admin #334 treat #1162 contract-only completion as a production read model.
 4. Reconcile LIVE again after each merge; do not infer priority from issue number.
 

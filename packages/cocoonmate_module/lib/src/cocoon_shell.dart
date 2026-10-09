@@ -23,14 +23,14 @@ class _CocoonShellState extends State<CocoonShell> {
         CocoonEntryState.loading => _loading(),
         CocoonEntryState.unauthenticated => _gate(
             Icons.lock_outline,
-            t('Private by design', 'حریم تو، از همان ابتدا'),
-            t('Sign in to continue', 'برای ادامه وارد شوید'),
+            t('LifeMate session ended', 'نشست LifeMate پایان یافت'),
+            t('Continue in LifeMate', 'ادامه در LifeMate'),
             t(
-              'Your pregnancy information stays connected to your protected LifeMate account.',
-              'اطلاعات بارداری‌ات به حساب محافظت‌شدهٔ LifeMate متصل می‌ماند.',
+              'Return to the LifeMate sign-in screen to continue. CocoonMate does not have a separate sign-in.',
+              'برای ادامه به صفحهٔ ورود LifeMate برگرد. کوکون‌میت ورود جداگانه ندارد.',
             ),
-            t('Sign in', 'ورود'),
-            host.openLogin,
+            t('Return to LifeMate', 'بازگشت به LifeMate'),
+            host.returnToLifeMateAuth,
           ),
         CocoonEntryState.runtimeUnavailable => _gate(
             Icons.cloud_off_outlined,
@@ -62,8 +62,8 @@ class _CocoonShellState extends State<CocoonShell> {
             t('Access', 'دسترسی'),
             t('Choose access to CocoonMate', 'دسترسی کوکون‌میت را انتخاب کنید'),
             t(
-              'Your health information is separate from subscription. Review the available options before continuing.',
-              'اطلاعات سلامت از اشتراک جداست؛ پیش از ادامه گزینه‌های موجود را ببین.',
+              'CocoonMate access is not active for this account yet. Review the available options; your health information remains separate from subscription.',
+              'دسترسی کوکون‌میت هنوز برای این حساب فعال نیست. گزینه‌های موجود را ببین؛ اطلاعات سلامت از اشتراک جدا نگه داشته می‌شود.',
             ),
             t('View options', 'مشاهده گزینه‌ها'),
             host.openCommerce,

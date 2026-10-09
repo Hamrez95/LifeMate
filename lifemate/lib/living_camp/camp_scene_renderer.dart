@@ -162,6 +162,7 @@ class CampSceneRenderer extends StatelessWidget {
     required this.presentations,
     required this.layers,
     this.actors = const [],
+    this.enabledZoneIds,
     this.worldSize = const CampWorldSize(),
     this.onZoneTap,
   });
@@ -170,6 +171,7 @@ class CampSceneRenderer extends StatelessWidget {
   final List<CampZonePresentation> presentations;
   final List<CampSceneLayer> layers;
   final List<CampSceneActor> actors;
+  final Set<String>? enabledZoneIds;
   final CampWorldSize worldSize;
   final ValueChanged<String>? onZoneTap;
 
@@ -272,6 +274,9 @@ class CampSceneRenderer extends StatelessWidget {
       variant: presentation.variant,
     );
     final statePresentation = _statePresentation(presentation);
+    final zoneEnabled =
+        onZoneTap != null &&
+        (enabledZoneIds == null || enabledZoneIds!.contains(zone.zoneId));
 
     return Positioned(
       left: topLeft.dx,
@@ -280,13 +285,13 @@ class CampSceneRenderer extends StatelessWidget {
       height: zone.bounds.height * scale,
       child: Semantics(
         button: true,
-        enabled: onZoneTap != null,
+        enabled: zoneEnabled,
         label: zone.semanticLabel,
         hint: statePresentation.label,
         child: GestureDetector(
           key: ValueKey<String>('camp-zone-hit-${zone.zoneId}'),
           behavior: HitTestBehavior.opaque,
-          onTap: onZoneTap == null ? null : () => onZoneTap!(zone.zoneId),
+          onTap: zoneEnabled ? () => onZoneTap!(zone.zoneId) : null,
           child: Stack(
             fit: StackFit.expand,
             children: [

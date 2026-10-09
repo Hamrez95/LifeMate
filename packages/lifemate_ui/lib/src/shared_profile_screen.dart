@@ -45,7 +45,9 @@ class LifeMateSharedProfileScreen extends StatelessWidget {
     required this.onReferral,
     required this.onSupport,
     required this.onManageSubscriptions,
+    this.onBack,
     this.additionalActions = const <LifeMateProfileAdditionalAction>[],
+    this.additionalSections = const <Widget>[],
   });
 
   final LifeMateApiClient apiClient;
@@ -64,7 +66,9 @@ class LifeMateSharedProfileScreen extends StatelessWidget {
   final VoidCallback onReferral;
   final VoidCallback onSupport;
   final VoidCallback onManageSubscriptions;
+  final VoidCallback? onBack;
   final List<LifeMateProfileAdditionalAction> additionalActions;
+  final List<Widget> additionalSections;
 
   @override
   Widget build(BuildContext context) {
@@ -94,7 +98,7 @@ class LifeMateSharedProfileScreen extends StatelessWidget {
                         size: 24,
                         color: theme.accent,
                       ),
-                      onPressed: () => Navigator.of(context).pop(),
+                      onPressed: onBack ?? () => Navigator.of(context).pop(),
                     ),
                     SizedBox(width: 8),
                     Expanded(
@@ -236,6 +240,14 @@ class LifeMateSharedProfileScreen extends StatelessWidget {
                   ),
                 ),
               ),
+              for (final section in additionalSections)
+                Padding(
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 24,
+                    vertical: 8,
+                  ),
+                  child: section,
+                ),
               Padding(
                 padding: EdgeInsets.symmetric(horizontal: 24, vertical: 8),
                 child: OutlinedButton.icon(
@@ -423,9 +435,8 @@ class LifeMateSharedProfileScreen extends StatelessWidget {
     } on LifeMateApiException catch (error) {
       if (context.mounted) Navigator.of(context, rootNavigator: true).pop();
       if (!context.mounted) return;
-      ScaffoldMessenger.of(
-        context,
-      ).showSnackBar(SnackBar(content: Text(error.message)));
+      ScaffoldMessenger.of(context)
+          .showSnackBar(SnackBar(content: Text(error.message)));
     } catch (_) {
       if (context.mounted) Navigator.of(context, rootNavigator: true).pop();
       if (!context.mounted) return;
@@ -631,7 +642,9 @@ class _CurrentUserIdentityState extends State<_CurrentUserIdentity> {
 
   void _reloadIdentity() {
     if (!mounted) return;
-    setState(() => _currentUser = widget.apiClient.getCurrentUser());
+    setState(() {
+      _currentUser = widget.apiClient.getCurrentUser();
+    });
   }
 
   void _openEditor() {

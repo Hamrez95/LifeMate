@@ -30,9 +30,17 @@ final ValueNotifier<LifeMatePendingSyncEvent?> lifeMatePendingSyncEvent =
 final ValueNotifier<LifeMateOfflineSyncResult?> lifeMateOfflineSyncResult =
     ValueNotifier<LifeMateOfflineSyncResult?>(null);
 
-typedef LifeMateTreatmentReminderReconciler = Future<void> Function(
-  Map<String, dynamic> serverSnapshot,
-);
+typedef LifeMateTreatmentReminderReconciler =
+    Future<void> Function(Map<String, dynamic> serverSnapshot);
+
+typedef LifeMateOfflineRuntimeInitializer =
+    Future<void> Function({
+      required String environmentId,
+      required String accountId,
+      required String personId,
+      required String legacyAuthenticatedAccountId,
+      required String timeZone,
+    });
 
 /// Privacy-minimal outcome for one treatment reconnect cycle.
 final class LifeMateTreatmentReconnectResult {
@@ -63,11 +71,13 @@ class DurableLifeMateApiClient extends LifeMateApiClient {
     required LifeMateAccountIdProvider accountId,
     required LifeMateDurableHttpClient durableHttp,
     required LifeMateIncrementalProjectionApi incrementalProjectionApi,
+    LifeMateOfflineRuntimeInitializer? offlineRuntimeInitializer,
   }) : _baseUri = baseUri,
        _accessToken = accessToken,
        _legacyAuthenticatedAccountId = accountId,
        _durableHttp = durableHttp,
        _incrementalProjectionApi = incrementalProjectionApi,
+       _offlineRuntimeInitializer = offlineRuntimeInitializer,
        super(
          baseUri: baseUri,
          accessToken: accessToken,
@@ -80,6 +90,7 @@ class DurableLifeMateApiClient extends LifeMateApiClient {
     required LifeMateAccountIdProvider accountId,
     LifeMateOfflineMutationQueue? queue,
     http.Client? innerHttpClient,
+    LifeMateOfflineRuntimeInitializer? offlineRuntimeInitializer,
   }) {
     final durableHttp = LifeMateDurableHttpClient(
       apiBaseUri: baseUri,
@@ -98,6 +109,7 @@ class DurableLifeMateApiClient extends LifeMateApiClient {
       accountId: accountId,
       durableHttp: durableHttp,
       incrementalProjectionApi: incrementalProjectionApi,
+      offlineRuntimeInitializer: offlineRuntimeInitializer,
     );
   }
 
@@ -106,9 +118,19 @@ class DurableLifeMateApiClient extends LifeMateApiClient {
   final LifeMateAccountIdProvider _legacyAuthenticatedAccountId;
   final LifeMateDurableHttpClient _durableHttp;
   final LifeMateIncrementalProjectionApi _incrementalProjectionApi;
+  final LifeMateOfflineRuntimeInitializer? _offlineRuntimeInitializer;
   LifeMateSharedOfflineRuntime? _sharedRuntime;
   LifeMateCareEventProjectionSync? _careEventProjectionSync;
   String? _sharedRuntimeLegacyAccountId;
+  ({
+    String environmentId,
+    String accountId,
+    String personId,
+    String legacyAuthenticatedAccountId,
+    String timeZone,
+  })?
+  _lastOfflineRuntimeRequest;
+  final ValueNotifier<bool> offlineRuntimeAvailable = ValueNotifier(true);
 
   @override
   Future<Map<String, dynamic>> bootstrapUser({
@@ -148,14 +170,67 @@ class DurableLifeMateApiClient extends LifeMateApiClient {
         message: 'The LifeMate person mapping is unavailable.',
       );
     }
-    await adoptSharedOfflineRuntime(
+    final request = (
       environmentId: _baseUri.toString(),
       accountId: capabilities.accountId,
       personId: personId,
       legacyAuthenticatedAccountId: legacyAuthenticatedAccountId,
       timeZone: timeZone,
     );
+    _lastOfflineRuntimeRequest = request;
+    try {
+      await _initializeOfflineRuntime(request);
+      offlineRuntimeAvailable.value = true;
+    } on Object catch (error) {
+      // Authentication and the online shell remain usable if local encrypted
+      // storage is unavailable. Replay stays deferred, and the legacy queue is
+      // left intact for a later successful migration.
+      offlineRuntimeAvailable.value = false;
+      if (kDebugMode) {
+        debugPrint(
+          'Offline runtime initialization failed: ${error.runtimeType}',
+        );
+      }
+    }
     return bootstrapped;
+  }
+
+  Future<void> retryOfflineRuntimeInitialization() async {
+    final request = _lastOfflineRuntimeRequest;
+    if (request == null) {
+      throw StateError('Offline runtime identity is not available yet.');
+    }
+    await _initializeOfflineRuntime(request);
+    offlineRuntimeAvailable.value = true;
+  }
+
+  Future<void> _initializeOfflineRuntime(
+    ({
+      String environmentId,
+      String accountId,
+      String personId,
+      String legacyAuthenticatedAccountId,
+      String timeZone,
+    })
+    request,
+  ) {
+    final initializer = _offlineRuntimeInitializer;
+    if (initializer != null) {
+      return initializer(
+        environmentId: request.environmentId,
+        accountId: request.accountId,
+        personId: request.personId,
+        legacyAuthenticatedAccountId: request.legacyAuthenticatedAccountId,
+        timeZone: request.timeZone,
+      );
+    }
+    return adoptSharedOfflineRuntime(
+      environmentId: request.environmentId,
+      accountId: request.accountId,
+      personId: request.personId,
+      legacyAuthenticatedAccountId: request.legacyAuthenticatedAccountId,
+      timeZone: request.timeZone,
+    );
   }
 
   Future<void> adoptSharedOfflineRuntime({
@@ -218,6 +293,7 @@ class DurableLifeMateApiClient extends LifeMateApiClient {
       api: _incrementalProjectionApi,
     );
     _sharedRuntimeLegacyAccountId = normalizedLegacyAccount;
+    offlineRuntimeAvailable.value = true;
     _durableHttp.useReplayDelegate(() async {
       if (_legacyAuthenticatedAccountId()?.trim() != normalizedLegacyAccount) {
         return const LifeMateOfflineSyncResult();
@@ -358,7 +434,8 @@ class DurableLifeMateApiClient extends LifeMateApiClient {
     }
   }
 
-  Future<List<Map<String, dynamic>>> pendingOfflineTreatmentPlanCreates() async {
+  Future<List<Map<String, dynamic>>>
+  pendingOfflineTreatmentPlanCreates() async {
     final runtime = _activeSharedRuntime();
     if (runtime == null) {
       throw StateError(
@@ -662,6 +739,7 @@ class DurableLifeMateApiClient extends LifeMateApiClient {
     _sharedRuntime?.close();
     _sharedRuntime = null;
     _sharedRuntimeLegacyAccountId = null;
+    offlineRuntimeAvailable.dispose();
     _incrementalProjectionApi.close();
     super.close();
   }

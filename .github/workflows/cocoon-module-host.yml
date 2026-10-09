@@ -93,6 +93,27 @@ jobs:
       - name: Test standalone host
         working-directory: cocoonmate
         run: flutter test
+      - name: Build standalone web app
+        working-directory: cocoonmate
+        env:
+          SUPABASE_URL: https://cocoon-ci.invalid
+          SUPABASE_PUBLISHABLE_KEY: sb_publishable_ci-test-key
+          LIFEMATE_API_BASE_URL: https://cocoon-ci.invalid/functions/v1/lifemate-api
+        run: >-
+          flutter build web --release
+          --dart-define="SUPABASE_URL=$SUPABASE_URL"
+          --dart-define="SUPABASE_PUBLISHABLE_KEY=$SUPABASE_PUBLISHABLE_KEY"
+          --dart-define="LIFEMATE_API_BASE_URL=$LIFEMATE_API_BASE_URL"
+      - name: Verify standalone web output and branding
+        working-directory: cocoonmate
+        shell: bash
+        run: |
+          set -euo pipefail
+          test -s build/web/index.html
+          test -s build/web/manifest.json
+          test -s build/web/icons/Icon-192.png
+          test -s build/web/icons/Icon-512.png
+          grep -Fq '<title>CocoonMate</title>' build/web/index.html
       - name: Build standalone Android APK
         working-directory: cocoonmate
         run: flutter build apk --debug

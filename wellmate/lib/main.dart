@@ -115,12 +115,14 @@ class WellMateApp extends StatelessWidget {
     this.home,
     this.config,
     this.authInitialized = false,
+    this.packageAssetName,
   });
 
   /// Allows tests to supply a side-effect-free root.
   final Widget? home;
   final AppConfig? config;
   final bool authInitialized;
+  final String? packageAssetName;
 
   @override
   Widget build(BuildContext context) {
@@ -182,8 +184,10 @@ class WellMateApp extends StatelessWidget {
             useMaterial3: true,
           ),
           locale: localeProvider.locale,
-          localizationsDelegates: const [
-            AppLocalizations.delegate,
+          localizationsDelegates: [
+            packageAssetName == null
+                ? AppLocalizations.delegate
+                : AppLocalizations.delegateFor(packageAssetName!),
             GlobalMaterialLocalizations.delegate,
             GlobalWidgetsLocalizations.delegate,
             GlobalCupertinoLocalizations.delegate,
@@ -191,7 +195,7 @@ class WellMateApp extends StatelessWidget {
           supportedLocales: const [Locale('fa'), Locale('en')],
           builder: (context, child) {
             final appChild = child ?? const SizedBox.shrink();
-            return Directionality(
+            final directedChild = Directionality(
               textDirection: isPersian ? TextDirection.rtl : TextDirection.ltr,
               child: MediaQuery(
                 data: MediaQuery.of(context).copyWith(
@@ -202,6 +206,13 @@ class WellMateApp extends StatelessWidget {
                 child: appChild,
               ),
             );
+            final packageName = packageAssetName;
+            return packageName == null
+                ? directedChild
+                : LifeMatePackageAssetBundle(
+                    packageName: packageName,
+                    child: directedChild,
+                  );
           },
           home: home ?? _productionHome(runtimeConfig, authInitialized),
         );
@@ -255,6 +266,8 @@ class WellMateEmbeddedModule extends StatefulWidget {
     required this.apiClient,
     required this.locale,
     required this.onOpenGlobalProfile,
+    this.config,
+    this.remoteConfigClient,
     this.initialTab = 5,
     super.key,
   });
@@ -262,6 +275,8 @@ class WellMateEmbeddedModule extends StatefulWidget {
   final LifeMateApiClient apiClient;
   final Locale locale;
   final VoidCallback onOpenGlobalProfile;
+  final AppConfig? config;
+  final LifeMateRemoteConfigClient? remoteConfigClient;
   final int initialTab;
 
   @override
@@ -285,47 +300,47 @@ class _WellMateEmbeddedModuleState extends State<WellMateEmbeddedModule> {
   });
 
   @override
+  void initState() {
+    super.initState();
+    // Product navigation must not wait for a platform notification plugin.
+    unawaited(_notificationReady);
+  }
+
+  @override
   void dispose() {
     _notificationProvider.detachApiClient(widget.apiClient);
     super.dispose();
   }
 
   @override
-  Widget build(BuildContext context) => FutureBuilder<void>(
-        future: _notificationReady,
-        builder: (context, snapshot) {
-          if (snapshot.connectionState != ConnectionState.done) {
-            return const Scaffold(
-                body: Center(child: CircularProgressIndicator()));
-          }
-          return MultiProvider(
-            providers: [
-              ChangeNotifierProvider<NotificationProvider>.value(
-                value: _notificationProvider,
-              ),
-              ChangeNotifierProvider(
-                  create: (_) => LocaleProvider(initialLocale: widget.locale)),
-              ChangeNotifierProvider(create: (_) => SettingsProvider()),
-              ChangeNotifierProvider(create: (_) => MedicationProvider()),
-            ],
-            child: WellMateApp(
-              config: AppConfig.fromEnvironment(),
-              authInitialized: true,
-              home: Provider<LifeMateApiClient>.value(
-                value: widget.apiClient,
-                child: LifeMateRuntimeConfigGate(
-                  product: 'wellmate',
-                  currentVersion: wellMateAppVersion,
-                  child: _AuthenticatedWellMateShell(
-                    apiClient: widget.apiClient,
-                    onOpenGlobalProfile: widget.onOpenGlobalProfile,
-                    initialTab: widget.initialTab,
-                  ),
-                ),
+  Widget build(BuildContext context) => MultiProvider(
+        providers: [
+          ChangeNotifierProvider<NotificationProvider>.value(
+            value: _notificationProvider,
+          ),
+          ChangeNotifierProvider(
+              create: (_) => LocaleProvider(initialLocale: widget.locale)),
+          ChangeNotifierProvider(create: (_) => SettingsProvider()),
+          ChangeNotifierProvider(create: (_) => MedicationProvider()),
+        ],
+        child: WellMateApp(
+          config: widget.config ?? AppConfig.fromEnvironment(),
+          authInitialized: true,
+          packageAssetName: 'wellmate',
+          home: Provider<LifeMateApiClient>.value(
+            value: widget.apiClient,
+            child: LifeMateRuntimeConfigGate(
+              client: widget.remoteConfigClient,
+              product: 'wellmate',
+              currentVersion: wellMateAppVersion,
+              child: _AuthenticatedWellMateShell(
+                apiClient: widget.apiClient,
+                onOpenGlobalProfile: widget.onOpenGlobalProfile,
+                initialTab: widget.initialTab,
               ),
             ),
-          );
-        },
+          ),
+        ),
       );
 }
 
@@ -350,6 +365,7 @@ class _AuthenticatedWellMateShellState
   final GlobalKey<NavigatorState> _navigatorKey = GlobalKey<NavigatorState>();
   final WellMateNavigationRefreshObserver _refreshObserver =
       WellMateNavigationRefreshObserver();
+  late NotificationProvider _notifications;
   Timer? _widgetSyncTimer;
   bool _widgetSyncInFlight = false;
   bool _groupNavigationQueued = false;
@@ -357,9 +373,9 @@ class _AuthenticatedWellMateShellState
   @override
   void initState() {
     super.initState();
-    final notifications = context.read<NotificationProvider>();
-    notifications.attachApiClient(widget.apiClient);
-    notifications.addListener(_scheduleGroupedMedicationNavigation);
+    _notifications = context.read<NotificationProvider>();
+    _notifications.attachApiClient(widget.apiClient);
+    _notifications.addListener(_scheduleGroupedMedicationNavigation);
     WidgetsBinding.instance.addObserver(this);
     WellMateRefreshSignal.revision.addListener(_scheduleMedicationWidgetSync);
     scheduleMicrotask(_scheduleMedicationWidgetSync);
@@ -435,9 +451,8 @@ class _AuthenticatedWellMateShellState
 
   @override
   void dispose() {
-    final notifications = context.read<NotificationProvider>();
-    notifications.removeListener(_scheduleGroupedMedicationNavigation);
-    notifications.detachApiClient(widget.apiClient);
+    _notifications.removeListener(_scheduleGroupedMedicationNavigation);
+    _notifications.detachApiClient(widget.apiClient);
     _widgetSyncTimer?.cancel();
     WellMateRefreshSignal.revision.removeListener(
       _scheduleMedicationWidgetSync,

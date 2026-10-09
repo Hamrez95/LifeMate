@@ -38,6 +38,31 @@ void main() {
     }
   });
 
+  test('active server capabilities control enrolled product houses', () {
+    final registry = LifeMateModuleRegistry.production().withCapabilities(
+      const LifeMateCapabilitySnapshot(
+        accountId: 'account-1',
+        selfPersonId: 'person-1',
+        applications: {'wellmate'},
+        features: {'treatment.basic'},
+      ),
+    );
+
+    expect(
+      registry.byId(LifeMateModuleId.wellMate)?.availability,
+      ModuleAvailability.available,
+    );
+    expect(
+      registry.byId(LifeMateModuleId.careMate)?.availability,
+      ModuleAvailability.unavailable,
+    );
+    // Cocoon's authenticated bootstrap owns its first-time enrollment flow.
+    expect(
+      registry.byId(LifeMateModuleId.cocoonMate)?.availability,
+      ModuleAvailability.available,
+    );
+  });
+
   test('registry rejects duplicate IDs and duplicate routes', () {
     const first = LifeMateModuleDefinition(
       id: LifeMateModuleId.wellMate,
@@ -156,6 +181,46 @@ void main() {
     expect(find.textContaining('shell is still available'), findsOneWidget);
   });
 
+  testWidgets('module entry transition is disabled for reduced motion', (
+    tester,
+  ) async {
+    final observer = _ModuleRouteObserver();
+    const module = LifeMateModuleDefinition(
+      id: LifeMateModuleId.cocoonMate,
+      routeName: '/modules/cocoonmate',
+      labelEn: 'CocoonMate',
+      labelFa: 'کوکون‌میت',
+      icon: Icons.child_friendly_outlined,
+      availability: ModuleAvailability.available,
+      pageBuilder: _modulePage,
+    );
+
+    await tester.pumpWidget(
+      MaterialApp(
+        navigatorObservers: [observer],
+        home: MediaQuery(
+          data: const MediaQueryData(disableAnimations: true),
+          child: Builder(
+            builder: (context) => TextButton(
+              onPressed: () => openLifeMateModule(
+                context,
+                module: module,
+                isPersian: false,
+                apiClient: null,
+              ),
+              child: const Text('Open CocoonMate'),
+            ),
+          ),
+        ),
+      ),
+    );
+
+    await tester.tap(find.text('Open CocoonMate'));
+    await tester.pumpAndSettle();
+
+    expect(observer.moduleRoute?.transitionDuration, Duration.zero);
+  });
+
   testWidgets('Persian unavailable state remains RTL-compatible', (
     tester,
   ) async {
@@ -185,4 +250,22 @@ void main() {
     expect(find.text('کوکون‌میت'), findsWidgets);
     expect(find.textContaining('در وضعیت فعلی حساب'), findsOneWidget);
   });
+}
+
+Widget _modulePage(
+  BuildContext context,
+  LifeMateApiClient apiClient,
+  LifeMateModuleHostActions hostActions,
+) => const Scaffold(body: Text('Product home'));
+
+class _ModuleRouteObserver extends NavigatorObserver {
+  PageRoute<dynamic>? moduleRoute;
+
+  @override
+  void didPush(Route<dynamic> route, Route<dynamic>? previousRoute) {
+    if (route.settings.name == '/modules/cocoonmate' &&
+        route is PageRoute<dynamic>) {
+      moduleRoute = route;
+    }
+  }
 }

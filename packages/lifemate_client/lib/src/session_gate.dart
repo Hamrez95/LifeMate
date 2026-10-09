@@ -1277,15 +1277,12 @@ class ConfigurationRequiredScreen extends StatelessWidget {
     appName: appName,
     icon: Icons.settings_suggest_rounded,
     title: LifeMateRuntimeLocale.select(
-      fa: LifeMateRuntimeLocale.select(
-        fa: '$appName هنوز برای این محیط تنظیم نشده است',
-        en: "$appName has not yet been set for this environment",
-      ),
+      fa: '$appName هنوز برای این محیط تنظیم نشده است',
       en: "$appName has not yet been set for this environment",
     ),
     message: LifeMateRuntimeLocale.select(
       fa: 'مقادیر build-time زیر لازم‌اند:\n${missingValues.join(', ')}',
-      en: "The following build-time values ​​are required:\\n${missingValues.join(', ')}",
+      en: 'The following build-time values are required:\n${missingValues.join(', ')}',
     ),
   );
 }

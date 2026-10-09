@@ -2,8 +2,6 @@ import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:lifemate/living_camp/camp_environment.dart';
 import 'package:lifemate/living_camp/camp_home.dart';
-import 'package:lifemate/living_camp/camp_avatar_fallback.dart';
-import 'package:lifemate/living_camp/camp_vector_avatar.dart';
 
 void main() {
   const resolver = CampDaylightResolver();
@@ -195,7 +193,7 @@ void main() {
     expect(openedToday, isTrue);
   });
 
-  testWidgets('Camp actor walks the path and performs a one-shot drink', (
+  testWidgets('first-release Camp does not mount a placeholder avatar', (
     tester,
   ) async {
     await tester.pumpWidget(
@@ -205,18 +203,19 @@ void main() {
             isPersian: false,
             onOpenToday: () {},
             onOpenWellMate: () {},
-            nowUtc: () => DateTime.utc(2026, 1, 1, 19),
+            nowUtc: () => DateTime.utc(2026, 1, 1, 12),
           ),
         ),
       ),
     );
-    await tester.pump(const Duration(milliseconds: 100));
-    CampVectorAvatar actor() => tester.widget(find.byType(CampVectorAvatar));
-    expect(actor().action, CampAvatarAction.walk);
 
-    await tester.pump(const Duration(seconds: 5));
-    expect(actor().action, CampAvatarAction.drink);
-    await tester.pump(const Duration(seconds: 2));
-    expect(actor().action, CampAvatarAction.walk);
+    expect(
+      find.byKey(const ValueKey('camp-actor-main_avatar_vector')),
+      findsNothing,
+    );
+    expect(
+      find.byKey(const ValueKey('camp-window-lights-lifemate_home')),
+      findsOneWidget,
+    );
   });
 }

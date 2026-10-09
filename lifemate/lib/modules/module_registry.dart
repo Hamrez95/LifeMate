@@ -5,6 +5,8 @@ import 'package:caremate/main.dart' show CareMateEmbeddedModule;
 import 'package:cocoonmate/app/cocoon_standalone_app.dart'
     show CocoonAuthenticatedHost;
 
+import '../profile/module_profile_sections.dart';
+
 enum LifeMateModuleId { wellMate, careMate, cocoonMate, womenHealth, fitMate }
 
 enum ModuleAvailability { available, locked, unavailable }
@@ -22,10 +24,12 @@ typedef ModulePageBuilder =
 class LifeMateModuleHostActions {
   const LifeMateModuleHostActions({
     this.onOpenGlobalProfile = _moduleNoop,
+    this.onOpenCommerce = _moduleNoop,
     this.onReturnHome = _moduleNoop,
   });
 
   final VoidCallback onOpenGlobalProfile;
+  final VoidCallback onOpenCommerce;
   final VoidCallback onReturnHome;
 }
 
@@ -108,6 +112,49 @@ class LifeMateModuleRegistry {
     ]);
   }
 
+  /// Applies the reviewed capability snapshot to modules that require an
+  /// existing shell enrollment before entry. Cocoon remains launchable because
+  /// its authenticated bootstrap is the reviewed enrollment and availability
+  /// resolver for that product.
+  LifeMateModuleRegistry withCapabilities(
+    LifeMateCapabilitySnapshot capabilities,
+  ) {
+    final activeApplications = capabilities.applications;
+    return LifeMateModuleRegistry([
+      for (final module in _modules.values)
+        if (module.id == LifeMateModuleId.wellMate ||
+            module.id == LifeMateModuleId.careMate)
+          _withAvailability(
+            module,
+            activeApplications.contains(_applicationCode(module.id))
+                ? ModuleAvailability.available
+                : ModuleAvailability.unavailable,
+          )
+        else
+          module,
+    ]);
+  }
+
+  static String _applicationCode(LifeMateModuleId id) => switch (id) {
+    LifeMateModuleId.wellMate => 'wellmate',
+    LifeMateModuleId.careMate => 'caremate',
+    _ => throw ArgumentError.value(id, 'id', 'Module has no app enrollment.'),
+  };
+
+  static LifeMateModuleDefinition _withAvailability(
+    LifeMateModuleDefinition module,
+    ModuleAvailability availability,
+  ) => LifeMateModuleDefinition(
+    id: module.id,
+    routeName: module.routeName,
+    labelEn: module.labelEn,
+    labelFa: module.labelFa,
+    icon: module.icon,
+    availability: availability,
+    pageBuilder: module.pageBuilder,
+    profileSectionsBuilder: module.profileSectionsBuilder,
+  );
+
   factory LifeMateModuleRegistry.foundation() {
     return LifeMateModuleRegistry(const [
       LifeMateModuleDefinition(
@@ -155,7 +202,12 @@ class LifeMateModuleRegistry {
 
   /// Production product roots. The shell passes its own authenticated API
   /// client and navigation actions into each mounted product experience.
-  factory LifeMateModuleRegistry.production() {
+  factory LifeMateModuleRegistry.production({
+    AppConfig? config,
+    LifeMateRemoteConfigClient Function(String product)?
+    remoteConfigClientBuilder,
+    LifeMateCompanionCareApi Function()? companionCareApiBuilder,
+  }) {
     return LifeMateModuleRegistry([
       LifeMateModuleDefinition(
         id: LifeMateModuleId.wellMate,
@@ -169,7 +221,10 @@ class LifeMateModuleRegistry {
               apiClient: apiClient,
               locale: Localizations.localeOf(context),
               onOpenGlobalProfile: hostActions.onOpenGlobalProfile,
+              config: config,
+              remoteConfigClient: remoteConfigClientBuilder?.call('wellmate'),
             ),
+        profileSectionsBuilder: buildWellMateProfileSections,
       ),
       LifeMateModuleDefinition(
         id: LifeMateModuleId.careMate,
@@ -183,7 +238,11 @@ class LifeMateModuleRegistry {
               apiClient: apiClient,
               locale: Localizations.localeOf(context),
               onOpenGlobalProfile: hostActions.onOpenGlobalProfile,
+              config: config,
+              remoteConfigClient: remoteConfigClientBuilder?.call('caremate'),
+              companionCareApi: companionCareApiBuilder?.call(),
             ),
+        profileSectionsBuilder: buildCareMateProfileSections,
       ),
       LifeMateModuleDefinition(
         id: LifeMateModuleId.cocoonMate,
@@ -196,7 +255,10 @@ class LifeMateModuleRegistry {
             CocoonAuthenticatedHost(
               config: AppConfig.fromEnvironment(),
               locale: Localizations.localeOf(context),
+              sharedApiClient: apiClient,
               onOpenGlobalProfile: hostActions.onOpenGlobalProfile,
+              onOpenCommerce: hostActions.onOpenCommerce,
+              onSessionEnded: hostActions.onReturnHome,
             ),
       ),
       ...LifeMateModuleRegistry.foundation().modules.where(

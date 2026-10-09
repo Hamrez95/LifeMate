@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:lifemate_client/lifemate_client.dart';
-import 'package:lifemate_ui/lifemate_ui.dart';
+import 'package:lifemate_ui/lifemate_ui.dart'
+    hide LifeMateSubscriptionCenterScreen;
 import 'package:provider/provider.dart';
 
 import '../../core/constants/app_version.dart';

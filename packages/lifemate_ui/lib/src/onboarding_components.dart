@@ -54,53 +54,69 @@ class LifeMateOnboardingScaffold extends StatelessWidget {
       backgroundColor: theme.background,
       body: SafeArea(
         bottom: false,
-        child: Column(
-          children: [
-            LifeMateOnboardingHeader(
-              theme: theme,
-              title: title,
-              progress: progress,
-              progressLabel: progressLabel,
-              onBack: onBack,
-              compact: keyboardVisible,
-            ),
-            Expanded(
-              child: Padding(
-                padding: const EdgeInsets.symmetric(
-                  horizontal: LifeMateOnboardingMetrics.screenGutter,
-                ),
-                child: body,
-              ),
-            ),
-            Padding(
-              padding: actionPadding,
-              child: Column(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  LifeMatePrimaryOnboardingButton(
-                    theme: theme,
-                    label: primaryLabel,
-                    onPressed: onPrimary,
-                    busy: primaryBusy,
-                  ),
-                  if (secondary != null) ...[
-                    SizedBox(height: keyboardVisible ? 2 : 6),
-                    ConstrainedBox(
-                      constraints: BoxConstraints(
-                        minHeight: keyboardVisible
-                            ? 40
-                            : LifeMateOnboardingMetrics.minTouchTarget,
-                      ),
-                      child: Center(child: secondary),
+        child: LayoutBuilder(
+          builder: (context, constraints) {
+            final maxWidth = constraints.maxWidth >= 720
+                ? 560.0
+                : constraints.maxWidth;
+            return Center(
+              child: ConstrainedBox(
+                constraints: BoxConstraints(maxWidth: maxWidth),
+                child: Column(
+                  children: [
+                    LifeMateOnboardingHeader(
+                      theme: theme,
+                      title: title,
+                      progress: progress,
+                      progressLabel: progressLabel,
+                      onBack: onBack,
+                      compact: keyboardVisible,
                     ),
-                  ] else
-                    SizedBox(height: keyboardVisible ? 2 : 12),
-                ],
+                    Expanded(
+                      child: Padding(
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: LifeMateOnboardingMetrics.screenGutter,
+                        ),
+                        child: body,
+                      ),
+                    ),
+                    Padding(
+                      padding: actionPadding,
+                      child: Column(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          LifeMatePrimaryOnboardingButton(
+                            theme: theme,
+                            label: primaryLabel,
+                            onPressed: onPrimary,
+                            busy: primaryBusy,
+                          ),
+                          if (secondary != null) ...[
+                            SizedBox(height: keyboardVisible ? 2 : 6),
+                            ConstrainedBox(
+                              constraints: BoxConstraints(
+                                minHeight: keyboardVisible
+                                    ? 40
+                                    : LifeMateOnboardingMetrics.minTouchTarget,
+                              ),
+                              child: Center(child: secondary),
+                            ),
+                          ] else
+                            SizedBox(height: keyboardVisible ? 2 : 12),
+                        ],
+                      ),
+                    ),
+                    if (!keyboardVisible)
+                      SizedBox(
+                        height: media.padding.bottom > 0
+                            ? media.padding.bottom
+                            : 12,
+                      ),
+                  ],
+                ),
               ),
-            ),
-            if (!keyboardVisible)
-              SizedBox(height: media.padding.bottom > 0 ? media.padding.bottom : 12),
-          ],
+            );
+          },
         ),
       ),
     );

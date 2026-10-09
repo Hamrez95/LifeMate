@@ -27,7 +27,7 @@ abstract interface class CocoonHostContract {
   CocoonPregnancySnapshot? get offlinePregnancySnapshot;
 
   Future<void> refresh();
-  Future<void> openLogin();
+  Future<void> returnToLifeMateAuth();
   Future<void> openCommerce();
   Future<void> beginPregnancySetup();
   Future<void> openGlobalProfile();

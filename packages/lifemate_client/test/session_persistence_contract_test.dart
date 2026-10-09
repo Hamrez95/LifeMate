@@ -3,8 +3,9 @@ import 'dart:io';
 import 'package:flutter_test/flutter_test.dart';
 
 void main() {
-  final source =
-      File('lib/src/lifemate_experience_gate.dart').readAsStringSync();
+  final source = File('lib/src/lifemate_experience_gate.dart')
+      .readAsStringSync()
+      .replaceAll('\r\n', '\n');
 
   test('restored Supabase session is consumed before unauthenticated UI', () {
     expect(source, contains('_session = _supabase.auth.currentSession;'));

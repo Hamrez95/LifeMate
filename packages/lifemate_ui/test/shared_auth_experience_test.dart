@@ -10,9 +10,12 @@ void main() {
     LifeMateRuntimeLocale.setLanguageCode('fa');
   });
 
-  Future<void> pumpAuth(WidgetTester tester) async {
+  Future<void> pumpAuth(
+    WidgetTester tester, {
+    Size viewport = const Size(390, 844),
+  }) async {
     tester.view.devicePixelRatio = 1;
-    tester.view.physicalSize = const Size(390, 844);
+    tester.view.physicalSize = viewport;
     addTearDown(() {
       tester.view.resetDevicePixelRatio();
       tester.view.resetPhysicalSize();
@@ -36,6 +39,17 @@ void main() {
     expect(find.byType(SingleChildScrollView), findsNothing);
     expect(find.text('حساب LifeMate'), findsOneWidget);
     expect(find.text('ورود با ایمیل'), findsOneWidget);
+    expect(tester.takeException(), isNull);
+  });
+
+  testWidgets('wide auth layout stays centered at a readable width', (
+    tester,
+  ) async {
+    await pumpAuth(tester, viewport: const Size(1280, 800));
+
+    final button = find.byType(LifeMatePrimaryOnboardingButton);
+    expect(tester.getSize(button).width, lessThanOrEqualTo(560));
+    expect(tester.getCenter(button).dx, closeTo(640, 1));
     expect(tester.takeException(), isNull);
   });
 

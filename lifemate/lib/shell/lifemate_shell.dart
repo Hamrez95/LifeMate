@@ -1,11 +1,16 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:lifemate_client/lifemate_client.dart';
+import 'package:lifemate_ui/lifemate_ui.dart'
+    show LifeMateSubscriptionCenterScreen;
 
 import '../circle/api_camp_companion_selection_source.dart';
 import '../circle/camp_companion_selection.dart';
 import '../circle/camp_companion_selection_view.dart';
 import '../living_camp/camp_home.dart';
+import '../living_camp/camp_introduction.dart';
 import '../living_camp/camp_scene_renderer.dart';
 import '../modules/module_registry.dart';
 import '../modules/module_route_host.dart';
@@ -47,13 +52,203 @@ class LifeMateShell extends StatefulWidget {
 class _LifeMateShellState extends State<LifeMateShell> {
   late ShellDestination _destination = widget.initialDestination;
   bool _overlayOpen = false;
+  LifeMateModuleRegistry? _capabilityRegistry;
+  LifeMateApiClient? _capabilityClient;
+  String? _capabilityAccountId;
+  int _capabilityRequestGeneration = 0;
+  bool _capabilityRequestPending = false;
+  bool _campIntroductionScheduled = false;
   LifeMateApiClient? _defaultCampCompanionClient;
   ApiCampCompanionSelectionSource? _defaultCampCompanionSource;
+  Map<String, dynamic> _currentProfile = const <String, dynamic>{};
+  int _profileRequestGeneration = 0;
+
+  @override
+  void initState() {
+    super.initState();
+    LifeMateProfileRefresh.revision.addListener(_refreshCurrentProfile);
+    _refreshCurrentProfile();
+    _ensureCapabilityRegistry();
+    _scheduleCampIntroduction();
+  }
+
+  @override
+  void didUpdateWidget(covariant LifeMateShell oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (oldWidget.apiClient != widget.apiClient ||
+        oldWidget.moduleRegistry != widget.moduleRegistry) {
+      _capabilityRegistry = null;
+      _capabilityClient = null;
+      _capabilityRequestPending = false;
+      if (oldWidget.apiClient != widget.apiClient) {
+        _currentProfile = const <String, dynamic>{};
+        _refreshCurrentProfile();
+      }
+      _ensureCapabilityRegistry();
+    }
+  }
+
+  @override
+  void dispose() {
+    LifeMateProfileRefresh.revision.removeListener(_refreshCurrentProfile);
+    _profileRequestGeneration++;
+    super.dispose();
+  }
+
+  void _refreshCurrentProfile() {
+    final apiClient = widget.apiClient;
+    final generation = ++_profileRequestGeneration;
+    if (apiClient == null) {
+      if (mounted && _currentProfile.isNotEmpty) {
+        setState(() => _currentProfile = const <String, dynamic>{});
+      }
+      return;
+    }
+
+    unawaited(
+      apiClient
+          .getCurrentUser()
+          .then((currentUser) {
+            if (!mounted || generation != _profileRequestGeneration) return;
+            final rawProfile = currentUser['profile'];
+            final profile = rawProfile is Map<String, dynamic>
+                ? rawProfile
+                : const <String, dynamic>{};
+            final savedLanguage = switch (profile['locale']) {
+              'fa' => const Locale('fa'),
+              'en' => const Locale('en'),
+              _ => null,
+            };
+            if (savedLanguage != null) {
+              widget.onLocaleChanged?.call(savedLanguage);
+            }
+            // Keep only presentation fields in shell memory. Contact and health
+            // fields from /me are not needed for the Camp header.
+            final presentation = <String, dynamic>{
+              if (profile['displayName'] is String)
+                'displayName': profile['displayName'],
+              if (profile['avatarKey'] is String)
+                'avatarKey': profile['avatarKey'],
+              if (profile['profilePhotoUrl'] is String)
+                'profilePhotoUrl': profile['profilePhotoUrl'],
+            };
+            setState(() => _currentProfile = presentation);
+          })
+          .catchError((Object _) {
+            if (!mounted || generation != _profileRequestGeneration) return;
+            setState(() => _currentProfile = const <String, dynamic>{});
+          }),
+    );
+  }
 
   bool get _isPersian => Localizations.localeOf(context).languageCode == 'fa';
 
   LifeMateModuleRegistry get _moduleRegistry =>
-      widget.moduleRegistry ?? LifeMateModuleRegistry.production();
+      widget.moduleRegistry ??
+      _capabilityRegistry ??
+      LifeMateModuleRegistry.production();
+
+  String? get _currentAccountId {
+    try {
+      return LifeMateAuth.currentAccountId;
+    } on Object {
+      return null;
+    }
+  }
+
+  void _scheduleCampIntroduction() {
+    if (_campIntroductionScheduled ||
+        widget.apiClient == null ||
+        widget.moduleRegistry != null) {
+      return;
+    }
+    final accountId = _currentAccountId;
+    if (accountId == null) return;
+    _campIntroductionScheduled = true;
+    WidgetsBinding.instance.addPostFrameCallback((_) async {
+      if (!mounted) return;
+      if (!MediaQuery.disableAnimationsOf(context)) {
+        await Future<void>.delayed(const Duration(milliseconds: 3100));
+      }
+      if (!mounted || _currentAccountId != accountId) return;
+
+      var completed = false;
+      try {
+        completed = await const CampIntroductionPreferences().hasCompleted;
+      } on Object {
+        // The Camp remains usable if the device preference store is unavailable.
+      }
+      if (!mounted || _currentAccountId != accountId || completed) return;
+      await _showCampIntroduction();
+    });
+  }
+
+  Future<void> _showCampIntroduction() async {
+    if (!mounted) return;
+    await showCampIntroduction(context: context, isPersian: _isPersian);
+    try {
+      await const CampIntroductionPreferences().markCompleted();
+    } on Object {
+      // The profile keeps a replay entry even if completion could not persist.
+    }
+  }
+
+  void _ensureCapabilityRegistry() {
+    final apiClient = widget.apiClient;
+    if (widget.moduleRegistry != null || apiClient == null) return;
+
+    final accountId = _currentAccountId;
+    if (_capabilityRequestPending ||
+        (identical(_capabilityClient, apiClient) &&
+            _capabilityAccountId == accountId &&
+            _capabilityRegistry != null)) {
+      return;
+    }
+
+    final generation = ++_capabilityRequestGeneration;
+    _capabilityClient = apiClient;
+    _capabilityAccountId = accountId;
+    _capabilityRequestPending = true;
+    // Keep product houses closed until the authenticated server snapshot has
+    // been resolved. The shell remains usable while the request is pending.
+    _capabilityRegistry = LifeMateModuleRegistry.production().withCapabilities(
+      const LifeMateCapabilitySnapshot(
+        accountId: 'pending',
+        selfPersonId: null,
+        applications: <String>{},
+        features: <String>{},
+      ),
+    );
+
+    unawaited(() async {
+      LifeMateModuleRegistry? resolved;
+      try {
+        final snapshot = await apiClient.getCapabilities();
+        if (accountId == null || _currentAccountId == accountId) {
+          resolved = LifeMateModuleRegistry.production().withCapabilities(
+            snapshot,
+          );
+        }
+      } on Object {
+        // Keep the shell navigable if the snapshot is temporarily unavailable;
+        // product APIs still enforce authorization on every data request.
+      }
+      if (!mounted || generation != _capabilityRequestGeneration) return;
+      final accountChanged =
+          accountId != null && _currentAccountId != accountId;
+      setState(() {
+        _capabilityRequestPending = false;
+        if (resolved != null) _capabilityRegistry = resolved;
+        // The capability snapshot is presentation data only. If it cannot be
+        // loaded, leave routing visible; each product API still authorizes its
+        // own data access on the server.
+        if (resolved == null && !accountChanged) {
+          _capabilityRegistry = LifeMateModuleRegistry.production();
+        }
+      });
+      if (accountChanged) _ensureCapabilityRegistry();
+    }());
+  }
 
   TodaySnapshotSource get _todaySource =>
       widget.todaySource ?? const UnavailableTodaySource();
@@ -102,8 +297,6 @@ class _LifeMateShellState extends State<LifeMateShell> {
     if (module == null || !mounted) return;
     setState(() => _overlayOpen = true);
     try {
-      await Future<void>.delayed(const Duration(milliseconds: 350));
-      if (!mounted) return;
       await openLifeMateModule(
         context,
         module: module,
@@ -111,6 +304,7 @@ class _LifeMateShellState extends State<LifeMateShell> {
         apiClient: widget.apiClient,
         hostActions: LifeMateModuleHostActions(
           onOpenGlobalProfile: _openGlobalProfileFromModule,
+          onOpenCommerce: _openSubscriptionCenter,
           onReturnHome: () => Navigator.of(context).pop(),
         ),
       );
@@ -136,6 +330,7 @@ class _LifeMateShellState extends State<LifeMateShell> {
           apiClient: widget.apiClient,
           hostActions: LifeMateModuleHostActions(
             onOpenGlobalProfile: _openGlobalProfileFromModule,
+            onOpenCommerce: _openSubscriptionCenter,
             onReturnHome: () => Navigator.of(context).pop(),
           ),
         );
@@ -155,6 +350,20 @@ class _LifeMateShellState extends State<LifeMateShell> {
   void _openGlobalProfileFromModule() {
     Navigator.of(context).pop();
     _select(ShellDestination.you);
+  }
+
+  void _openSubscriptionCenter() {
+    final apiClient = widget.apiClient;
+    if (apiClient == null) return;
+    Navigator.of(context).push<void>(
+      MaterialPageRoute<void>(
+        settings: const RouteSettings(name: '/you/subscription'),
+        builder: (_) => LifeMateSubscriptionCenterScreen(
+          apiClient: apiClient,
+          accent: const Color(0xFF2F8F73),
+        ),
+      ),
+    );
   }
 
   Future<void> _showTodayPeek() async {
@@ -202,6 +411,7 @@ class _LifeMateShellState extends State<LifeMateShell> {
 
   @override
   Widget build(BuildContext context) {
+    _ensureCapabilityRegistry();
     final destinations = shellDestinationOrder;
     final primaryDestinations = shellPrimaryDestinationOrder;
     return PopScope<Object?>(
@@ -210,56 +420,72 @@ class _LifeMateShellState extends State<LifeMateShell> {
       child: Scaffold(
         extendBody: _destination == ShellDestination.home,
         extendBodyBehindAppBar: _destination == ShellDestination.home,
-        appBar: AppBar(
-          leading: _destination == ShellDestination.today
-              ? IconButton(
-                  tooltip: _t('Back to Home', 'بازگشت به خانه'),
-                  onPressed: () => _select(ShellDestination.home),
-                  icon: const Icon(Icons.arrow_back_rounded),
-                )
-              : null,
-          toolbarHeight: _destination == ShellDestination.home ? 76 : 68,
-          backgroundColor: _destination == ShellDestination.home
-              ? Colors.transparent
-              : null,
-          elevation: 0,
-          systemOverlayStyle: _destination == ShellDestination.home
-              ? SystemUiOverlayStyle.light
-              : null,
-          title: _destination == ShellDestination.home
-              ? _HomeShellTitle(isPersian: _isPersian)
-              : Text(
-                  _title(_destination),
-                  style: const TextStyle(fontWeight: FontWeight.w800),
-                ),
-          actions: [
-            IconButton(
-              tooltip: _t('Notifications', 'اعلان‌ها'),
-              onPressed: _showNotificationCenter,
-              style: _destination == ShellDestination.home
-                  ? IconButton.styleFrom(
-                      backgroundColor: const Color(0xB52A3444),
-                      foregroundColor: Colors.white,
-                    )
-                  : null,
-              icon: const Icon(Icons.notifications_none_rounded),
-            ),
-            if (_destination != ShellDestination.you)
-              IconButton(
-                key: const ValueKey('shell-open-profile'),
-                tooltip: _t('Open profile', 'باز کردن پروفایل'),
-                onPressed: () => _select(ShellDestination.you),
-                icon: CircleAvatar(
-                  radius: 19,
-                  backgroundColor: _destination == ShellDestination.home
-                      ? const Color(0xFFE8D8C8)
-                      : null,
-                  child: const Icon(Icons.person_outline_rounded, size: 21),
-                ),
+        appBar: _destination == ShellDestination.you
+            ? null
+            : AppBar(
+                leading: _destination == ShellDestination.today
+                    ? IconButton(
+                        tooltip: _t('Back to Home', 'بازگشت به خانه'),
+                        onPressed: () => _select(ShellDestination.home),
+                        icon: const Icon(Icons.arrow_back_rounded),
+                      )
+                    : null,
+                toolbarHeight: _destination == ShellDestination.home ? 76 : 68,
+                backgroundColor: _destination == ShellDestination.home
+                    ? Colors.transparent
+                    : null,
+                elevation: 0,
+                systemOverlayStyle: _destination == ShellDestination.home
+                    ? SystemUiOverlayStyle.light
+                    : null,
+                title: _destination == ShellDestination.home
+                    ? _HomeShellTitle(isPersian: _isPersian)
+                    : Text(
+                        _title(_destination),
+                        style: const TextStyle(fontWeight: FontWeight.w800),
+                      ),
+                actions: [
+                  if (widget.apiClient is DurableLifeMateApiClient)
+                    _OfflineRuntimeStatusAction(
+                      client: widget.apiClient! as DurableLifeMateApiClient,
+                      isPersian: _isPersian,
+                    ),
+                  IconButton(
+                    tooltip: _t('Notifications', 'اعلان‌ها'),
+                    onPressed: _showNotificationCenter,
+                    style: _destination == ShellDestination.home
+                        ? IconButton.styleFrom(
+                            backgroundColor: const Color(0xB52A3444),
+                            foregroundColor: Colors.white,
+                          )
+                        : null,
+                    icon: const Icon(Icons.notifications_none_rounded),
+                  ),
+                  if (_destination != ShellDestination.you)
+                    IconButton(
+                      key: const ValueKey('shell-open-profile'),
+                      tooltip: _t('Open profile', 'باز کردن پروفایل'),
+                      onPressed: () => _select(ShellDestination.you),
+                      icon: CircleAvatar(
+                        radius: 19,
+                        backgroundColor: _destination == ShellDestination.home
+                            ? const Color(0xFFE8D8C8)
+                            : null,
+                        child: _currentProfile.isEmpty
+                            ? const Icon(Icons.person_outline_rounded, size: 21)
+                            : LifeMateProfileAvatar(
+                                avatarKey: _currentProfile['avatarKey']
+                                    ?.toString(),
+                                photoUrl: _currentProfile['profilePhotoUrl']
+                                    ?.toString(),
+                                radius: 19,
+                                showBorder: false,
+                              ),
+                      ),
+                    ),
+                  const SizedBox(width: 8),
+                ],
               ),
-            const SizedBox(width: 8),
-          ],
-        ),
         body: IndexedStack(
           index: destinations.indexOf(_destination),
           children: destinations.map(_buildDestination).toList(growable: false),
@@ -340,12 +566,20 @@ class _LifeMateShellState extends State<LifeMateShell> {
         child: CampHome(
           isPersian: _isPersian,
           onOpenToday: _showTodayPeek,
-          onOpenWellMate: () => _openModule(LifeMateModuleId.wellMate),
-          onOpenCareMate: () => _openModule(LifeMateModuleId.careMate),
-          onOpenReproductiveContext: () =>
-              _openModule(LifeMateModuleId.womenHealth),
-          onOpenFitMate: () => _openModule(LifeMateModuleId.fitMate),
+          onOpenWellMate: _canOpenModule(LifeMateModuleId.wellMate)
+              ? () => _openModule(LifeMateModuleId.wellMate)
+              : null,
+          onOpenCareMate: _canOpenModule(LifeMateModuleId.careMate)
+              ? () => _openModule(LifeMateModuleId.careMate)
+              : null,
+          onOpenReproductiveContext: _canOpenModule(LifeMateModuleId.cocoonMate)
+              ? () => _openModule(LifeMateModuleId.cocoonMate)
+              : null,
+          onOpenFitMate: _canOpenModule(LifeMateModuleId.fitMate)
+              ? () => _openModule(LifeMateModuleId.fitMate)
+              : null,
           zonePresentations: widget.campZonePresentations,
+          welcomeName: _currentProfile['displayName']?.toString(),
         ),
       ),
       ShellDestination.today => TodayFullDay(
@@ -399,7 +633,17 @@ class _LifeMateShellState extends State<LifeMateShell> {
       apiClient: apiClient,
       isPersian: _isPersian,
       onLocaleChanged: widget.onLocaleChanged ?? (_) {},
-      productSections: productSections,
+      onBack: () => _select(ShellDestination.home),
+      onNotifications: _showNotificationCenter,
+      onOpenWellMate: () => _openModule(LifeMateModuleId.wellMate),
+      onOpenCareMate: () => _openModule(LifeMateModuleId.careMate),
+      productSections: [
+        ...productSections,
+        CampIntroductionTile(
+          isPersian: _isPersian,
+          onTap: () => unawaited(_showCampIntroduction()),
+        ),
+      ],
     );
   }
 
@@ -410,6 +654,59 @@ class _LifeMateShellState extends State<LifeMateShell> {
     ShellDestination.circle => _t('Circle', 'دایره'),
     ShellDestination.you => _t('You', 'شما'),
   };
+
+  bool _canOpenModule(LifeMateModuleId moduleId) =>
+      _moduleRegistry.byId(moduleId)?.canOpen ?? false;
+}
+
+class _OfflineRuntimeStatusAction extends StatelessWidget {
+  const _OfflineRuntimeStatusAction({
+    required this.client,
+    required this.isPersian,
+  });
+
+  final DurableLifeMateApiClient client;
+  final bool isPersian;
+
+  @override
+  Widget build(BuildContext context) => ValueListenableBuilder<bool>(
+    valueListenable: client.offlineRuntimeAvailable,
+    builder: (context, available, _) {
+      if (available) return const SizedBox.shrink();
+      return IconButton(
+        tooltip: isPersian
+            ? 'ذخیره‌سازی آفلاین آماده نیست؛ برای تلاش دوباره بزنید'
+            : 'Offline storage is unavailable; tap to retry',
+        onPressed: () async {
+          try {
+            await client.retryOfflineRuntimeInitialization();
+            if (!context.mounted) return;
+            ScaffoldMessenger.of(context).showSnackBar(
+              SnackBar(
+                content: Text(
+                  isPersian
+                      ? 'ذخیره‌سازی آفلاین آماده شد.'
+                      : 'Offline storage is ready.',
+                ),
+              ),
+            );
+          } on Object {
+            if (!context.mounted) return;
+            ScaffoldMessenger.of(context).showSnackBar(
+              SnackBar(
+                content: Text(
+                  isPersian
+                      ? 'ذخیره‌سازی آفلاین آماده نشد. اطلاعات صف‌شده حفظ شده؛ بعداً دوباره تلاش کنید.'
+                      : 'Offline storage is still unavailable. Queued data is preserved; try again later.',
+                ),
+              ),
+            );
+          }
+        },
+        icon: const Icon(Icons.sync_problem_rounded),
+      );
+    },
+  );
 }
 
 class _HomeShellTitle extends StatelessWidget {
