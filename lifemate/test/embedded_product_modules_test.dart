@@ -7,6 +7,8 @@ import 'package:flutter_local_notifications/flutter_local_notifications.dart';
 import 'package:http/http.dart' as http;
 import 'package:http/testing.dart';
 import 'package:caremate/screens/caremate_root_shell.dart';
+import 'package:cocoonmate/app/cocoon_standalone_app.dart'
+    show CocoonAuthenticatedHost;
 import 'package:caremate/core/localization/app_localizations.dart'
     as caremate_localizations;
 import 'package:wellmate/localization/app_localizations.dart'
@@ -150,6 +152,35 @@ void main() {
     expect(find.byType(CareMateRootShell), findsOneWidget);
     expect(find.text('Sign in'), findsNothing);
     expect(find.textContaining('This module is not mounted'), findsNothing);
+  });
+
+  testWidgets('CocoonMate embedded host reuses the Shell session boundary', (
+    tester,
+  ) async {
+    final module = LifeMateModuleRegistry.production(
+      config: testConfig,
+    ).byId(LifeMateModuleId.cocoonMate)!;
+    Widget? embeddedHost;
+
+    await tester.pumpWidget(
+      MaterialApp(
+        home: Builder(
+          builder: (context) {
+            embeddedHost = module.pageBuilder!(
+              context,
+              apiClient,
+              const LifeMateModuleHostActions(),
+            );
+            return const SizedBox.shrink();
+          },
+        ),
+      ),
+    );
+
+    expect(embeddedHost, isA<CocoonAuthenticatedHost>());
+    final cocoonHost = embeddedHost! as CocoonAuthenticatedHost;
+    expect(cocoonHost.sharedApiClient, same(apiClient));
+    expect(cocoonHost.onSessionEnded, isNotNull);
   });
 }
 

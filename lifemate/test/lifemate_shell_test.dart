@@ -264,10 +264,6 @@ void main() {
       expect(hotspot, findsOneWidget);
 
       await tester.tap(hotspot);
-      await tester.pump(const Duration(milliseconds: 349));
-      expect(find.text('WellMate mounted'), findsNothing);
-
-      await tester.pump(const Duration(milliseconds: 1));
       await tester.pumpAndSettle();
       expect(find.text('WellMate mounted'), findsOneWidget);
     },

@@ -234,7 +234,41 @@ void main() {
     await tester.pump();
     expect(forgotten, isTrue);
     expect(signedOut, isTrue);
-    expect(find.text('Sign in to continue'), findsOneWidget);
+    expect(find.text('LifeMate session ended'), findsOneWidget);
+    expect(find.text('Return to LifeMate'), findsOneWidget);
+    expect(find.text('Sign in'), findsNothing);
+  });
+
+  testWidgets('embedded expired session returns to the shell auth boundary', (
+    tester,
+  ) async {
+    var returnedToShell = false;
+    var signedOut = false;
+    await tester.pumpWidget(
+      MaterialApp(
+        home: CocoonAuthenticatedHost(
+          config: configured,
+          locale: const Locale('en'),
+          runtimeLoader: () async => _validRuntime(),
+          bootstrapLoader: () async => throw const LifeMateApiException(
+            statusCode: 401,
+            code: 'unauthorized',
+            message: 'Session expired',
+          ),
+          signOut: () async {
+            signedOut = true;
+          },
+          onSessionEnded: () => returnedToShell = true,
+        ),
+      ),
+    );
+    await tester.pump();
+    await tester.pump();
+
+    expect(signedOut, isTrue);
+    expect(returnedToShell, isTrue);
+    expect(find.text('LifeMate session ended'), findsNothing);
+    expect(find.text('Sign in'), findsNothing);
   });
 
   testWidgets('runtime failure never falls through to product content', (

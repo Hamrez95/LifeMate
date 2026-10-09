@@ -255,8 +255,10 @@ class LifeMateModuleRegistry {
             CocoonAuthenticatedHost(
               config: AppConfig.fromEnvironment(),
               locale: Localizations.localeOf(context),
+              sharedApiClient: apiClient,
               onOpenGlobalProfile: hostActions.onOpenGlobalProfile,
               onOpenCommerce: hostActions.onOpenCommerce,
+              onSessionEnded: hostActions.onReturnHome,
             ),
       ),
       ...LifeMateModuleRegistry.foundation().modules.where(

@@ -297,8 +297,6 @@ class _LifeMateShellState extends State<LifeMateShell> {
     if (module == null || !mounted) return;
     setState(() => _overlayOpen = true);
     try {
-      await Future<void>.delayed(const Duration(milliseconds: 350));
-      if (!mounted) return;
       await openLifeMateModule(
         context,
         module: module,

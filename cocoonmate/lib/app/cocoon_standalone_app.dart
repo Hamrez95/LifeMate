@@ -91,6 +91,7 @@ class CocoonAuthenticatedHost extends StatefulWidget {
   const CocoonAuthenticatedHost({
     required this.config,
     required this.locale,
+    this.sharedApiClient,
     this.runtimeLoader,
     this.bootstrapLoader,
     this.gate3ReadLoader,
@@ -99,6 +100,7 @@ class CocoonAuthenticatedHost extends StatefulWidget {
     this.signOut,
     this.onOpenGlobalProfile,
     this.onOpenCommerce,
+    this.onSessionEnded,
     this.offlineBootstrapCache,
     this.offlineSnapshotLoader,
     this.offlineOwnerForget,
@@ -107,6 +109,10 @@ class CocoonAuthenticatedHost extends StatefulWidget {
 
   final AppConfig config;
   final Locale locale;
+  /// The authenticated client owned by the Shell when CocoonMate is embedded.
+  /// Cocoon-specific endpoints use their typed clients but read the same
+  /// Supabase session; generic LifeMate operations reuse this client directly.
+  final LifeMateApiClient? sharedApiClient;
   final CocoonRuntimeLoader? runtimeLoader;
   final CocoonBootstrapLoader? bootstrapLoader;
   final CocoonGate3ReadLoader? gate3ReadLoader;
@@ -115,6 +121,7 @@ class CocoonAuthenticatedHost extends StatefulWidget {
   final CocoonSignOut? signOut;
   final VoidCallback? onOpenGlobalProfile;
   final VoidCallback? onOpenCommerce;
+  final VoidCallback? onSessionEnded;
   final CocoonOfflineBootstrapCache? offlineBootstrapCache;
   final CocoonOfflineSnapshotLoader? offlineSnapshotLoader;
   final CocoonOfflineOwnerForget? offlineOwnerForget;
@@ -213,12 +220,13 @@ class _CocoonAuthenticatedHostState extends State<CocoonAuthenticatedHost>
         )
       : null;
   late final LifeMateApiClient? _treatmentMutationClient =
-      widget.bootstrapLoader == null
-      ? LifeMateApiClient(
-          baseUri: widget.config.apiBaseUri,
-          accessToken: () => LifeMateAuth.currentAccessToken,
-        )
-      : null;
+      widget.sharedApiClient ??
+          (widget.bootstrapLoader == null
+              ? LifeMateApiClient(
+                  baseUri: widget.config.apiBaseUri,
+                  accessToken: () => LifeMateAuth.currentAccessToken,
+                )
+              : null);
 
   @override
   void initState() {
@@ -235,7 +243,9 @@ class _CocoonAuthenticatedHostState extends State<CocoonAuthenticatedHost>
     _treatmentsClient?.close();
     _measurementsHistoryClient?.close();
     _dailyClient?.close();
-    _treatmentMutationClient?.close();
+    if (!identical(_treatmentMutationClient, widget.sharedApiClient)) {
+      _treatmentMutationClient?.close();
+    }
     if (_ownsGate3MutationAdapter) _gate3MutationAdapter?.close();
     super.dispose();
   }
@@ -381,6 +391,10 @@ class _CocoonAuthenticatedHostState extends State<CocoonAuthenticatedHost>
       if (error.isUnauthorized) {
         await _forgetOfflineOwner();
         await (widget.signOut?.call() ?? LifeMateAuth.signOut());
+        if (widget.onSessionEnded case final onSessionEnded?) {
+          onSessionEnded();
+          return;
+        }
         _apply(CocoonEntryState.unauthenticated, null);
       } else if (error.statusCode == 0) {
         _markGate3ReadModelsStale();
@@ -1506,6 +1520,8 @@ class _CocoonAuthenticatedHostState extends State<CocoonAuthenticatedHost>
       legacyAccountId: legacyAccountId,
       accessToken: () => LifeMateAuth.currentAccessToken,
       identityResolver: () async {
+        final sharedClient = widget.sharedApiClient;
+        if (sharedClient != null) return sharedClient.getCapabilities();
         final client = LifeMateApiClient(
           baseUri: widget.config.apiBaseUri,
           accessToken: () => LifeMateAuth.currentAccessToken,
@@ -1588,9 +1604,10 @@ class _CocoonAuthenticatedHostState extends State<CocoonAuthenticatedHost>
   }
 
   @override
-  Future<void> openLogin() async {
+  Future<void> returnToLifeMateAuth() async {
     await _forgetOfflineOwner();
-    await LifeMateAuth.signOut();
+    await (widget.signOut?.call() ?? LifeMateAuth.signOut());
+    widget.onSessionEnded?.call();
   }
 
   @override
